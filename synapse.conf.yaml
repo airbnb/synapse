@@ -1,0 +1,51 @@
+# default haproxy listen directive for our http services
+http_service_default_listen: &http_service_default_listen
+  - mode http
+  - log global
+  - stats enable
+
+  - option httpchk GET /health
+  - http-check expect string OK
+
+  - timeout connect 5000ms
+  - timeout client 50000ms
+  - timeout server 50000ms
+
+# list the services to connect
+services:
+  - name: sherlock
+    port: 3212
+    default_servers:
+      - 'localhost:8423'
+    discovery:
+      method: zookeeper
+      update: immediately
+      zk_node: 
+    listen:
+      - *http_service_default_listen
+
+  - name: flog
+    port: 3213
+    default_servers:
+      - 'localhost:8422'
+    discovery:
+      method: zookeeper
+      update: immediately
+    listen:
+      - *http_service_default_listen
+
+# settings for haproxy including the global config
+haproxy:
+  bin: "/usr/local/bin/haproxy"
+  config: "/usr/local/etc/haproxy.conf"
+  global:
+    - daemon
+    - maxconn 2048
+    - pidfile 
+
+# the synapse config; lists program options
+synapse:
+  self_check_port: 3210
+  self_check_proxy_port: 3211
+  zk_servers:
+    - 'localhost:2181'
