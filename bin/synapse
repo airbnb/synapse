@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+
+
+require_relative "../lib/synapse"
+include Synapse
+
+#s = Synapse::Synapse.new
+h = Synapse::Haproxy.new
+puts "exiting synapse"

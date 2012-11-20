@@ -1,5 +1,16 @@
-require "synapse/version"
+require_relative "synapse/version"
+require_relative "synapse/base"
+require_relative "synapse/haproxy"
+
+require 'logger'
+
+
+# at_exit do
+#   @@log "exiting synapse"
+# end
 
 module Synapse
-  # Your code goes here...
+
+  class Synapse < Base
+  end
 end

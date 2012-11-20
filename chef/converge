@@ -1,0 +1,4 @@
+#!/bin/bash -e
+
+cd `dirname $0`
+sudo /opt/vagrant_ruby/bin/chef-solo -c run.rb -j run.json
