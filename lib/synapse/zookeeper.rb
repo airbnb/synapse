@@ -1,22 +1,43 @@
+require 'zk'
 class ServiceWatcher
 
-  def initialize(service_path, zookeeper_host = 'localhost:2181', &block)
-    @service_path = service_path
-    @zk = ZK.new(zookeeper_host)
-    @block = block
+  attr_reader :backends, :name, :host, :path, :listen
+
+  def initialize(opts={})
+#  def initialize(service_path, zookeeper_host = 'localhost:2181', &block)
+    super()
+
+    raise "you did not specify opts[:name]" if opts[:name].nil?
+    raise "you did not specify opts[:listen]" if opts[:listen].nil?
+    raise "you did not specify opts[:host]" if opts[:host].nil?
+    raise "you did not specify opts[:path]" if opts[:path].nil?
+    
+    @name = opts[:name]
+    @listen = opts[:listen]
+    @host = opts[:host]
+    @path = opts[:path]
+
+    log "starting service #{opts[:name]}, host: #{opts[:host]}, path: #{opts[:path]}"
+    
+    @zk = ZK.new(host)
     @deserializer = Thrift::Deserializer.new
 
-    watch
+#    watch
     discover
   end
 
   def discover
-    @service_instances = @zk.children(@service_path, :watch => true).map do |node_name|
-      node = @zk.get("#{@service_path}/#{node_name}")
-      deserialize_service_instance(node.first)
+    log "discovering services for #{@name}"
+    backends = []
+    @service_instances = @zk.children(@path, :watch => true).map do |name|
+      node = @zk.get("#{@path}/#{name}")
+      host, port = deserialize_service_instance(node.first)
+      log "discovered backend #{name}, #{host}, #{port}"
+      backends << {name: name, host: host, port: port}
     end
 
-    @block.call(@service_instances)
+#    @block.call(@service_instances)
+    @backends = backends
   end
 
   def watch
@@ -36,9 +57,15 @@ class ServiceWatcher
   end
 
   def deserialize_service_instance(data)
+    log "deserializing process"
     service = Twitter::Thrift::ServiceInstance.new
-    @deserializer.deserialize(service, data)
-    service
+    begin 
+      @deserializer.deserialize(service, data)
+    rescue Object => o
+      STDERR.puts "o is #{o.inspect}"
+    end
+    log "deserialized some data for #{service.inspect}"
+    return service.serviceEndpoint.host, service.serviceEndpoint.port
   end
 
 end

@@ -4,6 +4,27 @@
 require_relative "../lib/synapse"
 include Synapse
 
-#s = Synapse::Synapse.new
-h = Synapse::Haproxy.new
+opts = {
+  :host => 'domU-12-31-39-0E-C6-31.compute-1.internal:2181',
+#  :path => '/airbnb/service/logging/event_collector',
+#  :path => '/airbnb/service/search/nodes',
+  :path => '/airbnb/service/sherlock',
+  :services => {
+    'sherlock' => {
+      :type => 'zookeeper',
+      :listen => '0.0.0.0:9999',
+      :host => 'domU-12-31-39-0E-C6-31.compute-1.internal:2181',
+      :path => '/airbnb/service/sherlock',
+    },
+    'search' => {
+      :type => 'zookeeper',
+      :listen => '0.0.0.0:9998',
+      :host => 'domU-12-31-39-0E-C6-31.compute-1.internal:2181',
+      :path => '/airbnb/service/search/nodes',
+    },
+  },
+}
+
+s = Synapse::Synapse.new opts
+
 puts "exiting synapse"
