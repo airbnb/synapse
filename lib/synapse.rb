@@ -23,6 +23,11 @@ module Synapse
       @haproxy = Haproxy.new(@haproxy_opts)
 
       configure
+
+      loop do 
+        sleep 1
+        log Time.now
+      end
     end
 
 
