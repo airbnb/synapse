@@ -7,10 +7,6 @@ http_service_default_listen: &http_service_default_listen
   - option httpchk GET /health
   - http-check expect string OK
 
-  - timeout connect 5000ms
-  - timeout client 50000ms
-  - timeout server 50000ms
-
 # list the services to connect
 services:
   - name: sherlock
@@ -40,8 +36,25 @@ haproxy:
   config: "/usr/local/etc/haproxy.conf"
   global:
     - daemon
-    - maxconn 2048
+    - user haproxy
+    - group haproxy
     - pidfile 
+    - maxconn 4096
+    - log 127.0.0.1	local0
+    - log 127.0.0.1	local1 notice
+    - \#debug
+    - \#quiet
+    - \#chroot /usr/share/haproxy
+
+  defaults:
+    - log global
+    - option	dontlognull
+    - maxconn	2000
+    - retries	3
+	  - timeout connect	5000
+	  - timeout client	50000
+	  - timeout server	50000
+    - option redispatch
 
 # the synapse config; lists program options
 synapse:

@@ -36,7 +36,7 @@ module Synapse
     private
 
     def generate_haproxy_config()
-      haproxy_config = @haproxy.generate_main_config
+      haproxy_config = @haproxy.generate_base_config
 
       @service_watchers.each do |service_watcher|
         backend_opts = {name: service_watcher.name, listen: service_watcher.listen}
