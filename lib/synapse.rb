@@ -1,8 +1,6 @@
 require_relative "synapse/version"
 require_relative "synapse/base"
 require_relative "synapse/haproxy"
-require_relative "synapse/thrift"
-require_relative "gen-rb/endpoint_types"
 require_relative "synapse/zookeeper"
 
 require 'logger'

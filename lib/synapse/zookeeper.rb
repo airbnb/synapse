@@ -1,4 +1,8 @@
+require_relative "../gen-rb/endpoint_types"
+require_relative "../gen-rb/thrift"
+
 require 'zk'
+
 class ServiceWatcher
 
   attr_reader :backends, :name, :host, :path, :listen
