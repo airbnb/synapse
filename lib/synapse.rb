@@ -6,6 +6,7 @@ require_relative "gen-rb/endpoint_types"
 require_relative "synapse/zookeeper"
 
 require 'logger'
+require 'json'
 
 
 # at_exit do
@@ -18,47 +19,43 @@ module Synapse
 
   class Synapse < Base
     def initialize(opts={})
-#      @@log = Logger.new(STDERR)
-
       raise "you need to pass opts[:services]" if opts[:services].nil?
       @service_watchers = start_service_watchers(opts[:services])
+      @haproxy_opts = {}
+      @haproxy = Haproxy.new(@haproxy_opts)
 
-      haproxy_opts = {}
-      @haproxy = Haproxy.new(haproxy_opts)
+      configure
+    end
 
+
+    def configure()
+      config = generate_haproxy_config
+      log "haproxy config is:\n#{config}"
+    end
+
+    private
+
+    def generate_haproxy_config()
       haproxy_config = @haproxy.generate_main_config
 
       @service_watchers.each do |service_watcher|
-        # log "service_watcher #{service_watcher.name} has these backends:"
-        # log "  #{service_watcher.backends.inspect}"
-
         backend_opts = {name: service_watcher.name, listen: service_watcher.listen}
         haproxy_config << @haproxy.generate_service_config(backend_opts,service_watcher.backends)
-        # log "service_watcher #{service_watcher.name} has this haproxy section:"
-        # log "\n#{@haproxy.generate_service_config(backend_opts,service_watcher.backends)}"
       end
 
       log "haproxy_config is :"
       log "\n#{haproxy_config}"
-
-      log "exiting for testing"
-      Kernel.exit 1
-
-      foo(opts)
+      return haproxy_config
     end
 
-    private
     
     def start_service_watchers(services={})
-      a=[]
+      service_watcher_array =[]
       services.each do |name,params|
-        a << ServiceWatcher.new({name: name, host: params[:host], path: params[:path], listen: params[:listen]})
+        service_watcher_array << ServiceWatcher.new({name: name, host: params[:host], path: params[:path], listen: params[:listen], synapse: self})
       end
-      a
+      return service_watcher_array
     end
     
-    def foo(opts)
-      sw = ServiceWatcher.new(opts[:path],opts[:host])
-    end
   end
 end
