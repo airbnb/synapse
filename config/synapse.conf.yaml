@@ -12,12 +12,12 @@ services:
     local_port: 3212
     server_options: check inter 2000 rise 3 fall 2
     default_servers:
-      - 'localhost:8423'
+      - { name: default1, host: localhost, port: 8423}
     discovery:
       method: zookeeper
       path: /airbnb/service/sherlock
       hosts:
-        - zk0.sys.airbnb.com
+        - zk0.sys.airbnb.com:2181
     listen:
       - *http_service_default_listen
 
@@ -25,12 +25,12 @@ services:
     local_port: 3213
     server_options: check inter 2000 rise 3 fall 2
     default_servers:
-      - 'localhost:8422'
+      - { name: default2, host: localhost, port: 8422}
     discovery:
       method: zookeeper
       path: /airbnb/service/search
       hosts:
-        - zk0.sys.airbnb.com
+        - zk0.sys.airbnb.com:2181
     listen:
       - *http_service_default_listen
 
