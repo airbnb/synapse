@@ -13,7 +13,9 @@ module Synapse
 
     def update_config(watchers)
       new_config = generate_config(watchers)
-      restart if (updated = write_config(new_config))
+
+      updated = write_config(new_config) if @opts['do_writes']
+      restart if (updated && @opts['do_reloads'])
     end
 
     # generates a new config based on the state of the watchers

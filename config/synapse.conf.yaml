@@ -36,6 +36,8 @@ services:
 haproxy:
   reload_command: "sudo service haproxy reload"
   config_file_path: "/etc/haproxy/haproxy.cfg"
+  do_writes: false
+  do_reloads: false
   global:
     - daemon
     - user haproxy
