@@ -23,7 +23,7 @@ module Synapse
       @server_options = opts['server_options']
 
       @discovery = opts['discovery']
-      raise ArgumentError, "invalid discovery type #{@discovery['type']}" unless @discovery['type'] == 'zookeeper' 
+      raise ArgumentError, "invalid discovery method #{@discovery['method']}" unless @discovery['method'] == 'zookeeper' 
       raise ArgumentError, "missing or invalid zookeeper host for service #{@name}" unless @discovery['hosts']
       raise ArgumentError, "invalid zookeeper path for service #{@name}" unless @discovery['path']
 
@@ -42,7 +42,7 @@ module Synapse
 
       new_backends = []
       @zk.children(@discovery['path'], :watch => true).map do |name|
-        node = @zk.get("#{@path}/#{name}")
+        node = @zk.get("#{@discovery['path']}/#{name}")
 
         begin
           host, port = deserialize_service_instance(node.first)
