@@ -10,7 +10,8 @@ module Synapse
 
     def initialize(opts={}, synapse)
       super()
-      @backends = opts['default_servers']
+      @default_servers = opts['default_servers']
+      @backends = @default_servers
       @synapse = synapse
 
       %w{name discovery local_port}.each do |req|
@@ -55,7 +56,7 @@ module Synapse
       end
       STDERR.puts "path is #{@discovery['path']}"
       STDERR.puts "new_backends is #{new_backends.inspect}"
-      @backends = new_backends unless new_backends.empty?
+      @backends = new_backends.empty? ? @default_servers : new_backends
     end
 
 
