@@ -65,5 +65,3 @@ haproxy:
 synapse:
   self_check_port: 3210
   self_check_proxy_port: 3211
-  zk_servers:
-    - 'localhost:2181'
