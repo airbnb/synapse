@@ -1,60 +1,65 @@
 # default haproxy listen directive for our http services
 http_service_default_listen: &http_service_default_listen
   - mode http
-  - log global
   - stats enable
 
-  - option httpchk GET /health
+  - option httpchk /health
   - http-check expect string OK
 
 # list the services to connect
 services:
   - name: sherlock
-    port: 3212
+    local_port: 3212
+    server_options: check inter 2000 rise 3 fall 2
     default_servers:
       - 'localhost:8423'
     discovery:
       method: zookeeper
-      update: immediately
-      zk_node: 
+      path: /airbnb/service/sherlock
+      hosts:
+        - zk0.sys.airbnb.com
     listen:
       - *http_service_default_listen
 
-  - name: flog
-    port: 3213
+  - name: search
+    local_port: 3213
+    server_options: check inter 2000 rise 3 fall 2
     default_servers:
       - 'localhost:8422'
     discovery:
       method: zookeeper
-      update: immediately
+      path: /airbnb/service/search
+      hosts:
+        - zk0.sys.airbnb.com
     listen:
       - *http_service_default_listen
 
 # settings for haproxy including the global config
 haproxy:
-  bin: "/usr/local/bin/haproxy"
-  config: "/usr/local/etc/haproxy.conf"
+  reload_command: "sudo service haproxy reload"
+  config_file_path: "/usr/local/etc/haproxy.conf"
   global:
     - daemon
     - user haproxy
     - group haproxy
     - pidfile 
     - maxconn 4096
-    - log 127.0.0.1	local0
-    - log 127.0.0.1	local1 notice
+    - log     127.0.0.1 local0
+    - log     127.0.0.1 local1 notice
     - \#debug
     - \#quiet
     - \#chroot /usr/share/haproxy
 
   defaults:
     - log global
-    - option	dontlognull
-    - maxconn	2000
-    - retries	3
-	  - timeout connect	5000
-	  - timeout client	50000
-	  - timeout server	50000
-    - option redispatch
+    - option   dontlognull
+    - maxconn  2000
+    - retries  3
+    - timeout  connect 5000
+    - timeout  client  50000
+    - timeout  server  50000
+    - option   redispatch
+    - balance  roundrobin
 
 # the synapse config; lists program options
 synapse:
