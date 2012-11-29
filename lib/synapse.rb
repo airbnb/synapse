@@ -17,46 +17,43 @@ module Synapse
 
   class Synapse < Base
     def initialize(opts={})
-      raise "you need to pass opts[:services]" if opts[:services].nil?
-      @service_watchers = start_service_watchers(opts[:services])
-      @haproxy_opts = {}
-      @haproxy = Haproxy.new(@haproxy_opts)
+      # create watchers for each service
+      raise "you need to pass opts[:services]" unless opts.has_key?('services')
+      @services = opts['services']
 
+      # create the haproxy object
+      @haproxy = Haproxy.new(opts['haproxy'])
+    end
+
+    def run
+      log "starting synapse..."
+
+      @service_watchers = start_service_watchers(@services)
       configure
 
+      # loop forever
+      loops = 0
       loop do 
         sleep 1
-        log Time.now
+        loops += 1
+        log Time.now if (loops % 60) == 0
       end
     end
 
-
-    def configure()
-      config = generate_haproxy_config
-      log "haproxy config is:\n#{config}"
+    def configure
+      # some watcher changed backends; regenerate haproxy config and restart
+      log "regenerating haproxy config"
+      @haproxy.update_config(@service_watchers)
     end
 
     private
-
-    def generate_haproxy_config()
-      haproxy_config = @haproxy.generate_base_config
-
-      @service_watchers.each do |service_watcher|
-        backend_opts = {name: service_watcher.name, listen: service_watcher.listen}
-        haproxy_config << @haproxy.generate_service_config(backend_opts,service_watcher.backends)
-      end
-
-      log "haproxy_config is :"
-      log "\n#{haproxy_config}"
-      return haproxy_config
-    end
-
     
     def start_service_watchers(services={})
-      service_watcher_array =[]
-      services.each do |name,params|
-        service_watcher_array << ServiceWatcher.new({name: name, host: params[:host], path: params[:path], listen: params[:listen], synapse: self})
+      service_watchers =[]
+      services.each do |service_config|
+        service_watchers << ServiceWatcher.new(service_config, self)
       end
+      
       return service_watcher_array
     end
     
