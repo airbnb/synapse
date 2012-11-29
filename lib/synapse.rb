@@ -6,6 +6,7 @@ require_relative "synapse/zookeeper"
 require 'logger'
 require 'json'
 
+include Synapse
 
 # at_exit do
 #   @@log "exiting synapse"
@@ -54,7 +55,7 @@ module Synapse
         service_watchers << ServiceWatcher.new(service_config, self)
       end
       
-      return service_watcher_array
+      return service_watchers
     end
     
   end
