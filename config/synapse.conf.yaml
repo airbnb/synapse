@@ -1,11 +1,3 @@
-# default haproxy listen directive for our http services
-http_service_default_listen: &http_service_default_listen
-  - mode http
-  - stats enable
-
-  - option httpchk /health
-  - http-check expect string OK
-
 # list the services to connect
 services:
   - name: sherlock
@@ -19,7 +11,10 @@ services:
       hosts:
         - zk0.sys.airbnb.com:2181
     listen:
-      - *http_service_default_listen
+      - mode http
+      - stats enable
+      - option httpchk /health
+      - http-check expect string OK
 
   - name: search
     local_port: 3213
@@ -28,27 +23,30 @@ services:
       - { name: default2, host: localhost, port: 8422}
     discovery:
       method: zookeeper
-      path: /airbnb/service/search
+      path: /airbnb/service/search/nodes
       hosts:
         - zk0.sys.airbnb.com:2181
     listen:
-      - *http_service_default_listen
+      - mode http
+      - stats enable
+      - option httpchk /health
+      - http-check expect string OK
 
 # settings for haproxy including the global config
 haproxy:
   reload_command: "sudo service haproxy reload"
-  config_file_path: "/usr/local/etc/haproxy.conf"
+  config_file_path: "/etc/haproxy/haproxy.cfg"
   global:
     - daemon
     - user haproxy
     - group haproxy
-    - pidfile 
+#    - pidfile 
     - maxconn 4096
     - log     127.0.0.1 local0
     - log     127.0.0.1 local1 notice
-    - \#debug
-    - \#quiet
-    - \#chroot /usr/share/haproxy
+    - '#debug'
+    - '#quiet'
+    - '#chroot /usr/share/haproxy'
 
   defaults:
     - log global

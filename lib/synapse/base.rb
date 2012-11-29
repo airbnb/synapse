@@ -5,7 +5,7 @@ module Synapse
   end
 
   def safe_run(command)
-    res = `command`.chomp
+    res = `#{command}`.chomp
     raise "command '#{command}' failed to run:\n#{res}" unless $?.success?
   end
 

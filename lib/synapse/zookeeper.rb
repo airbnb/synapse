@@ -50,9 +50,11 @@ module Synapse
           log "invalid data in node #{name}"
         else
           log "discovered backend #{name}, #{host}, #{port}"
-          new_backends << { :name => name, :host => host, :port => port}
+          new_backends << { 'name' => name, 'host' => host, 'port' => port}
         end
       end
+      STDERR.puts "path is #{@discovery['path']}"
+      STDERR.puts "new_backends is #{new_backends.inspect}"
       @backends = new_backends unless new_backends.empty?
     end
 
