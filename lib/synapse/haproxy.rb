@@ -4,7 +4,7 @@ module Synapse
     def initialize(opts)
       super()
 
-      %w{global defaults bin config_file_path}.each do |req|
+      %w{global defaults reload_command config_file_path}.each do |req|
         raise ArgumentError, "haproxy requires a #{req} section" if !opts.has_key?(req)
       end
 
