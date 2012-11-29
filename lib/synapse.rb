@@ -18,11 +18,12 @@ module Synapse
 
   class Synapse < Base
     def initialize(opts={})
-      # create watchers for each service
-      raise "you need to pass opts[:services]" unless opts.has_key?('services')
+      # save the list of services
+      raise "specify a list of services to connect in the config" unless opts.has_key?('services')
       @services = opts['services']
 
       # create the haproxy object
+      raise "haproxy config section is missing" unless opts.has_key?('haproxy')
       @haproxy = Haproxy.new(opts['haproxy'])
     end
 
