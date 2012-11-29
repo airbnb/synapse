@@ -1,30 +1,17 @@
 #!/usr/bin/env ruby
 
-
 require_relative "../lib/synapse"
-include Synapse
 
-opts = {
-  :host => 'domU-12-31-39-0E-C6-31.compute-1.internal:2181',
-#  :path => '/airbnb/service/logging/event_collector',
-#  :path => '/airbnb/service/search/nodes',
-  :path => '/airbnb/service/sherlock',
-  :services => {
-    'sherlock' => {
-      :type => 'zookeeper',
-      :listen => '0.0.0.0:9999',
-      :host => 'domU-12-31-39-0E-C6-31.compute-1.internal:2181',
-      :path => '/airbnb/service/sherlock',
-    },
-    'search' => {
-      :type => 'zookeeper',
-      :listen => '0.0.0.0:9998',
-      :host => 'domU-12-31-39-0E-C6-31.compute-1.internal:2181',
-      :path => '/airbnb/service/search/nodes',
-    },
-  },
-}
+# load the config
+require "yaml"
 
-s = Synapse::Synapse.new opts
+# parse synapse config file
+conf_path = File.join(File.dirname(File.expand_path(__FILE__)), '../config/synapse.conf.yaml')
+config = YAML::load_file(conf_path)
+
+# create synapse object
+# start synapse
+s = Synapse::Synapse.new config
+s.run
 
 puts "exiting synapse"
