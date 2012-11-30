@@ -1,17 +1,52 @@
 #!/usr/bin/env ruby
 
+require 'yaml'
+require 'optparse'
+
 require_relative "../lib/synapse"
 
-# load the config
-require "yaml"
+options={}
+
+# set command line options
+optparse = OptionParser.new do |opts|
+  opts.banner =<<EOB
+Welcome to synapse
+
+Usage: synapse --config /path/to/synapse/config
+EOB
+  
+  options[:config] = ENV['SYNAPSE_CONFIG']
+  opts.on('-c config','--config config', String, 'path to synapse config') do |key,value|
+    options[:config] = key
+  end
+
+  opts.on( '-h', '--help', 'Display this screen' ) do
+    puts opts
+    exit
+  end
+
+end
+
+
+# parse command line arguments
+optparse.parse!
+
 
 # parse synapse config file
-conf_path = File.join(File.dirname(File.expand_path(__FILE__)), '../config/synapse.conf.yaml')
-config = YAML::load_file(conf_path)
+begin
+  config = YAML::load_file(options[:config])
+rescue Errno::ENOENT => e
+  raise ArgumentError, "config file does not exist:\n#{e.inspect}"
+rescue Errno::EACCES => e
+  raise ArgumentError, "could not open config file:\n#{e.inspect}"
+end
+
 
 # create synapse object
-# start synapse
 s = Synapse::Synapse.new config
+
+# start synapse
 s.run
+
 
 puts "exiting synapse"
