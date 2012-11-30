@@ -1,7 +1,7 @@
 require_relative "synapse/version"
 require_relative "synapse/base"
 require_relative "synapse/haproxy"
-require_relative "synapse/zookeeper"
+require_relative "synapse/service_watcher"
 
 require 'logger'
 require 'json'
@@ -18,19 +18,24 @@ module Synapse
 
   class Synapse < Base
     def initialize(opts={})
-      # save the list of services
+      # disable configuration until this is started
+      @configure_enabled = false
+
+      # create the service watchers for all our services
       raise "specify a list of services to connect in the config" unless opts.has_key?('services')
-      @services = opts['services']
+      @service_watchers = create_service_watchers(opts['services'])
 
       # create the haproxy object
       raise "haproxy config section is missing" unless opts.has_key?('haproxy')
       @haproxy = Haproxy.new(opts['haproxy'])
     end
 
+    # start all the watchers and enable haproxy configuration
     def run
       log "starting synapse..."
 
-      @service_watchers = start_service_watchers(@services)
+      @service_watchers.map { |watcher| watcher.start }
+      @configure_enabled = true
       configure
 
       # loop forever
@@ -42,18 +47,21 @@ module Synapse
       end
     end
 
+    # reconfigure haproxy based on our watchers
     def configure
-      # some watcher changed backends; regenerate haproxy config and restart
-      log "regenerating haproxy config"
-      @haproxy.update_config(@service_watchers)
+      if @configure_enabled
+        log "regenerating haproxy config"
+        @haproxy.update_config(@service_watchers)
+      else
+        log "reconfigure requested but not yet enabled"
+      end
     end
 
     private
-    
-    def start_service_watchers(services={})
+    def create_service_watchers(services={})
       service_watchers =[]
       services.each do |service_config|
-        service_watchers << ServiceWatcher.new(service_config, self)
+        service_watchers << ServiceWatcher.create(service_config, self)
       end
       
       return service_watchers
