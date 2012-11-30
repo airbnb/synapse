@@ -1,34 +1,25 @@
-require_relative "../gen-rb/endpoint_types"
-require_relative "../gen-rb/thrift"
+require_relative "../../gen-rb/endpoint_types"
+require_relative "../../gen-rb/thrift"
 
 require 'zk'
 
 module Synapse
-  class ServiceWatcher
-
-    attr_reader :backends, :name, :listen, :local_port, :server_options
+  class ZookeeperWatcher < ServiceWatcher
 
     def initialize(opts={}, synapse)
-      super()
-      @default_servers = opts['default_servers']
-      @backends = @default_servers
-      @synapse = synapse
+      super
 
-      %w{name discovery local_port}.each do |req|
-        raise ArgumentError, "missing required option #{req}" unless opts[req]
-      end
+      raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
+        unless @discovery['method'] == 'zookeeper' 
+      raise ArgumentError, "missing or invalid zookeeper host for service #{@name}" \
+        unless @discovery['hosts']
+      raise ArgumentError, "invalid zookeeper path for service #{@name}" \
+        unless @discovery['path']
+    end
 
-      @name = opts['name']
-      @listen = opts['listen']
-      @local_port = opts['local_port']
-      @server_options = opts['server_options']
+    def start
+      log "starting ZK watcher #{@name}, host: #{@discovery['hosts'][0]}, path: #{@discovery['path']}"
 
-      @discovery = opts['discovery']
-      raise ArgumentError, "invalid discovery method #{@discovery['method']}" unless @discovery['method'] == 'zookeeper' 
-      raise ArgumentError, "missing or invalid zookeeper host for service #{@name}" unless @discovery['hosts']
-      raise ArgumentError, "invalid zookeeper path for service #{@name}" unless @discovery['path']
-
-      log "starting service watcher #{@name}, host: #{@discovery['hosts'][0]}, path: #{@discovery['path']}"
       @zk = ZK.new(@discovery['hosts'][0])
       @deserializer = Thrift::Deserializer.new
 
@@ -59,13 +50,13 @@ module Synapse
       @backends = new_backends.empty? ? @default_servers : new_backends
     end
 
-
     # sets up zookeeper callbacks if the data at the discovery path changes
     def watch
       @watcher.unsubscribe if defined? @watcher
       @watcher = @zk.register(@discovery['path'], &watcher_callback)
     end
 
+    # handles the event that a watched path has changed in zookeeper
     def watcher_callback
       Proc.new do |event|
         # Set new watcher
@@ -76,7 +67,6 @@ module Synapse
         @synapse.configure
       end
     end
-
 
     # tries to extract host/port from a json hash
     def parse_json(data)
@@ -90,7 +80,6 @@ module Synapse
       return json['host'], json['port']
     end
 
-
     # tries to extract a host/port from twitter thrift data
     def parse_thrift(data)
       begin
@@ -103,7 +92,6 @@ module Synapse
       raise "instance thrift data does not have port" if service.serviceEndpoint.port.nil?
       return service.serviceEndpoint.host, service.serviceEndpoint.port
     end
-
 
     # decode the data at a zookeeper endpoint
     def deserialize_service_instance(data)
@@ -120,6 +108,5 @@ module Synapse
       # if we got this far, then we have a problem
       raise "could not decode this data:\n#{data}"
     end
-
   end
 end
