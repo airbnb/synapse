@@ -1,0 +1,89 @@
+{
+  "services": [
+    {
+      "name": "sherlock",
+      "local_port": 3212,
+      "server_options": "check inter 2000 rise 3 fall 2",
+      "default_servers": [
+        {
+          "name": "default1",
+          "host": "localhost",
+          "port": 8423
+        }
+      ],
+      "discovery": {
+        "method": "zookeeper",
+        "path": "/airbnb/service/sherlock",
+        "hosts": [
+          "zk0.sys.airbnb.com:2181"
+        ]
+      },
+      "listen": [
+        "mode http",
+        "stats enable",
+        "option httpchk /health",
+        "http-check expect string OK"
+      ]
+    },
+    {
+      "name": "search",
+      "local_port": 3213,
+      "server_options": "check inter 2000 rise 3 fall 2",
+      "default_servers": [
+        {
+          "name": "default2",
+          "host": "localhost",
+          "port": 8422
+        }
+      ],
+      "discovery": {
+        "method": "zookeeper",
+        "path": "/airbnb/service/search/nodes",
+        "hosts": [
+          "zk0.sys.airbnb.com:2181"
+        ]
+      },
+      "listen": [
+        "mode http",
+        "stats enable",
+        "option httpchk /health",
+        "http-check expect string OK"
+      ]
+    }
+  ],
+  "haproxy": {
+    "reload_command": "sudo service haproxy reload",
+    "config_file_path": "/etc/haproxy/haproxy.cfg",
+    "do_writes": false,
+    "do_reloads": false,
+    "global": [
+      "daemon",
+      "user haproxy",
+      "group haproxy",
+      "maxconn 4096",
+      "log     127.0.0.1 local0",
+      "log     127.0.0.1 local1 notice",
+      "#debug",
+      "#quiet",
+      "#chroot /usr/share/haproxy"
+    ],
+    "defaults": [
+      "log global",
+      "option   dontlognull",
+      "maxconn  2000",
+      "retries  3",
+      "timeout  connect 5000",
+      "timeout  client  50000",
+      "timeout  server  50000",
+      "option   redispatch",
+      "balance  roundrobin"
+    ]
+  },
+  "synapse": {
+    "self_check_port": 3210,
+    "self_check_proxy_port": 3211,
+    "zk_servers": [
+      "localhost:2181"
+    ]
+  }
+}
