@@ -6,43 +6,90 @@ The end result is the ability to connect internal services together in a scalabl
 
 ## Motivation ##
 
-In traditional data centers, the standard way of doing failover is via network reconfiguration.
-Suppose you have the following network diagram:
+Synapse emerged from the need to maintain high-availability applications in the cloud.
+Traditional high-availability techniques, which involve using a CRM like [pacemaker](http://linux-ha.org/wiki/Pacemaker), do not work in environments where the end-user has no control over the networking.
+In an environment like Amazon's EC2, all of the available workarounds are suboptimal:
 
-```
-    ------      ------     ------ 
-   | App1 |    | App2 |   | App3 |
-    ------      ------     ------ 
-      |           |          |
-      |           |          |
-      -----------------------
-            |
-       -----------      -------------
-      | DB-Master |----| DB-Failover |
-       -----------      -------------
+* Round-robin DNS: Slow to converge, and doesn't work when applications cache DNS lookups (which is frequent)
+* Elastic IPs: slow to converge, limited in number, public-facing-only, which makes them less useful for internal services
+* ELB: Again, public-facing only, and only useful for HTTP
+
+One solution to this problem is a discovery service, like [Apache Zookeeper](http://zookeeper.apache.org/).
+However, Zookeeper and similar services have their own problems:
+
+* Service discovery is embedded in all of your apps; often, integration is not simple
+* The discovery layer itself it subject to failure
+* Requires additional servers/instances
+
+Synapse solves these difficulties in a simple and fault-tolerant way.
+
+## How Synapse Works ##
+
+Synapse runs on your application servers; here at AirBnB, we just run it on every box we deploy.
+The heart of synapse is actually [HAProxy](http://haproxy.1wt.eu/), a stable and proven routing component.
+For every external service that your application talks to, we assign a synapse local port on localhost.
+Synapse creates a proxy from the local port to the service, and you reconfigure your application to talk to the proxy.
+
+Synapse comes with a number of `watchers`, which are responsible for service discovery.
+The synapse watchers take care of re-configuring the proxy so that it always points at available servers.
+We've included a number of default watchers, including ones that query zookeeper and ones using the AWS API.
+It is easy to write your own watchers for your use case, and we encourage submitting them back to the project.
+
+## Example Migration ##
+
+Lets suppose your rails application depends on a Postgre database instance.
+The database.yaml file has the DB host and port hardcoded:
+
+```yaml
+production:
+  database: mydb
+  host: mydb.example.com
+  port: 5432
 ```
 
-When `DB-Master` fails, you want your `App` servers to begin talking to `DB-Failover`.
-Traditionally, you detect the failure using a monitoring system like [heartbeat](http://linux-ha.org/wiki/Heartbeat).
-You then recover from the failure using a CRM like [pacemaker](http://linux-ha.org/wiki/Pacemaker).
-Using the example of a DB, pacemaker would STONITH `DB-Master` to ensure data integrity and then move the IP of `DB-Master` to `DB-Failover`.
-After the failure, the cluster would look like this:
+You would like to be able to fail over to a different database in case the original dies.
+Let's suppose your instance is running in AWS and you're using the tag 'proddb' set to 'true' to indicate the prod DB.
+You set up synapse to proxy the DB connection on `localhost:3219` in the `synapse.conf.json` file.
+Add a hash under `services` that looks like this:
 
-```
-    ------      ------     ------ 
-   | App1 |    | App2 |   | App3 |
-    ------      ------     ------ 
-      |           |          |
-      |           |          |
-      -----------------------
-                          |       
-                        ------------- 
-                       | DB-Failover |
-                        ------------- 
+```json
+{"services":
+    {
+      "name": "proddb",
+      "local_port": 3219,
+      "server_options": "check inter 2000 rise 3 fall 2",
+      "default_servers": [
+        {
+          "name": "default-db",
+          "host": "mydb.example.com",
+          "port": 5432
+        }
+      ],
+      "discovery": {
+        "method": "awstag",
+        "tag": "proddb",
+        "value": "true"
+      },
+      "listen": [
+      ]
+    },
+...
 ```
 
-This kind of approach is impossible in a cloud environment like amazon's EC2.
-User applications there do not have control over IP addresses assigned to nodes, and so cannot
+And then change your database.yaml file to look like this:
+
+```yaml
+production:
+  database: mydb
+  host: localhost
+  port: 3219
+```
+
+Start up synapse.
+It will configure HAProxy with a proxy from `localhost:3219` to your DB.
+It will attempt to find the DB using the AWS API; if that does not work, it will default to the DB given in `default_servers`.
+In the worst case, if AWS API is down and you need to change which DB your application talks to, simply edit the `synapse.conf.json` file, update the `default_servers` and restart synapse.
+HAProxy will be transparently reloaded, and your application will keep running without a hiccup.
 
 ## Installation
 
@@ -58,9 +105,72 @@ Or install it yourself as:
 
     $ gem install synapse
 
-## Usage
+## Configuration ##
 
-Write usage instructions here
+Synapse depends on a single config file in JSON format; it's usually called `synapse.conf.json`.
+The file has two main sections.
+The first is the `services` section, which lists the services you'd like to connect.
+The second is the `haproxy` section, which specifies how to configure and interact with HAProxy.
+
+### Configuring a Service ###
+
+Each service hash has the following options:
+
+* `name`: a human-readable name for the service, this is used in logs and notifications
+* `local_port`: the port (on localhost) where HAProxy will listen for connections to the serivce
+* `discovery`: how synapse will discover hosts providing this service (see below)
+* `default_servers`: the list of default servers providing this service; synapse uses these if none others can be discovered
+* `server_options`: the haproxy options for each `server` line of the service in HAProxy config
+* `listen`: additional lines passed to the HAProxy config in the `listen` stanza of this service
+
+#### Service Discovery ####
+
+We've included a number of `watchers` which provide service discovery.
+Put these into the `discovery` section of the service hash, with these options:
+
+##### Stub #####
+
+The stub watcher, this is useful in situations where you only want to use the servers in the `default_servers` list.
+It has only one option:
+
+* `method`: stub
+
+##### Zookeeper #####
+
+This watcher retrieves a list of servers from zookeeper.
+It takes the following options:
+
+* `method`: zookeeper
+* `path`: the zookeeper path where ephemeral nodes will be created for each available service server
+* `hosts`: the list of zookeeper servers to query
+
+The watcher assumes that each node under `path` represents a service server.
+Synapse attempts to decode the data in each of these nodes using JSON and also using Thrift under the standard Twitter service encoding.
+We assume that the data contains a hostname and a port for service servers.
+
+#### Listing Default Servers ####
+
+You may list a number of default servers providing a service.
+Each hash in that section has the following options:
+
+* `name`: a human-readable name for the default server; must be unique
+* `host`: the host or IP address of the server
+* `port`: the port where the service runs on the `host`
+
+The `default_servers` list is used only when service discovery returns no servers.
+In that case, the service proxy will be created with the servers listed here.
+If you do not list any default servers, no proxy will be created.
+
+### Configuring HAProxy ###
+
+The `haproxy` section of the config file has the following options:
+
+* `reload_command`: the command Synapse will run to reload HAProxy
+* `config_file_path`: where Synapse will write the HAProxy config file
+* `do_writes`: whether or not the config file will be written (default to `true`)
+* `do_reloads`: whether or not Synapse will reload HAProxy (default to `true`)
+* `global`: options listed here will be written into the `global` section of the HAProxy config
+* `defaults`: options listed here will be written into the `defaults` section of the HAProxy config
 
 ## Contributing
 
