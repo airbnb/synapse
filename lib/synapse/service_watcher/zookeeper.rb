@@ -1,22 +1,11 @@
+require_relative "./base"
+
 require_relative "../../gen-rb/endpoint_types"
 require_relative "../../gen-rb/thrift"
-
 require 'zk'
 
 module Synapse
-  class ZookeeperWatcher < ServiceWatcher
-
-    def initialize(opts={}, synapse)
-      super
-
-      raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
-        unless @discovery['method'] == 'zookeeper' 
-      raise ArgumentError, "missing or invalid zookeeper host for service #{@name}" \
-        unless @discovery['hosts']
-      raise ArgumentError, "invalid zookeeper path for service #{@name}" \
-        unless @discovery['path']
-    end
-
+  class ZookeeperWatcher < BaseWatcher
     def start
       log "starting ZK watcher #{@name}, host: #{@discovery['hosts'][0]}, path: #{@discovery['path']}"
 
@@ -28,6 +17,15 @@ module Synapse
     end
 
     private
+    def validate_discovery_opts
+      raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
+        unless @discovery['method'] == 'zookeeper' 
+      raise ArgumentError, "missing or invalid zookeeper host for service #{@name}" \
+        unless @discovery['hosts']
+      raise ArgumentError, "invalid zookeeper path for service #{@name}" \
+        unless @discovery['path']
+    end
+
     # find the current backends at the discovery path; sets @backends
     def discover
       log "discovering services for #{@name}"
