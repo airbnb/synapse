@@ -12,7 +12,7 @@ module Synapse
     # the method which actually dispatches watcher creation requests
     def self.create(opts, synapse)
       raise ArgumentError, "Missing discovery method when trying to create watcher" \
-        unless opts.has_key?('discovery') && opt['discovery'].has_key?('method')
+        unless opts.has_key?('discovery') && opts['discovery'].has_key?('method')
 
       discovery_method = opts['discovery']['method']
       raise ArgumentError, "Invalid discovery method #{discovery_method}" \
