@@ -39,8 +39,9 @@ module Synapse
         rescue
           log "invalid data in node #{name}"
         else
-          log "discovered backend #{name}, #{host}, #{port}"
-          new_backends << { 'name' => name, 'host' => host, 'port' => port}
+          server_port = @server_port ? @server_port : port
+          log "discovered backend #{name}, #{host}, #{server_port}"
+          new_backends << { 'name' => name, 'host' => host, 'port' => server_port}
         end
       end
       STDERR.puts "path is #{@discovery['path']}"
