@@ -1,9 +1,11 @@
 
 module Synapse
-  class BaseWatcher
+  class BaseWatcher < Base
     attr_reader :backends, :name, :listen, :local_port, :server_options
 
     def initialize(opts={}, synapse)
+      super()
+
       @synapse = synapse
 
       # set required service parameters
@@ -14,12 +16,12 @@ module Synapse
       @name = opts['name']
       @discovery = opts['discovery']
       @local_port = opts['local_port']
-      @server_port_override = opts['server_port_override']
 
       # optional service parameters
       @listen = opts['listen'] || []
       @server_options = opts['server_options'] || ""
       @default_servers = opts['default_servers'] || []
+      @server_port_override = opts['server_port_override']
 
       # set initial backends to default servers
       @backends = @default_servers
