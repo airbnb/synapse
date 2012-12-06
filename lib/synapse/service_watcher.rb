@@ -1,5 +1,6 @@
 require_relative "./service_watcher/base"
 require_relative "./service_watcher/zookeeper"
+require_relative "./service_watcher/ec2tag"
 
 module Synapse
   class ServiceWatcher
@@ -7,6 +8,7 @@ module Synapse
     @watchers = {
       'base'=>BaseWatcher,
       'zookeeper'=>ZookeeperWatcher,
+      'ec2tag'=>EC2Watcher,
     }
 
     # the method which actually dispatches watcher creation requests
