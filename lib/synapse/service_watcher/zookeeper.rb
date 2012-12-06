@@ -39,7 +39,7 @@ module Synapse
         rescue
           log "invalid data in node #{name}"
         else
-          server_port = @server_port ? @server_port : port
+          server_port = @server_port_override ? @server_port : port
           log "discovered backend #{name}, #{host}, #{server_port}"
           new_backends << { 'name' => name, 'host' => host, 'port' => server_port}
         end

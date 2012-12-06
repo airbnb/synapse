@@ -14,7 +14,7 @@ module Synapse
       @name = opts['name']
       @discovery = opts['discovery']
       @local_port = opts['local_port']
-      @server_port = opts['server_port']
+      @server_port_override = opts['server_port_override']
 
       # optional service parameters
       @listen = opts['listen'] || []
