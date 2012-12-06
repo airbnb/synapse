@@ -64,7 +64,14 @@ module Synapse
 
     # writes the config
     def write_config(new_config)
-      old_config = File.read(@opts['config_file_path'])
+
+      begin 
+        old_config = File.read(@opts['config_file_path'])
+      rescue Errno::ENOENT => e
+        log "could not open logfile #{@opts['config_file_path']}"
+        old_config = ""
+      end
+
       if old_config == new_config
         return false
       else
