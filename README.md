@@ -120,7 +120,8 @@ Each service hash has the following options:
 * `local_port`: the port (on localhost) where HAProxy will listen for connections to the serivce
 * `discovery`: how synapse will discover hosts providing this service (see below)
 * `default_servers`: the list of default servers providing this service; synapse uses these if none others can be discovered
-* `server_options`: the haproxy options for each `server` line of the service in HAProxy config
+* `server_port_override`: the port that discovered servers listen on; if the discovery method discovers a port along with hostnames (like the zookeeper watcher) this option may be left out, but will be used in preference if given
+* `server_options`: the haproxy options for each `server` line of the service in HAProxy config; may be left out
 * `listen`: additional lines passed to the HAProxy config in the `listen` stanza of this service
 
 #### Service Discovery ####
@@ -179,3 +180,31 @@ The `haproxy` section of the config file has the following options:
 3. Commit your changes (`git commit -am 'Add some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
 5. Create new Pull Request
+
+### Creating a Service Watcher ###
+
+If you'd like to create a new service watcher:
+
+1. Create a file for your watcher in `service_watcher` dir
+2. Use the following template:
+```ruby
+require_relative "./base"
+module Synapse
+  class NewWatcher < BaseWatcher
+    def start
+      # write code which begins running service discovery
+    end
+
+    private
+    def validate_discovery_opts
+      # here, validate any required options in @discovery
+    end
+  end
+end
+```
+
+3. Implement the `start` and `validate_discovery_opts` methods
+4. Implement whatever additional methods your discovery requires
+
+When your watcher detects a list of new backends, they should be written to `@backends`.
+You should then call `@synapse.configure` to force synapse to update the HAProxy config.
