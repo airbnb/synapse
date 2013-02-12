@@ -26,6 +26,14 @@ module Synapse
         unless @discovery['path']
     end
 
+    # helper method that ensures that the discovery path exists
+    def create(path)
+      log "creating path: #{path}"
+      # recurse if the parent node does not exist
+      create File.dirname(path) unless @zk.exists? File.dirname(path)
+      @zk.create(path, ignore: :node_exists)
+    end
+
     # find the current backends at the discovery path; sets @backends
     def discover
       log "discovering services for #{@name}"
@@ -46,7 +54,9 @@ module Synapse
           end
         end
       rescue ZK::Exceptions::NoNode
-        log "no such path #{@discovery['path']}"
+        # the path must exist, otherwise watch callbacks will not work
+        create(@discovery['path'])
+        retry
       else
         STDERR.puts "new_backends is #{new_backends.inspect}"
       end
