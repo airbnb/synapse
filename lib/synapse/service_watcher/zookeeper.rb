@@ -31,21 +31,26 @@ module Synapse
       log "discovering services for #{@name}"
 
       new_backends = []
-      @zk.children(@discovery['path'], :watch => true).map do |name|
-        node = @zk.get("#{@discovery['path']}/#{name}")
+      begin
+        @zk.children(@discovery['path'], :watch => true).map do |name|
+          node = @zk.get("#{@discovery['path']}/#{name}")
 
-        begin
-          host, port = deserialize_service_instance(node.first)
-        rescue
-          log "invalid data in node #{name}"
-        else
-          server_port = @server_port_override ? @server_port_override : port
-          log "discovered backend #{name}, #{host}, #{server_port}"
-          new_backends << { 'name' => name, 'host' => host, 'port' => server_port}
+          begin
+            host, port = deserialize_service_instance(node.first)
+          rescue
+            log "invalid data in node #{name}"
+          else
+            server_port = @server_port_override ? @server_port_override : port
+            log "discovered backend #{name}, #{host}, #{server_port}"
+            new_backends << { 'name' => name, 'host' => host, 'port' => server_port}
+          end
         end
+      rescue ZK::Exceptions::NoNode
+        log "no such path #{@discovery['path']}"
+      else
+        STDERR.puts "new_backends is #{new_backends.inspect}"
       end
-      STDERR.puts "path is #{@discovery['path']}"
-      STDERR.puts "new_backends is #{new_backends.inspect}"
+
       @backends = new_backends.empty? ? @default_servers : new_backends
     end
 
