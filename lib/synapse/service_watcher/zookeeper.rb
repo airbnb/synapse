@@ -40,6 +40,11 @@ module Synapse
 
       new_backends = []
       begin
+        # skip if lockfile exists
+        if @zk.exists?(File.join(@discovery['path'],'lock'))
+          log "lockfile #{File.join(@discovery['path'],'lock')} exists, so skipping discovery."
+          return
+        end
         @zk.children(@discovery['path'], :watch => true).map do |name|
           node = @zk.get("#{@discovery['path']}/#{name}")
 
