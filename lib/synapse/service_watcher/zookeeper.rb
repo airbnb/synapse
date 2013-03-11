@@ -9,7 +9,7 @@ module Synapse
     def start
       log "starting ZK watcher #{@name}, host: #{@discovery['hosts'][0]}, path: #{@discovery['path']}"
 
-      @zk = ZK.new(@discovery['hosts'][0])
+      @zk = ZK.new(@discovery['hosts'].shuffle.join(','))
       @deserializer = Thrift::Deserializer.new
 
       watch
