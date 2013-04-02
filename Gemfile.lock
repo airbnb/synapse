@@ -2,13 +2,45 @@ PATH
   remote: .
   specs:
     synapse (0.0.1)
+      thrift (~> 0.9.0)
+      zk (~> 1.7.4)
 
 GEM
   remote: https://rubygems.org/
   specs:
+    coderay (1.0.8)
+    diff-lcs (1.1.3)
+    little-plugger (1.1.3)
+    logging (1.7.2)
+      little-plugger (>= 1.1.3)
+    method_source (0.8.1)
+    pry (0.9.10)
+      coderay (~> 1.0.5)
+      method_source (~> 0.8)
+      slop (~> 3.3.1)
+    pry-nav (0.2.2)
+      pry (~> 0.9.10)
+    rspec (2.12.0)
+      rspec-core (~> 2.12.0)
+      rspec-expectations (~> 2.12.0)
+      rspec-mocks (~> 2.12.0)
+    rspec-core (2.12.0)
+    rspec-expectations (2.12.0)
+      diff-lcs (~> 1.1.3)
+    rspec-mocks (2.12.0)
+    slop (3.3.3)
+    thrift (0.9.0)
+    zk (1.7.4)
+      logging (~> 1.7.2)
+      zookeeper (~> 1.3.0)
+    zookeeper (1.3.0)
+      logging (~> 1.7.2)
 
 PLATFORMS
   ruby
 
 DEPENDENCIES
+  pry
+  pry-nav
+  rspec
   synapse!
