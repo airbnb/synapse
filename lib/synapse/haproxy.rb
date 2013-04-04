@@ -39,6 +39,15 @@ module Synapse
         end
       end
 
+      if @opts['extra_sections']
+        @opts['extra_sections'].each do |section|
+          base_config << "\n#{section.first}\n"
+          section[1..-1].each do |option|
+            base_config << "\t#{option}\n"
+          end
+        end
+      end
+
       return base_config
     end
 
