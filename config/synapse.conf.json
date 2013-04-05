@@ -77,7 +77,15 @@
       "timeout  server  50000",
       "option   redispatch",
       "balance  roundrobin"
-    ]
+    ],
+    "extra_sections": {
+      "listen stats :3212": [
+        "mode http",
+        "stats enable",
+        "stats uri /",
+        "stats refresh 5s"
+      ]
+    }
   },
   "synapse": {
     "self_check_port": 3210,
