@@ -1,9 +1,9 @@
 {
   "services": [
     {
-      "name": "sherlock",
-      "local_port": 3212,
-      "server_options": "check inter 2000 rise 3 fall 2",
+      "name": "service1",
+      "local_port": 3213,
+      "server_options": "check inter 2s rise 3 fall 2",
       "default_servers": [
         {
           "name": "default1",
@@ -13,41 +13,40 @@
       ],
       "discovery": {
         "method": "zookeeper",
-        "path": "/airbnb/service/sherlock",
+        "path": "/airbnb/service/service1",
         "hosts": [
-          "zk0.sys.airbnb.com:2181"
+          "zk0.airbnb.com:2181",
+          "zk1.airbnb.com:2181"
         ]
       },
       "listen": [
         "mode http",
-        "stats enable",
         "option httpchk /health",
         "http-check expect string OK"
       ]
     },
     {
-      "name": "search",
-      "local_port": 3213,
-      "server_options": "check inter 2000 rise 3 fall 2",
+      "name": "service2",
+      "local_port": 3214,
+      "server_options": "check inter 2s rise 3 fall 2",
       "default_servers": [
         {
-          "name": "default2",
+          "name": "default1",
           "host": "localhost",
           "port": 8422
         }
       ],
       "discovery": {
         "method": "zookeeper",
-        "path": "/airbnb/service/search/nodes",
+        "path": "/airbnb/service/service2",
         "hosts": [
-          "zk0.sys.airbnb.com:2181"
+          "zk0.airbnb.com:2181",
+          "zk1.airbnb.com:2181"
         ]
       },
       "listen": [
         "mode http",
-        "stats enable",
         "option httpchk /health",
-        "http-check expect string OK"
       ]
     }
   ],
@@ -63,21 +62,26 @@
       "maxconn 4096",
       "log     127.0.0.1 local0",
       "log     127.0.0.1 local1 notice",
-      "#debug",
-      "#quiet",
-      "#chroot /usr/share/haproxy"
     ],
     "defaults": [
-      "log global",
+      "log      global",
       "option   dontlognull",
       "maxconn  2000",
       "retries  3",
-      "timeout  connect 5000",
-      "timeout  client  50000",
-      "timeout  server  50000",
+      "timeout  connect 5s",
+      "timeout  client  1m",
+      "timeout  server  1m",
       "option   redispatch",
       "balance  roundrobin"
-    ]
+    ],
+    "extra_sections": {
+      "listen stats :3212": [
+        "mode http",
+        "stats enable",
+        "stats uri /",
+        "stats refresh 5s"
+      ]
+    }
   },
   "synapse": {
     "self_check_port": 3210,
