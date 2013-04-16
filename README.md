@@ -1,6 +1,6 @@
 # Synapse #
 
-Synapse is AirBnB's new system for service discovery.
+Synapse is Airbnb's new system for service discovery.
 Synapse solves the problem of automated fail-over in the cloud, where failover via network re-configuration is impossible.
 The end result is the ability to connect internal services together in a scalable, fault-tolerant way.
 
@@ -25,7 +25,7 @@ Synapse solves these difficulties in a simple and fault-tolerant way.
 
 ## How Synapse Works ##
 
-Synapse runs on your application servers; here at AirBnB, we just run it on every box we deploy.
+Synapse runs on your application servers; here at Airbnb, we just run it on every box we deploy.
 The heart of synapse is actually [HAProxy](http://haproxy.1wt.eu/), a stable and proven routing component.
 For every external service that your application talks to, we assign a synapse local port on localhost.
 Synapse creates a proxy from the local port to the service, and you reconfigure your application to talk to the proxy.
