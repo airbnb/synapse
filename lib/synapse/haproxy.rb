@@ -63,7 +63,7 @@ module Synapse
         stanza << "\t#{line}\n"
       end
 
-      watcher.backends.each do |backend|
+      watcher.backends.shuffle.each do |backend|
         stanza << "\tserver #{backend['name']} #{backend['host']}:#{backend['port']} #{watcher.server_options}\n" 
       end
 
