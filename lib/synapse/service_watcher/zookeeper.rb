@@ -36,7 +36,7 @@ module Synapse
 
     # find the current backends at the discovery path; sets @backends
     def discover
-      log "discovering services for #{@name}"
+      log "discovering backends for #{@name}"
 
       new_backends = []
       begin
