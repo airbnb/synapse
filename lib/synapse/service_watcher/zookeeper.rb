@@ -51,7 +51,7 @@ module Synapse
             log.error "synapse: invalid data in ZK node #{name} at #{@discovery['path']}"
           else
             server_port = @server_port_override ? @server_port_override : port
-            log.debug "synapse: discovered backend #{name}, #{host}, #{server_port}"
+            log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
             new_backends << { 'name' => name, 'host' => host, 'port' => server_port}
           end
         end
