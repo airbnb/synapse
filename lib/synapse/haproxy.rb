@@ -23,7 +23,7 @@ module Synapse
       new_config = generate_base_config + "\n"
       new_config << watchers.map {|w| generate_listen_stanza(w)}.join("\n")
 
-      log "haproxy_config is: \n#{new_config}"
+      log.debug "synapse: new haproxy config: #{new_config}"
       return new_config
     end
 
@@ -53,7 +53,7 @@ module Synapse
     # generates an individual stanza for a particular watcher
     def generate_listen_stanza(watcher)
       if watcher.backends.empty?
-        log "no backends found for watcher #{watcher.name}" 
+        log.warn "synapse: no backends found for watcher #{watcher.name}"
         return ""
       end
 
@@ -72,11 +72,10 @@ module Synapse
 
     # writes the config
     def write_config(new_config)
-
       begin 
         old_config = File.read(@opts['config_file_path'])
       rescue Errno::ENOENT => e
-        log "could not open logfile #{@opts['config_file_path']}"
+        log.info "synapse: could not open haproxy config file at #{@opts['config_file_path']}"
         old_config = ""
       end
 
