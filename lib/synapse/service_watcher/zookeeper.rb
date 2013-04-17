@@ -63,13 +63,13 @@ module Synapse
 
       if new_backends.empty?
         if @default_servers.empty?
-          log.warn "synapse: no backends and no default servers for service #{@name}; using previous list: #{@backends.inspect}"
+          log.warn "synapse: no backends and no default servers for service #{@name}; using previous backends: #{@backends.inspect}"
         else
-          log.warn "synapse: no backends for service #{@name}; using default backends: #{@default_servers.inspect}"
+          log.warn "synapse: no backends for service #{@name}; using default servers: #{@default_servers.inspect}"
           @backends = @default_servers
         end
       else
-        log.info "synapse: discovered new backends for service #{@name}: #{new_backends.inspect}"
+        log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
         @backends = new_backends
       end
     end
