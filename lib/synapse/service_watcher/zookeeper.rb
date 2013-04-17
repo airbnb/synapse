@@ -61,7 +61,17 @@ module Synapse
         retry
       end
 
-      @backends = new_backends.empty? ? @default_servers : new_backends
+      if new_backends.empty?
+        if @default_servers.empty?
+          log.warn "synapse: no backends and no default servers for service #{@name}; using previous list: #{@backends.inspect}"
+        else
+          log.warn "synapse: no backends for service #{@name}; using default backends: #{@default_servers.inspect}"
+          @backends = @default_servers
+        end
+      else
+        log.info "synapse: discovered new backends for service #{@name}: #{new_backends.inspect}"
+        @backends = new_backends
+      end
     end
 
     # sets up zookeeper callbacks if the data at the discovery path changes
