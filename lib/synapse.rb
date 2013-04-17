@@ -16,7 +16,7 @@ module Synapse
   
   attr_reader :service_watchers
 
-  class Synapse < Base
+  class Synapse
     def initialize(opts={})
       # disable configuration until this is started
       @configure_enabled = false

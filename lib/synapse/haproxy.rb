@@ -1,5 +1,5 @@
 module Synapse
-  class Haproxy < Base
+  class Haproxy
     attr_reader :opts
     def initialize(opts)
       super()
@@ -90,7 +90,8 @@ module Synapse
 
     # restarts haproxy
     def restart
-      safe_run(opts['reload_command'])
+      res = `#{opts['reload_command']}`.chomp
+      raise "failed to reload haproxy via #{opts['reload_command']}: #{res}" unless $?.success?
     end
   end
 end
