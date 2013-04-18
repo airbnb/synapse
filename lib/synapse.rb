@@ -9,9 +9,6 @@ require 'json'
 include Synapse
 
 module Synapse
-  
-  attr_reader :service_watchers
-
   class Synapse
     def initialize(opts={})
       # disable configuration until this is started
