@@ -8,10 +8,6 @@ require 'json'
 
 include Synapse
 
-# at_exit do
-#   @@log "exiting synapse"
-# end
-
 module Synapse
   
   attr_reader :service_watchers
@@ -32,7 +28,7 @@ module Synapse
 
     # start all the watchers and enable haproxy configuration
     def run
-      log "starting synapse..."
+      log.info "synapse: starting..."
 
       @service_watchers.map { |watcher| watcher.start }
       @configure_enabled = true
@@ -43,17 +39,17 @@ module Synapse
       loop do 
         sleep 1
         loops += 1
-        log Time.now if (loops % 60) == 0
+        log.debug "synapse: still running at #{Time.now}" if (loops % 60) == 0
       end
     end
 
     # reconfigure haproxy based on our watchers
     def configure
       if @configure_enabled
-        log "regenerating haproxy config"
+        log.info "synapse: regenerating haproxy config"
         @haproxy.update_config(@service_watchers)
       else
-        log "reconfigure requested but not yet enabled"
+        log.info "synapse: reconfigure requested, but it's not yet enabled"
       end
     end
 

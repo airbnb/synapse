@@ -7,9 +7,11 @@ require 'zk'
 module Synapse
   class ZookeeperWatcher < BaseWatcher
     def start
-      log "starting ZK watcher #{@name}, host: #{@discovery['hosts'][0]}, path: #{@discovery['path']}"
+      zk_hosts = @discovery['hosts'].shuffle.join(',')
 
-      @zk = ZK.new(@discovery['hosts'].shuffle.join(','))
+      log.info "synapse: starting ZK watcher #{@name} @ hosts: #{zk_hosts}, path: #{@discovery['path']}"
+      @zk = ZK.new(zk_hosts)
+
       @deserializer = Thrift::Deserializer.new
 
       watch
@@ -28,7 +30,7 @@ module Synapse
 
     # helper method that ensures that the discovery path exists
     def create(path)
-      log "creating path: #{path}"
+      log.debug "synapse: creating ZK path: #{path}"
       # recurse if the parent node does not exist
       create File.dirname(path) unless @zk.exists? File.dirname(path)
       @zk.create(path, ignore: :node_exists)
@@ -36,7 +38,7 @@ module Synapse
 
     # find the current backends at the discovery path; sets @backends
     def discover
-      log "discovering services for #{@name}"
+      log.info "synapse: discovering backends for service #{@name}"
 
       new_backends = []
       begin
@@ -46,10 +48,10 @@ module Synapse
           begin
             host, port = deserialize_service_instance(node.first)
           rescue
-            log "invalid data in node #{name}"
+            log.error "synapse: invalid data in ZK node #{name} at #{@discovery['path']}"
           else
             server_port = @server_port_override ? @server_port_override : port
-            log "discovered backend #{name}, #{host}, #{server_port}"
+            log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
             new_backends << { 'name' => name, 'host' => host, 'port' => server_port}
           end
         end
@@ -57,8 +59,6 @@ module Synapse
         # the path must exist, otherwise watch callbacks will not work
         create(@discovery['path'])
         retry
-      else
-        STDERR.puts "new_backends is #{new_backends.inspect}"
       end
 
       @backends = new_backends.empty? ? @default_servers : new_backends
@@ -109,7 +109,7 @@ module Synapse
 
     # decode the data at a zookeeper endpoint
     def deserialize_service_instance(data)
-      log "deserializing process data"
+      log.debug "synapse: deserializing process data"
 
       # first, lets try parsing this as thrift
       host, port = parse_thrift(data)

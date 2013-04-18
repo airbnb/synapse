@@ -1,7 +1,6 @@
 module Synapse
-  def log(message)
-    @@log = Logger.new STDOUT unless defined?(@@log)
-    @@log.debug message
+  def log
+    @@log ||= Logger.new(STDOUT)
   end
 
   def safe_run(command)

@@ -30,7 +30,7 @@ module Synapse
     end
 
     def start
-      log "Starting stub watcher -- this means doing nothing at all!"
+      log.info "synapse: starting stub watcher; this means doing nothing at all!"
     end
 
     private
@@ -38,7 +38,7 @@ module Synapse
       raise ArgumentError, "invalid discovery method '#{@discovery['method']}' for base watcher" \
         unless @discovery['method'] == 'base' 
 
-      log "WARNING: a stub watcher with no default servers is pretty useless" if @default_servers.empty?
+      log.warn "synapse: warning: a stub watcher with no default servers is pretty useless" if @default_servers.empty?
     end
   end
 end
