@@ -1,6 +1,6 @@
 
 module Synapse
-  class BaseWatcher < Base
+  class BaseWatcher
     attr_reader :backends, :name, :listen, :local_port, :server_options
 
     def initialize(opts={}, synapse)
