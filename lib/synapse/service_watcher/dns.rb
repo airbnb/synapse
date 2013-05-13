@@ -6,9 +6,8 @@ require 'resolv'
 module Synapse
   class DnsWatcher < BaseWatcher
     def start
-      @backends = @discovery['servers']
-      @mutex = Mutex.new
-      @check_interval = @discover['check_interval'] || 30.0
+      @check_interval = @discovery['check_interval'] || 30.0
+      @nameserver = @discovery['nameserver']
 
       watch
     end
@@ -24,37 +23,79 @@ module Synapse
     def watch
       @watcher = Thread.new do
         last_resolution = resolve_servers
+        configure_backends(last_resolution)
         while true
           begin
             start = Time.now
             current_resolution = resolve_servers
             unless last_resolution == current_resolution
               last_resolution = current_resolution
-              @mutex.synchronize { @synapse.configure }
+              configure_backends(last_resolution)
             end
 
             sleep_until_next_check(start)
           rescue => e
             log.warn "Error in watcher thread: #{e.inspect}"
+            log.warn e.backtrace
           end
         end
       end
     end
 
     def sleep_until_next_check(start_time)
-      sleep_time = @check_interval - (Time.now - start)
+      sleep_time = @check_interval - (Time.now - start_time)
       if sleep_time > 0.0
         sleep(sleep_time)
       end
     end
 
     def resolve_servers
-      @discovery['servers'].map do |server|
-        Resolv.getaddress(server['host'])
+      resolver do |dns|
+        @discovery['servers'].map do |server|
+          [server, get_sorted_addresses(dns, server['host'])]
+        end
       end
     rescue => e
       log.warn "Error while resolving host names: #{e.inspect}"
       []
+    end
+
+    def resolver
+      args = [{:nameserver => @nameserver}] if @nameserver
+      Resolv::DNS.open(*args) do |dns|
+        yield dns
+      end
+    end
+
+    def configure_backends(servers)
+      new_backends = servers.flat_map do |(server, addresses)|
+        addresses.to_enum.with_index.map do |address, idx|
+          {
+            'name' => "#{server['name']}-#{idx}",
+            'host' => address,
+            'port' => server['port']
+          }
+        end
+      end
+
+      if new_backends.empty?
+        if @default_servers.empty?
+          log.warn "synapse: no backends and no default servers for service #{@name};" \
+            " using previous backends: #{@backends.inspect}"
+        else
+          log.warn "synapse: no backends for service #{@name};" \
+            " using default servers: #{@default_servers.inspect}"
+          @backends = @default_servers
+        end
+      else
+        log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
+        @backends = new_backends
+      end
+      @synapse.configure
+    end
+
+    def get_sorted_addresses(dns, host)
+      dns.getaddresses(host).map(&:to_s).sort
     end
   end
 end
