@@ -51,10 +51,12 @@ module Synapse
 
     def resolve_servers
       resolver.tap do |dns|
-        @discovery['servers'].map do |server|
+        resolution = @discovery['servers'].map do |server|
           addresses = dns.getaddresses(server['host']).map(&:to_s)
           [server, addresses.sort]
         end
+
+        return resolution
       end
     rescue => e
       log.warn "Error while resolving host names: #{e.inspect}"
