@@ -4,8 +4,19 @@ module Synapse
     def initialize(opts)
       super()
 
-      %w{global defaults reload_command config_file_path}.each do |req|
+      %w{global defaults reload_command}.each do |req|
         raise ArgumentError, "haproxy requires a #{req} section" if !opts.has_key?(req)
+      end
+
+      req_pairs = {
+        'do_writes' => 'config_file_path',
+        'do_socket' => 'socket_file_path',
+        'do_reloads' => 'reload_command'}
+
+      req_pairs.each do |cond, req|
+        if opts[cond]
+          raise ArgumentError, "the `#{req}` option is required when `#{cond}` is true" unless opts[req]
+        end
       end
 
       @opts = opts
