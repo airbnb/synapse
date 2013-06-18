@@ -53,8 +53,10 @@
   "haproxy": {
     "reload_command": "sudo service haproxy reload",
     "config_file_path": "/etc/haproxy/haproxy.cfg",
+    "socket_file_path": "/var/haproxy/stats.sock",
     "do_writes": false,
     "do_reloads": false,
+    "do_socket": false,
     "global": [
       "daemon",
       "user haproxy",
@@ -62,6 +64,7 @@
       "maxconn 4096",
       "log     127.0.0.1 local0",
       "log     127.0.0.1 local1 notice",
+      "stats   socket /var/haproxy/stats.sock mode 666 level admin"
     ],
     "defaults": [
       "log      global",

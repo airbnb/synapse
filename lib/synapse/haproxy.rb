@@ -1,21 +1,46 @@
+require 'socket'
+
 module Synapse
   class Haproxy
     attr_reader :opts
     def initialize(opts)
       super()
 
-      %w{global defaults reload_command config_file_path}.each do |req|
+      %w{global defaults reload_command}.each do |req|
         raise ArgumentError, "haproxy requires a #{req} section" if !opts.has_key?(req)
       end
 
+      req_pairs = {
+        'do_writes' => 'config_file_path',
+        'do_socket' => 'socket_file_path',
+        'do_reloads' => 'reload_command'}
+
+      req_pairs.each do |cond, req|
+        if opts[cond]
+          raise ArgumentError, "the `#{req}` option is required when `#{cond}` is true" unless opts[req]
+        end
+      end
+
       @opts = opts
+      @restart_required = true
     end
 
     def update_config(watchers)
+      # if we support updating backends, try that whenever possible
+      if @opts['do_socket']
+        update_backends(watchers) unless @restart_required
+      else
+        @restart_required = true
+      end
+
+      # generate a new config
       new_config = generate_config(watchers)
 
-      updated = write_config(new_config) if @opts['do_writes']
-      restart if (updated && @opts['do_reloads'])
+      # if we write config files, lets do that and then possibly restart
+      if @opts['do_writes']
+        write_config(new_config)
+        restart if @opts['do_reloads'] && @restart_required
+      end
     end
 
     # generates a new config based on the state of the watchers
@@ -64,15 +89,93 @@ module Synapse
       end
 
       watcher.backends.shuffle.each do |backend|
-        stanza << "\tserver #{backend['name']} #{backend['host']}:#{backend['port']} #{watcher.server_options}\n" 
+        stanza << "\tserver #{backend['name']} #{backend['host']}:#{backend['port']} #{watcher.server_options}\n"
       end
 
       return stanza
     end
 
+    # tries to set active backends via haproxy's stats socket
+    # because we can't add backends via the socket, we might still need to restart haproxy
+    def update_backends(watchers)
+      # first, get a list of existing servers for various backends
+      begin
+        s = UNIXSocket.new(@opts['socket_file_path'])
+        s.write('show stat;')
+        info = s.read()
+      rescue StandardError => e
+        log.warn "synapse: unhandled error reading stats socket: #{e.inspect}"
+        @restart_required = true
+        return
+      end
+
+      # parse the stats output to get current backends
+      cur_backends = {}
+      info.split("\n").each do |line|
+        next if line[0] == '#'
+
+        parts = line.split(',')
+        next if ['FRONTEND', 'BACKEND'].include?(parts[1])
+
+        cur_backends[parts[0]] ||= []
+        cur_backends[parts[0]] << parts[1]
+      end
+
+      # build a list of backends that should be enabled
+      enabled_backends = {}
+      watchers.each do |watcher|
+        enabled_backends[watcher.name] = []
+        next if watcher.backends.empty?
+
+        unless cur_backends.include? watcher.name
+          log.debug "synapse: restart required because we added new section #{watcher.name}"
+          @restart_required = true
+          return
+        end
+
+        watcher.backends.each do |backend|
+          unless cur_backends[watcher.name].include? backend['name']
+            log.debug "synapse: restart required because we have a new backend #{watcher.name}/#{backend['name']}"
+            @restart_required = true
+            return
+          end
+
+          enabled_backends[watcher.name] << backend['name']
+        end
+      end
+
+      # actually enable the enabled backends, and disable the disabled ones
+      cur_backends.each do |section, backends|
+        backends.each do |backend|
+          if enabled_backends[section].include? backend
+            command = "enable server #{section}/#{backend};"
+          else
+            command = "disable server #{section}/#{backend};"
+          end
+
+          # actually write the command to the socket
+          begin
+            s = UNIXSocket.new(@opts['socket_file_path'])
+            s.write(command)
+            output = s.read()
+          rescue StandardError => e
+            log.warn "synapse: unknown error writing to socket"
+            @restart_required = true
+            return
+          else
+            unless output == "\n"
+              log.warn "synapse: socket command #{command} failed: #{output}"
+              @restart_required = true
+              return
+            end
+          end
+        end
+      end
+    end
+
     # writes the config
     def write_config(new_config)
-      begin 
+      begin
         old_config = File.read(@opts['config_file_path'])
       rescue Errno::ENOENT => e
         log.info "synapse: could not open haproxy config file at #{@opts['config_file_path']}"
@@ -91,6 +194,7 @@ module Synapse
     def restart
       res = `#{opts['reload_command']}`.chomp
       raise "failed to reload haproxy via #{opts['reload_command']}: #{res}" unless $?.success?
+      @restart_required = false
     end
   end
 end
