@@ -50,9 +50,10 @@ module Synapse
     end
 
     def resolve_servers
-      resolver do |dns|
+      resolver.tap do |dns|
         @discovery['servers'].map do |server|
-          [server, get_sorted_addresses(dns, server['host'])]
+          addresses = dns.getaddresses(server['host']).map(&:to_s)
+          [server, addresses.sort]
         end
       end
     rescue => e
@@ -62,16 +63,14 @@ module Synapse
 
     def resolver
       args = [{:nameserver => @nameserver}] if @nameserver
-      Resolv::DNS.open(*args) do |dns|
-        yield dns
-      end
+      Resolv::DNS.open(*args)
     end
 
     def configure_backends(servers)
       new_backends = servers.flat_map do |(server, addresses)|
-        addresses.to_enum.with_index.map do |address, idx|
+        addresses.map do |address|
           {
-            'name' => "#{server['name']}-#{idx}",
+            'name' => "#{server['name']}-#{[address, server['port']].hash}",
             'host' => address,
             'port' => server['port']
           }
@@ -92,10 +91,6 @@ module Synapse
         @backends = new_backends
       end
       @synapse.configure
-    end
-
-    def get_sorted_addresses(dns, host)
-      dns.getaddresses(host).map(&:to_s).sort
     end
   end
 end
