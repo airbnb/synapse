@@ -26,9 +26,11 @@ module Synapse
     end
 
     def update_config(watchers)
-      # if we don't already require a restart, try just updating the backends
-      unless @restart_required
-        update_backends(watchers) if @opts['do_socket']
+      # if we support updating backends, try that whenever possible
+      if @opts['do_socket']
+        update_backends(watchers) unless @restart_required
+      else
+        @restart_required = true
       end
 
       # generate a new config
