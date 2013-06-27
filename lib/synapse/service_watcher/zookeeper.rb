@@ -14,8 +14,8 @@ module Synapse
 
       @deserializer = Thrift::Deserializer.new
 
-      watch
-      discover
+      # call the callback to bootstrap the process
+      watcher_callback.call
     end
 
     def ping?
@@ -88,7 +88,7 @@ module Synapse
 
     # handles the event that a watched path has changed in zookeeper
     def watcher_callback
-      Proc.new do |event|
+      @callback ||= Proc.new do |event|
         # Set new watcher
         watch
         # Rediscover
