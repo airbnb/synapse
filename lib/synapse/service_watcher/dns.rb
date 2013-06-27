@@ -12,6 +12,10 @@ module Synapse
       watch
     end
 
+    def ping?
+      !(resolver.getaddresses('airbnb.com').empty?)
+    end
+
     private
     def validate_discovery_opts
       raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
