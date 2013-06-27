@@ -33,7 +33,11 @@ module Synapse
 
       # loop forever
       loops = 0
-      loop do 
+      loop do
+        @service_watchers.each do |w|
+          raise "synapse: service watcher #{w.name} failed ping!" unless w.ping?
+        end
+
         sleep 1
         loops += 1
         log.debug "synapse: still running at #{Time.now}" if (loops % 60) == 0
@@ -56,9 +60,9 @@ module Synapse
       services.each do |service_config|
         service_watchers << ServiceWatcher.create(service_config, self)
       end
-      
+
       return service_watchers
     end
-    
+
   end
 end
