@@ -18,6 +18,10 @@ module Synapse
       discover
     end
 
+    def ping?
+      @zk.ping?
+    end
+
     private
     def validate_discovery_opts
       raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
