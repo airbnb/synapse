@@ -94,7 +94,7 @@ module Synapse
         # Rediscover
         discover
         # send a message to calling class to reconfigure
-        @synapse.configure
+        @synapse.reconfigure!
       end
     end
 

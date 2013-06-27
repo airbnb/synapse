@@ -96,7 +96,7 @@ module Synapse
         log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
         @backends = new_backends
       end
-      @synapse.configure
+      @synapse.reconfigure!
     end
   end
 end
