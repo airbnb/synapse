@@ -22,7 +22,11 @@ module Synapse
       end
 
       @opts = opts
+
+      # how to restart haproxy
+      @restart_interval = 2
       @restart_required = true
+      @last_restart = Time.new(0)
     end
 
     def update_config(watchers)
@@ -192,8 +196,15 @@ module Synapse
 
     # restarts haproxy
     def restart
+      # sleep if we restarted too recently
+      delay = (@last_restart - Time.now) + @restart_interval
+      sleep(delay) if delay > 0
+
+      # do the actual restart
       res = `#{opts['reload_command']}`.chomp
       raise "failed to reload haproxy via #{opts['reload_command']}: #{res}" unless $?.success?
+
+      @last_restart = Time.now()
       @restart_required = false
     end
   end

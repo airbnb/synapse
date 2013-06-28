@@ -11,9 +11,6 @@ include Synapse
 module Synapse
   class Synapse
     def initialize(opts={})
-      # disable configuration until this is started
-      @configure_enabled = false
-
       # create the service watchers for all our services
       raise "specify a list of services to connect in the config" unless opts.has_key?('services')
       @service_watchers = create_service_watchers(opts['services'])
@@ -21,33 +18,40 @@ module Synapse
       # create the haproxy object
       raise "haproxy config section is missing" unless opts.has_key?('haproxy')
       @haproxy = Haproxy.new(opts['haproxy'])
+
+      # configuration is initially enabled to configure on first loop
+      @config_updated = true
     end
 
     # start all the watchers and enable haproxy configuration
     def run
       log.info "synapse: starting..."
 
+      # start all the watchers
       @service_watchers.map { |watcher| watcher.start }
-      @configure_enabled = true
-      configure
 
-      # loop forever
+      # main loop
       loops = 0
-      loop do 
-        sleep 1
+      loop do
+        @service_watchers.each do |w|
+          raise "synapse: service watcher #{w.name} failed ping!" unless w.ping?
+        end
+
+        if @config_updated
+          @config_updated = false
+          log.info "synapse: regenerating haproxy config"
+          @haproxy.update_config(@service_watchers)
+        else
+          sleep 1
+        end
+
         loops += 1
         log.debug "synapse: still running at #{Time.now}" if (loops % 60) == 0
       end
     end
 
-    # reconfigure haproxy based on our watchers
-    def configure
-      if @configure_enabled
-        log.info "synapse: regenerating haproxy config"
-        @haproxy.update_config(@service_watchers)
-      else
-        log.info "synapse: reconfigure requested, but it's not yet enabled"
-      end
+    def reconfigure!
+      @config_updated = true
     end
 
     private
@@ -56,9 +60,9 @@ module Synapse
       services.each do |service_config|
         service_watchers << ServiceWatcher.create(service_config, self)
       end
-      
+
       return service_watchers
     end
-    
+
   end
 end
