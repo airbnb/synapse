@@ -1,5 +1,5 @@
 module Synapse
   def log
-    @@log ||= Logger.new(STDOUT)
+    @@log ||= Logger.new(STDERR)
   end
 end
