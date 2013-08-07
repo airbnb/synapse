@@ -1,7 +1,5 @@
 require_relative "./base"
 
-require_relative "../../gen-rb/endpoint_types"
-require_relative "../../gen-rb/thrift"
 require 'zk'
 
 module Synapse
@@ -11,8 +9,6 @@ module Synapse
 
       log.info "synapse: starting ZK watcher #{@name} @ hosts: #{zk_hosts}, path: #{@discovery['path']}"
       @zk = ZK.new(zk_hosts)
-
-      @deserializer = Thrift::Deserializer.new
 
       # call the callback to bootstrap the process
       watcher_callback.call
@@ -110,26 +106,9 @@ module Synapse
       return json['host'], json['port']
     end
 
-    # tries to extract a host/port from twitter thrift data
-    def parse_thrift(data)
-      begin
-        service = Twitter::Thrift::ServiceInstance.new
-        @deserializer.deserialize(service, data)
-      rescue Object => o
-        return false
-      end
-      raise "instance thrift data does not have host" if service.serviceEndpoint.host.nil?
-      raise "instance thrift data does not have port" if service.serviceEndpoint.port.nil?
-      return service.serviceEndpoint.host, service.serviceEndpoint.port
-    end
-
     # decode the data at a zookeeper endpoint
     def deserialize_service_instance(data)
       log.debug "synapse: deserializing process data"
-
-      # first, lets try parsing this as thrift
-      host, port = parse_thrift(data)
-      return host, port if host
 
       # if that does not work, try json
       host, port = parse_json(data)
