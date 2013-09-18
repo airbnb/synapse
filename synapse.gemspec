@@ -18,7 +18,6 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
 
   gem.add_runtime_dependency "zk", "~> 1.7.4"
-  gem.add_runtime_dependency "thrift", "~> 0.9.0"
 
   gem.add_development_dependency "rspec"
   gem.add_development_dependency "pry"
