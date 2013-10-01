@@ -76,7 +76,7 @@ module Synapse
       new_backends = servers.flat_map do |(server, addresses)|
         addresses.map do |address|
           {
-            'name' => "#{server['name']}-#{[address, server['port']].hash}",
+            'name' => construct_name(server['name'], address, server['port']),
             'host' => address,
             'port' => server['port']
           }
