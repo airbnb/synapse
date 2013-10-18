@@ -1,5 +1,3 @@
-require 'digest'
-
 module Synapse
   class BaseWatcher
     attr_reader :name, :backends, :haproxy
@@ -40,11 +38,6 @@ module Synapse
     # this should be overridden to do a health check of the watcher
     def ping?
       true
-    end
-
-    def construct_name(name, address, port)
-      address_digest = Digest::SHA256.hexdigest(address)[0..7]
-      return "#{name}:#{port}_#{address_digest}"
     end
 
     private

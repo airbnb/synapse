@@ -1,4 +1,5 @@
 require 'socket'
+require 'digest'
 
 module Synapse
   class Haproxy
@@ -93,7 +94,8 @@ module Synapse
       end
 
       watcher.backends.shuffle.each do |backend|
-        stanza << "\tserver #{backend['name']} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}\n"
+        backend_name = construct_name(backend)
+        stanza << "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}\n"
       end
 
       return stanza
@@ -138,13 +140,14 @@ module Synapse
         end
 
         watcher.backends.each do |backend|
-          unless cur_backends[watcher.name].include? backend['name']
-            log.debug "synapse: restart required because we have a new backend #{watcher.name}/#{backend['name']}"
+          backend_name = construct_name(backend)
+          unless cur_backends[watcher.name].include? backend_name
+            log.debug "synapse: restart required because we have a new backend #{watcher.name}/#{backend_name}"
             @restart_required = true
             return
           end
 
-          enabled_backends[watcher.name] << backend['name']
+          enabled_backends[watcher.name] << backend_name
         end
       end
 
@@ -206,6 +209,12 @@ module Synapse
 
       @last_restart = Time.now()
       @restart_required = false
+    end
+
+    # used to build unique, consistent haproxy names for backends
+    def construct_name(backend)
+      address_digest = Digest::SHA256.hexdigest(backend['host'])[0..7]
+      return "#{backend['name']}:#{backend['port']}_#{address_digest}"
     end
   end
 end
