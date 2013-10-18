@@ -1,9 +1,6 @@
 {
-  "services": [
-    {
-      "name": "service1",
-      "local_port": 3213,
-      "server_options": "check inter 2s rise 3 fall 2",
+  "services": {
+    "service1" => {
       "default_servers": [
         {
           "name": "default1",
@@ -19,16 +16,18 @@
           "zk1.airbnb.com:2181"
         ]
       },
-      "listen": [
-        "mode http",
-        "option httpchk /health",
-        "http-check expect string OK"
-      ]
+      "haproxy": {
+        "port": 3213,
+        "server_options": "check inter 2s rise 3 fall 2",
+        "listen": [
+          "mode http",
+          "option httpchk /health",
+          "http-check expect string OK"
+        ]
+      }
+      
     },
-    {
-      "name": "service2",
-      "local_port": 3214,
-      "server_options": "check inter 2s rise 3 fall 2",
+    "service2" => {
       "default_servers": [
         {
           "name": "default1",
@@ -44,12 +43,16 @@
           "zk1.airbnb.com:2181"
         ]
       },
-      "listen": [
-        "mode http",
-        "option httpchk /health",
-      ]
+      "haproxy": {
+        "port": 3214,
+        "server_options": "check inter 2s rise 3 fall 2",
+        "listen": [
+          "mode http",
+          "option httpchk /health",
+        ]
+      }
     }
-  ],
+  },
   "haproxy": {
     "reload_command": "sudo service haproxy reload",
     "config_file_path": "/etc/haproxy/haproxy.cfg",
@@ -86,11 +89,4 @@
       ]
     }
   },
-  "synapse": {
-    "self_check_port": 3210,
-    "self_check_proxy_port": 3211,
-    "zk_servers": [
-      "localhost:2181"
-    ]
-  }
 }

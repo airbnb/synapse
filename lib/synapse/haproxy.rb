@@ -86,14 +86,14 @@ module Synapse
         return ""
       end
 
-      stanza = "listen #{watcher.name} localhost:#{watcher.local_port}\n"
+      stanza = "listen #{watcher.name} localhost:#{watcher.haproxy['port']}\n"
 
-      watcher.listen.each do |line|
+      watcher.haproxy['listen'].each do |line|
         stanza << "\t#{line}\n"
       end
 
       watcher.backends.shuffle.each do |backend|
-        stanza << "\tserver #{backend['name']} #{backend['host']}:#{backend['port']} #{watcher.server_options}\n"
+        stanza << "\tserver #{backend['name']} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}\n"
       end
 
       return stanza

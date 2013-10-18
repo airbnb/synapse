@@ -114,15 +114,13 @@ The second is the `haproxy` section, which specifies how to configure and intera
 
 ### Configuring a Service ###
 
-Each service hash has the following options:
+The services are a hash, where the keys are the `name` of the service to be configured.
+The name is just a human-readable string; it will be used in logs and notifications.
+Each value in the services hash is also a hash, and should contain the following keys:
 
-* `name`: a human-readable name for the service, this is used in logs and notifications
-* `local_port`: the port (on localhost) where HAProxy will listen for connections to the serivce
 * `discovery`: how synapse will discover hosts providing this service (see below)
 * `default_servers`: the list of default servers providing this service; synapse uses these if none others can be discovered
-* `server_port_override`: the port that discovered servers listen on; if the discovery method discovers a port along with hostnames (like the zookeeper watcher) this option may be left out, but will be used in preference if given
-* `server_options`: the haproxy options for each `server` line of the service in HAProxy config; may be left out
-* `listen`: additional lines passed to the HAProxy config in the `listen` stanza of this service
+* `haproxy`: how will the haproxy section for this service be configured
 
 #### Service Discovery ####
 
@@ -161,6 +159,15 @@ Each hash in that section has the following options:
 The `default_servers` list is used only when service discovery returns no servers.
 In that case, the service proxy will be created with the servers listed here.
 If you do not list any default servers, no proxy will be created.
+
+#### The `haproxy` Section ####
+
+This section is it's own hash, which should contain the following keys:
+
+* `port`: the port (on localhost) where HAProxy will listen for connections to the service.
+* `server_port_override`: the port that discovered servers listen on; you should specify this if your discovery mechanism only discovers names or addresses (like the DNS watcher). If the discovery method discovers a port along with hostnames (like the zookeeper watcher) this option may be left out, but will be used in preference if given.
+* `server_options`: the haproxy options for each `server` line of the service in HAProxy config; it may be left out.
+* `listen`: additional lines passed to the HAProxy config in the `listen` stanza of this service
 
 ### Configuring HAProxy ###
 
