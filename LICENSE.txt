@@ -1,4 +1,4 @@
-Copyright (c) 2012 Martin Rhoads
+Copyright (c) 2013 Airbnb, Inc.
 
 MIT License
 
