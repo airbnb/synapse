@@ -1,8 +1,6 @@
-require 'digest'
-
 module Synapse
   class BaseWatcher
-    attr_reader :backends, :name, :listen, :local_port, :server_options
+    attr_reader :name, :backends, :haproxy
 
     def initialize(opts={}, synapse)
       super()
@@ -10,21 +8,23 @@ module Synapse
       @synapse = synapse
 
       # set required service parameters
-      %w{name discovery local_port}.each do |req|
+      %w{name discovery haproxy}.each do |req|
         raise ArgumentError, "missing required option #{req}" unless opts[req]
       end
 
       @name = opts['name']
       @discovery = opts['discovery']
-      @local_port = opts['local_port']
 
-      # optional service parameters
-      @listen = opts['listen'] || []
-      @server_options = opts['server_options'] || ""
+      # the haproxy config
+      @haproxy = opts['haproxy']
+      raise ArgumentError, "haproxy config for service #{name} must include a port" unless @haproxy.include?('port')
+
+      @haproxy['listen'] ||= []
+      @haproxy['server_options'] ||= ""
+      @haproxy['server_port_override'] ||= nil
+
+      # set initial backends to default servers, if any
       @default_servers = opts['default_servers'] || []
-      @server_port_override = opts['server_port_override']
-
-      # set initial backends to default servers
       @backends = @default_servers
 
       validate_discovery_opts
@@ -38,11 +38,6 @@ module Synapse
     # this should be overridden to do a health check of the watcher
     def ping?
       true
-    end
-
-    def construct_name(name, address, port)
-      address_digest = Digest::SHA256.hexdigest(address)[0..7]
-      return "#{name}:#{port}_#{address_digest}"
     end
 
     private

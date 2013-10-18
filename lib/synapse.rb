@@ -57,8 +57,8 @@ module Synapse
     private
     def create_service_watchers(services={})
       service_watchers =[]
-      services.each do |service_config|
-        service_watchers << ServiceWatcher.create(service_config, self)
+      services.each do |service_name, service_config|
+        service_watchers << ServiceWatcher.create(service_name, service_config, self)
       end
 
       return service_watchers
