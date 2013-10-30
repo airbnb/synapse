@@ -1,0 +1,72 @@
+{
+  "services": {
+    "service1": {
+      "default_servers": [
+        { "name": "default1", "host": "localhost", "port": 8080 }
+      ],
+      "discovery": {
+        "method": "dns",
+        "nameserver": "127.0.0.1",
+        "servers": [
+          "0.www.example.com",
+          "1.www.example.com"
+        ]
+      },
+      "haproxy": {
+        # "port": 8102,
+        "server_options": "check inter 2s rise 3 fall 2",
+        "listen": [
+          "mode http",
+          "option httplog"
+        ],
+        "backend": [
+          "mode http",
+          "option httpchk GET /health HTTP/1.0"
+        ]
+      }
+    }
+  },
+  "haproxy": {
+    "reload_command": "sudo service haproxy reload",
+    "config_file_path": "/etc/haproxy/haproxy.cfg",
+    "socket_file_path": "/var/haproxy/stats.sock",
+    "do_writes": true,
+    "do_reloads": true,
+    "do_socket": true,
+    "global": [
+      "daemon",
+      "user haproxy",
+      "group haproxy",
+      "maxconn 4096",
+      "log     127.0.0.1 local0",
+      "log     127.0.0.1 local1 notice",
+      "stats   socket /var/haproxy/stats.sock mode 666 level admin"
+    ],
+    "defaults": [
+      "log      global",
+      "option   dontlognull",
+      "maxconn  2000",
+      "retries  3",
+      "timeout  connect 5s",
+      "timeout  client  1m",
+      "timeout  server  1m",
+      "option   redispatch",
+      "balance  roundrobin"
+    ],
+    "extra_sections": {
+      "listen stats :3212": [
+        "mode http",
+        "stats enable",
+        "stats uri /",
+        "stats refresh 5s"
+      ],
+      "frontend http-generic-in": [
+        "bind 127.0.0.1:80",
+        "acl is_service1 hdr_dom(host) -i service1.lb",
+        "acl is_cache hdr_dom(host) -i cache.lb",
+        "use_backend service1 if is_service1",
+        "use_backend cache if is_cache"
+      ]
+    }
+  }
+}

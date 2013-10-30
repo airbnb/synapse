@@ -51,7 +51,9 @@ module Synapse
     # generates a new config based on the state of the watchers
     def generate_config(watchers)
       new_config = generate_base_config + "\n"
+
       new_config << watchers.map {|w| generate_listen_stanza(w)}.join("\n")
+      new_config << watchers.map {|w| generate_backend_stanza(w)}.join("\n")
 
       log.debug "synapse: new haproxy config: #{new_config}"
       return new_config
@@ -82,14 +84,31 @@ module Synapse
 
     # generates an individual stanza for a particular watcher
     def generate_listen_stanza(watcher)
+      if not watcher.haproxy.has_key?("port") then
+        log.warn "synapse: no port found for watcher #{watcher.name}"
+        return ""
+      end
+
+      stanza = "\nlisten #{watcher.name}_in localhost:#{watcher.haproxy['port']}\n"
+
+      watcher.haproxy['listen'].each do |line|
+        stanza << "\t#{line}\n"
+      end
+
+      stanza << "\tdefault_backend #{watcher.name}\n"
+
+      return stanza
+    end
+
+    def generate_backend_stanza(watcher)
       if watcher.backends.empty?
         log.warn "synapse: no backends found for watcher #{watcher.name}"
         return ""
       end
 
-      stanza = "listen #{watcher.name} localhost:#{watcher.haproxy['port']}\n"
+      stanza = "\nbackend #{watcher.name}\n"
 
-      watcher.haproxy['listen'].each do |line|
+      watcher.haproxy['backend'].each do |line|
         stanza << "\t#{line}\n"
       end
 
@@ -97,7 +116,6 @@ module Synapse
         backend_name = construct_name(backend)
         stanza << "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}\n"
       end
-
       return stanza
     end
 

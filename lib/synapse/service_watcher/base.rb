@@ -17,7 +17,7 @@ module Synapse
 
       # the haproxy config
       @haproxy = opts['haproxy']
-      raise ArgumentError, "haproxy config for service #{name} must include a port" unless @haproxy.include?('port')
+      log.warn "haproxy config for service #{name} does not include a port: a generic backend will be created but it's on you to move traffic there somehow in extra_sections" unless @haproxy.include?('port')
 
       @haproxy['listen'] ||= []
       @haproxy['server_options'] ||= ""

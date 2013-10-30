@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    synapse (0.5.0)
+    synapse (0.5.1)
       zk (~> 1.9.2)
 
 GEM
