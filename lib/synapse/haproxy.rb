@@ -84,8 +84,8 @@ module Synapse
 
     # generates an individual stanza for a particular watcher
     def generate_listen_stanza(watcher)
-      if not watcher.haproxy.has_key?("port") then
-        log.warn "synapse: no port found for watcher #{watcher.name}"
+      unless watcher.haproxy.has_key?("port") then
+        log.debug "synapse: not generating listen stanza for watcher #{watcher.name} because it has no port defined"
         return ""
       end
 
