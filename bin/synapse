@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require 'yaml'
+require 'json'
 require 'optparse'
 
 require_relative "../lib/synapse"
@@ -14,7 +14,7 @@ Welcome to synapse
 
 Usage: synapse --config /path/to/synapse/config
 EOB
-
+  
   options[:config] = ENV['SYNAPSE_CONFIG']
   opts.on('-c config','--config config', String, 'path to synapse config') do |key,value|
     options[:config] = key
@@ -34,14 +34,15 @@ optparse.parse!
 
 # parse synapse config file
 begin
-  config = YAML::load(File.read(options[:config]))
+  config = JSON::parse(File.read(options[:config]))
 rescue Errno::ENOENT => e
   raise ArgumentError, "config file does not exist:\n#{e.inspect}"
 rescue Errno::EACCES => e
   raise ArgumentError, "could not open config file:\n#{e.inspect}"
-rescue YAML::ParseError => e
-  raise "config file #{options[:config]} is not yaml:\n#{e.inspect}"
+rescue JSON::ParserError => e
+  raise "config file #{options[:config]} is not json:\n#{e.inspect}" 
 end
+
 
 # create synapse object
 s = Synapse::Synapse.new config

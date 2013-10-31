@@ -13,7 +13,6 @@
         ]
       },
       "haproxy": {
-        # "port": 8102,
         "server_options": "check inter 2s rise 3 fall 2",
         "listen": [
           "mode http",
