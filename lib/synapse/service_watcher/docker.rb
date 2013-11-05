@@ -51,7 +51,7 @@ module Synapse
 
     def containers
       backends = @discovery['servers'].map do |server|
-        Docker.url = "http://#{server['host']}:#{server['port']}"
+        Docker.url = "http://#{server['host']}:#{server['port'] || 4243}"
         cnts = Docker::Util.parse_json(Docker.connection.get('/containers/json', {}))
         # "Ports" comes through as a string like "49158->7000, 49159->6379"
         # Convert string to a map of container port to host port: {"7000"->"49158", "6379": "49159"}
