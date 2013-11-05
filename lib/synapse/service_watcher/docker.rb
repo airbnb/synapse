@@ -53,10 +53,14 @@ module Synapse
       backends = @discovery['servers'].map do |server|
         Docker.url = "http://#{server['host']}:#{server['port'] || 4243}"
         cnts = Docker::Util.parse_json(Docker.connection.get('/containers/json', {}))
-        # "Ports" comes through as a string like "49158->7000, 49159->6379"
+        # "Ports" comes through (as of 0.6.5) as a string like "0.0.0.0:49153->6379/tcp, 0.0.0.0:49153->6379/tcp"
         # Convert string to a map of container port to host port: {"7000"->"49158", "6379": "49159"}
         cnts.each do |cnt|
-          cnt["Ports"] = Hash[cnt["Ports"].split(", ").collect { |v| v.split('->').reverse }]
+          pairs = cnt["Ports"].split(", ").collect do |v|
+            pair = v.split('->')
+            [ pair[1].rpartition("/").first, pair[0].rpartition(":").last ]
+          end
+          cnt["Ports"] = Hash[pairs]
         end
         # Discover containers that match the image/port we're interested in
         cnts = cnts.find_all do |cnt|
