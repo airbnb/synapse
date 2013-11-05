@@ -5,7 +5,9 @@ module Synapse
   class DockerWatcher < BaseWatcher
     def start
       @check_interval = @discovery['check_interval'] || 15.0
-      watch
+      @watcher = Thread.new do
+        watch
+      end
     end
 
     private
@@ -21,23 +23,21 @@ module Synapse
     end
 
     def watch
-      @watcher = Thread.new do
-        last_containers = containers
-        configure_backends(last_containers)
-        while true
-          begin
-            start = Time.now
-            current_containers = containers
-            unless last_containers == current_containers
-              last_containers = current_containers
-              configure_backends(last_containers)
-            end
-
-            sleep_until_next_check(start)
-          rescue => e
-            log.warn "Error in watcher thread: #{e.inspect}"
-            log.warn e.backtrace
+      last_containers = containers
+      configure_backends(last_containers)
+      while true
+        begin
+          start = Time.now
+          current_containers = containers
+          unless last_containers == current_containers
+            last_containers = current_containers
+            configure_backends(last_containers)
           end
+
+          sleep_until_next_check(start)
+        rescue => e
+          log.warn "Error in watcher thread: #{e.inspect}"
+          log.warn e.backtrace
         end
       end
     end
