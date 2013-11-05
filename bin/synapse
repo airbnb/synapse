@@ -52,10 +52,11 @@ if ! config.has_key?('services') then
 end
 
 if config.has_key?('service_conf_dir') then
-  if ! Dir.exists?(config['service_conf_dir']) then
-    raise "service conf dir does not exist:#{config['service_conf_dir']}"
+  cdir = File.expand_path(config['service_conf_dir'])
+  if ! Dir.exists?(cdir) then
+    raise "service conf dir does not exist:#{cdir}"
   end
-  cfiles = Dir.glob(File.join(config['service_conf_dir'], '*.json'))
+  cfiles = Dir.glob(File.join(cdir, '*.json'))
   cfiles.each { |x| config['services'][File.basename(x[/(.*)\.json$/, 1])] = parseconfig(x) }
 end
 
