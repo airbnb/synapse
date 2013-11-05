@@ -13,7 +13,7 @@ module Synapse
       raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
         unless @discovery['method'] == 'docker'
       raise ArgumentError, "a non-empty list of servers is required" \
-        if @discovery['servers'].empty?
+        if @discovery['servers'].nil? or @discovery['servers'].empty?
       raise ArgumentError, "non-empty image_name required" \
         if @discovery['image_name'].nil? or @discovery['image_name'].empty?
       raise ArgumentError, "container_port required" \
