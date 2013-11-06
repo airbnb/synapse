@@ -40,20 +40,17 @@ def parseconfig(filename)
   rescue Errno::EACCES => e
     raise ArgumentError, "could not open config file:\n#{e.inspect}"
   rescue JSON::ParserError => e
-    raise "config file #{options[:config]} is not json:\n#{e.inspect}"
+    raise "config file #{filename} is not json:\n#{e.inspect}"
   end
   return c
 end
 
 config = parseconfig(options[:config])
+config['services'] ||= {}
 
-if ! config.has_key?('services') then
-  config['services'] = Hash.new
-end
-
-if config.has_key?('service_conf_dir') then
+if config.has_key?('service_conf_dir')
   cdir = File.expand_path(config['service_conf_dir'])
-  if ! Dir.exists?(cdir) then
+  if ! Dir.exists?(cdir)
     raise "service conf dir does not exist:#{cdir}"
   end
   cfiles = Dir.glob(File.join(cdir, '*.json'))
