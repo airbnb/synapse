@@ -582,16 +582,23 @@ module Synapse
     def parse_watcher_config(watcher)
       config = {}
 
-      section_fields.each do |section, fields|
-        config[section] = []
+      watcher.haproxy['config'].each do |setting|
+        used = false
+        parsed_setting = setting.strip.gsub(/s+/, ' ').downcase
 
-        fields.each do |field|
-          watcher.haproxy['config'].each do |setting|
-            if setting.strip.gsub(/s+/, ' ').downcase.start_with? field
+        section_fields.each do |section, fields|
+          config[section] ||= []
+
+          fields.each do |field|
+            if parsed_setting.start_with? field
               config[section] << setting
+              used = true
+              break
             end
           end
         end
+
+        log.warn "synapse: setting `#{setting}` in watcher #{watcher.name} is not valid"
       end
 
       return config
