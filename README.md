@@ -152,6 +152,17 @@ The watcher assumes that each node under `path` represents a service server.
 Synapse attempts to decode the data in each of these nodes using JSON and also using Thrift under the standard Twitter service encoding.
 We assume that the data contains a hostname and a port for service servers.
 
+##### Docker #####
+
+This watcher retrieves a list of [docker](http://www.docker.io/) containers via docker's [HTTP API](http://docs.docker.io/en/latest/api/docker_remote_api/).
+It takes the following options:
+
+* `method`: docker
+* `servers`: a list of servers running docker as a daemon. Format is `{"name":"...", "host": "..."[, port: 4243]}`
+* `image_name`: find containers running this image
+* `container_port`: find containers forwarding this port
+* `check_interval`: how often to poll the docker API on each server. Default is 15s.
+
 #### Listing Default Servers ####
 
 You may list a number of default servers providing a service.
