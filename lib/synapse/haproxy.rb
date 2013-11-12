@@ -587,13 +587,13 @@ module Synapse
         # copy over the settings from the 'listen' section that pertain to section
         config[section].concat(
           watcher.haproxy['listen'].select {|setting|
-            parsed_setting = setting.strip.gsub(/s+/, ' ').downcase
+            parsed_setting = setting.strip.gsub(/\s+/, ' ').downcase
             @@section_fields[section].any? {|field| parsed_setting.start_with?(field)}
           })
 
         # pick only those fields that are valid and warn about the invalid ones
         config[section].select!{|setting|
-          parsed_setting = setting.strip.gsub(/s+/, ' ').downcase
+          parsed_setting = setting.strip.gsub(/\s+/, ' ').downcase
           if @@section_fields[section].any? {|field| parsed_setting.start_with?(field)}
             true
           else
