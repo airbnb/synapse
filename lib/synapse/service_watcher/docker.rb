@@ -23,8 +23,7 @@ module Synapse
     end
 
     def watch
-      last_containers = containers
-      configure_backends(last_containers)
+      last_containers = []
       while true
         begin
           start = Time.now
