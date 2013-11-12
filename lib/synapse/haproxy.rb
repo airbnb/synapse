@@ -7,7 +7,7 @@ module Synapse
 
     # these come from the documentation for haproxy 1.5
     # http://haproxy.1wt.eu/download/1.5/doc/configuration.txt
-    section_fields = {
+    @@section_fields = {
       "backend" => [
         "acl",
         "appsession",
@@ -546,7 +546,7 @@ module Synapse
       watchers.each do |watcher|
         @watcher_configs[watcher.name] ||= parse_watcher_config(watcher)
 
-        new_config << generate_listen_stanza(watcher, @watcher_configs[watcher.name]['listen'])
+        new_config << generate_frontend_stanza(watcher, @watcher_configs[watcher.name]['frontend'])
         new_config << generate_backend_stanza(watcher, @watcher_configs[watcher.name]['backend'])
       end
 
@@ -578,42 +578,47 @@ module Synapse
     end
 
     # split the haproxy config in each watcher into fields applicable in
-    # listen, backend, frontend, and defaults sections
+    # frontend and backend sections
     def parse_watcher_config(watcher)
       config = {}
+      %w{frontend backend}.each do |section|
+        config[section] = watcher.haproxy[section] || []
 
-      watcher.haproxy['config'].each do |setting|
-        used = false
-        parsed_setting = setting.strip.gsub(/s+/, ' ').downcase
+        # copy over the settings from the 'listen' section that pertain to section
+        config[section].concat(
+          watcher.haproxy['listen'].select {|setting|
+            parsed_setting = setting.strip.gsub(/s+/, ' ').downcase
+            @@section_fields[section].any? {|field| parsed_setting.start_with?(field)}
+          })
 
-        section_fields.each do |section, fields|
-          config[section] ||= []
-
-          fields.each do |field|
-            if parsed_setting.start_with? field
-              config[section] << setting
-              used = true
-              break
-            end
+        # pick only those fields that are valid and warn about the invalid ones
+        config[section].select!{|setting|
+          parsed_setting = setting.strip.gsub(/s+/, ' ').downcase
+          if @@section_fields[section].any? {|field| parsed_setting.start_with?(field)}
+            true
+          else
+            log.warn "synapse: service #{watcher.name} contains invalid #{section} setting: '#{setting}'"
+            false
           end
-        end
-
-        log.warn "synapse: setting `#{setting}` in watcher #{watcher.name} is not valid"
+        }
       end
 
       return config
     end
 
     # generates an individual stanza for a particular watcher
-    def generate_listen_stanza(watcher, config)
+    def generate_frontend_stanza(watcher, config)
       unless watcher.haproxy.has_key?("port")
-        log.debug "synapse: not generating listen stanza for watcher #{watcher.name} because it has no port defined"
+        log.debug "synapse: not generating frontend stanza for watcher #{watcher.name} because it has no port defined"
         return []
       end
 
-      stanza = ["\nlisten #{watcher.name}_in localhost:#{watcher.haproxy['port']}",
+      stanza = [
+        "\nfrontend #{watcher.name}_in",
         config,
-        "\tdefault_backend #{watcher.name}"]
+        "\tbind localhost:#{watcher.haproxy['port']}",
+        "\tdefault_backend #{watcher.name}"
+      ]
 
       return stanza.flatten
     end
@@ -621,7 +626,6 @@ module Synapse
     def generate_backend_stanza(watcher, config)
       if watcher.backends.empty?
         log.warn "synapse: no backends found for watcher #{watcher.name}"
-        return []
       end
 
       stanza = ["\nbackend #{watcher.name}", config]
@@ -630,6 +634,7 @@ module Synapse
         backend_name = construct_name(backend)
         stanza << "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}"
       end
+
       return stanza
     end
 
