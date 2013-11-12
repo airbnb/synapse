@@ -614,13 +614,11 @@ module Synapse
       end
 
       stanza = [
-        "\nfrontend #{watcher.name}_in",
-        config,
+        "\nfrontend #{watcher.name}",
+        config.map {|c| "\t#{c}"},
         "\tbind localhost:#{watcher.haproxy['port']}",
         "\tdefault_backend #{watcher.name}"
       ]
-
-      return stanza.flatten
     end
 
     def generate_backend_stanza(watcher, config)
@@ -628,14 +626,13 @@ module Synapse
         log.warn "synapse: no backends found for watcher #{watcher.name}"
       end
 
-      stanza = ["\nbackend #{watcher.name}", config]
-
-      watcher.backends.shuffle.each do |backend|
-        backend_name = construct_name(backend)
-        stanza << "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}"
-      end
-
-      return stanza
+      stanza = [
+        "\nbackend #{watcher.name}",
+        config.map {|c| "\t#{c}"},
+        watcher.backends.shuffle.map {|backend|
+          backend_name = construct_name(backend)
+          "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}" }
+      ]
     end
 
     # tries to set active backends via haproxy's stats socket
