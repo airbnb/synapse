@@ -1,0 +1,24 @@
+{
+  "default_servers": [
+    { "name": "default1", "host": "localhost", "port": 8080 }
+  ],
+  "discovery": {
+    "method": "dns",
+    "nameserver": "10.10.1.13",
+    "servers": [
+      "0.www.example.com",
+      "1.www.example.com"
+    ]
+  },
+  "haproxy": {
+    "server_options": "check inter 2s rise 3 fall 2",
+    "listen": [
+      "mode http",
+      "option httplog"
+    ],
+    "backend": [
+      "mode http",
+      "option httpchk GET /health HTTP/1.0"
+    ]
+  }
+}
