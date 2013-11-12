@@ -17,11 +17,19 @@ module Synapse
 
       # the haproxy config
       @haproxy = opts['haproxy']
-      log.warn "haproxy config for service #{name} does not include a port: a generic backend will be created but it's on you to move traffic there somehow in extra_sections" unless @haproxy.include?('port')
-
-      @haproxy['listen'] ||= []
       @haproxy['server_options'] ||= ""
       @haproxy['server_port_override'] ||= nil
+      %w{backend frontend listen}.each do |sec|
+        @haproxy[sec] ||= []
+      end
+
+      unless @haproxy.include?('port')
+        log.warn "synapse: service #{name}: haproxy config does not include a port; only backend sections for the service will be created; you must move traffic there manually using configuration in `extra_sections`"
+      end
+
+      unless @haproxy['listen'].empty?
+        log.warn "synapse: service #{name}: haproxy config contains deprecated listen section; use frontend/backend sections instead"
+      end
 
       # set initial backends to default servers, if any
       @default_servers = opts['default_servers'] || []
