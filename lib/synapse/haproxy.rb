@@ -550,7 +550,7 @@ module Synapse
         new_config << generate_backend_stanza(watcher, @watcher_configs[watcher.name]['backend'])
       end
 
-      log.debug "synapse: new haproxy config: #{new_config}"
+      log.debug "synapse: new haproxy config: #{new_config.flatten.join("\n")}"
       return new_config.flatten.join("\n")
     end
 
@@ -616,7 +616,7 @@ module Synapse
       stanza = [
         "\nfrontend #{watcher.name}",
         config.map {|c| "\t#{c}"},
-        "\tbind localhost:#{watcher.haproxy['port']}",
+        "\tbind 0.0.0.0:#{watcher.haproxy['port']}",
         "\tdefault_backend #{watcher.name}"
       ]
     end
