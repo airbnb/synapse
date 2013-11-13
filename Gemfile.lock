@@ -1,14 +1,22 @@
 PATH
   remote: .
   specs:
-    synapse (0.6.0)
+    synapse (0.7.0)
+      docker-api (~> 1.6.0)
       zk (~> 1.9.2)
 
 GEM
   remote: https://rubygems.org/
   specs:
+    archive-tar-minitar (0.5.2)
     coderay (1.0.9)
     diff-lcs (1.2.4)
+    docker-api (1.6.0)
+      archive-tar-minitar
+      excon (>= 0.27.3)
+      json
+    excon (0.29.0)
+    json (1.8.1)
     little-plugger (1.1.3)
     logging (1.7.2)
       little-plugger (>= 1.1.3)
@@ -31,7 +39,7 @@ GEM
     zk (1.9.2)
       logging (~> 1.7.2)
       zookeeper (~> 1.4.0)
-    zookeeper (1.4.6)
+    zookeeper (1.4.7)
 
 PLATFORMS
   ruby
