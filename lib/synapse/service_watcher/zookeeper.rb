@@ -7,8 +7,15 @@ module Synapse
     def start
       zk_hosts = @discovery['hosts'].shuffle.join(',')
 
-      log.info "synapse: starting ZK watcher #{@name} @ hosts: #{zk_hosts}, path: #{@discovery['path']}"
+      # support old-style configuration files
+      if @discovery['path'].class == String
+        log.warn "synapse: zookeeper discovery 'path' section should be a list, not a string"
+        @discovery['path'] = [@discovery['path']]
+      end
+
+      log.info "synapse: starting ZK watcher #{@name} @ hosts: #{zk_hosts}, paths: #{@discovery['path'].join(',')}"
       @zk = ZK.new(zk_hosts)
+      @path_watchers = {}
 
       # call the callback to bootstrap the process
       watcher_callback.call
@@ -40,45 +47,63 @@ module Synapse
     def discover
       log.info "synapse: discovering backends for service #{@name}"
 
-      new_backends = []
-      begin
-        @zk.children(@discovery['path'], :watch => true).map do |name|
-          node = @zk.get("#{@discovery['path']}/#{name}")
+      new_backends = {}
 
-          begin
-            host, port = deserialize_service_instance(node.first)
-          rescue
-            log.error "synapse: invalid data in ZK node #{name} at #{@discovery['path']}"
-          else
-            server_port = @server_port_override ? @server_port_override : port
+      @discovery['path'].each do |path|
 
-            log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
-            new_backends << { 'name' => name, 'host' => host, 'port' => server_port}
+        begin
+          @zk.children(path, :watch => true).map do |name|
+            node = @zk.get("#{path}/#{name}")
+
+            begin
+              host, port = deserialize_service_instance(node.first)
+            rescue
+              log.error "synapse: invalid data in ZK node #{name} at #{path}"
+            else
+              server_port = @server_port_override ? @server_port_override : port
+
+              log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name} at path #{path}"
+              (new_backends[path] ||= []) << { 'name' => name, 'host' => host, 'port' => server_port}
+            end
           end
+        rescue ZK::Exceptions::NoNode
+          # the path must exist, otherwise watch callbacks will not work
+          create(path)
+          retry
         end
-      rescue ZK::Exceptions::NoNode
-        # the path must exist, otherwise watch callbacks will not work
-        create(@discovery['path'])
-        retry
+
       end
 
-      if new_backends.empty?
-        if @default_servers.empty?
-          log.warn "synapse: no backends and no default servers for service #{@name}; using previous backends: #{@backends.inspect}"
+      return_backends = []
+      @discovery['path'].each do |path|
+        if (new_backends[path] ||= []).empty?
+          log.warn "synapse: no backends found for service #{@name} at path #{path}"
         else
-          log.warn "synapse: no backends for service #{@name}; using default servers: #{@default_servers.inspect}"
+          log.info "synapse: discovered #{new_backends[path].length} backends for service #{@name} at path #{path}"
+          return_backends = new_backends[path]
+          # return the first non-empty backend set
+          break
+        end
+      end
+
+      if return_backends.empty?
+        if @default_servers.empty?
+          log.warn "synapse: no backends at any path and no default servers for service #{@name}; using previous backends: #{@backends.inspect}"
+        else
+          log.warn "synapse: no backends at any path for service #{@name}; using default servers: #{@default_servers.inspect}"
           @backends = @default_servers
         end
       else
-        log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
-        @backends = new_backends
+        @backends = return_backends
       end
     end
 
     # sets up zookeeper callbacks if the data at the discovery path changes
     def watch
-      @watcher.unsubscribe if defined? @watcher
-      @watcher = @zk.register(@discovery['path'], &watcher_callback)
+      @discovery['path'].each do |path|
+        @path_watchers[path].unsubscribe if defined? @watcher
+        @path_watchers[path] = @zk.register(path, &watcher_callback)
+      end
     end
 
     # handles the event that a watched path has changed in zookeeper

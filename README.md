@@ -145,10 +145,10 @@ This watcher retrieves a list of servers from zookeeper.
 It takes the following options:
 
 * `method`: zookeeper
-* `path`: the zookeeper path where ephemeral nodes will be created for each available service server
+* `path`: the zookeeper paths where ephemeral nodes will be created for each available service server
 * `hosts`: the list of zookeeper servers to query
 
-The watcher assumes that each node under `path` represents a service server.
+The watcher assumes that each node under each path represents a service server.  Paths are searched in order; if no nodes are found in the first path, the second one is used and so on.
 Synapse attempts to decode the data in each of these nodes using JSON and also using Thrift under the standard Twitter service encoding.
 We assume that the data contains a hostname and a port for service servers.
 
