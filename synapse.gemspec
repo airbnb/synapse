@@ -18,6 +18,7 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
 
   gem.add_runtime_dependency "zk", "~> 1.9.2"
+  gem.add_runtime_dependency "aws-sdk", "~> 1.25.0"
 
   gem.add_development_dependency "rspec"
   gem.add_development_dependency "pry"
