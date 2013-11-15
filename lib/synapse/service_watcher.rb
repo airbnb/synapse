@@ -1,8 +1,8 @@
-require_relative "./service_watcher/base"
-require_relative "./service_watcher/zookeeper"
-require_relative "./service_watcher/ec2tag"
-require_relative "./service_watcher/dns"
-require_relative "./service_watcher/docker"
+require "synapse/service_watcher/base"
+require "synapse/service_watcher/zookeeper"
+require "synapse/service_watcher/ec2tag"
+require "synapse/service_watcher/dns"
+require "synapse/service_watcher/docker"
 
 module Synapse
   class ServiceWatcher

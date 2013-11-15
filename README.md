@@ -213,7 +213,7 @@ If you'd like to create a new service watcher:
 1. Create a file for your watcher in `service_watcher` dir
 2. Use the following template:
 ```ruby
-require_relative "./base"
+require_relative "synapse/service_watcher/base"
 module Synapse
   class NewWatcher < BaseWatcher
     def start
