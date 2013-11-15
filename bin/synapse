@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-require 'json'
+require 'yaml'
 require 'optparse'
 
 require_relative "../lib/synapse"
@@ -34,13 +34,13 @@ optparse.parse!
 def parseconfig(filename)
   # parse synapse config file
   begin
-    c = JSON::parse(File.read(filename))
+    c = YAML::load(File.read(filename))
   rescue Errno::ENOENT => e
     raise ArgumentError, "config file does not exist:\n#{e.inspect}"
   rescue Errno::EACCES => e
     raise ArgumentError, "could not open config file:\n#{e.inspect}"
-  rescue JSON::ParserError => e
-    raise "config file #{filename} is not json:\n#{e.inspect}"
+  rescue YAML::ParseError => e
+    raise "config file #{filename} is not yaml:\n#{e.inspect}"
   end
   return c
 end
@@ -53,8 +53,8 @@ if config.has_key?('service_conf_dir')
   if ! Dir.exists?(cdir)
     raise "service conf dir does not exist:#{cdir}"
   end
-  cfiles = Dir.glob(File.join(cdir, '*.json'))
-  cfiles.each { |x| config['services'][File.basename(x[/(.*)\.json$/, 1])] = parseconfig(x) }
+  cfiles = Dir.glob(File.join(cdir, '*.{json,yaml}'))
+  cfiles.each { |x| config['services'][File.basename(x[/(.*)\.(json|yaml)$/, 1])] = parseconfig(x) }
 end
 
 
