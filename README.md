@@ -54,10 +54,7 @@ Add a hash under `services` that looks like this:
 
 ```json
 {"services":
-    {
-      "name": "proddb",
-      "local_port": 3219,
-      "server_options": "check inter 2000 rise 3 fall 2",
+    "proddb": {
       "default_servers": [
         {
           "name": "default-db",
@@ -70,8 +67,16 @@ Add a hash under `services` that looks like this:
         "tag": "proddb",
         "value": "true"
       },
-      "listen": [
-      ]
+      "haproxy": {
+        "port": 3219,
+        "server_options": "check inter 2000 rise 3 fall 2",
+        "frontend": [
+          "mode tcp",
+        ],
+        "backend": [
+          "mode tcp",
+        ],
+      },
     },
 ...
 ```
@@ -147,6 +152,17 @@ The watcher assumes that each node under `path` represents a service server.
 Synapse attempts to decode the data in each of these nodes using JSON and also using Thrift under the standard Twitter service encoding.
 We assume that the data contains a hostname and a port for service servers.
 
+##### Docker #####
+
+This watcher retrieves a list of [docker](http://www.docker.io/) containers via docker's [HTTP API](http://docs.docker.io/en/latest/api/docker_remote_api/).
+It takes the following options:
+
+* `method`: docker
+* `servers`: a list of servers running docker as a daemon. Format is `{"name":"...", "host": "..."[, port: 4243]}`
+* `image_name`: find containers running this image
+* `container_port`: find containers forwarding this port
+* `check_interval`: how often to poll the docker API on each server. Default is 15s.
+
 #### Listing Default Servers ####
 
 You may list a number of default servers providing a service.
@@ -167,7 +183,9 @@ This section is it's own hash, which should contain the following keys:
 * `port`: the port (on localhost) where HAProxy will listen for connections to the service.
 * `server_port_override`: the port that discovered servers listen on; you should specify this if your discovery mechanism only discovers names or addresses (like the DNS watcher). If the discovery method discovers a port along with hostnames (like the zookeeper watcher) this option may be left out, but will be used in preference if given.
 * `server_options`: the haproxy options for each `server` line of the service in HAProxy config; it may be left out.
-* `listen`: additional lines passed to the HAProxy config in the `listen` stanza of this service
+* `frontend`: additional lines passed to the HAProxy config in the `frontend` stanza of this service
+* `backend`: additional lines passed to the HAProxy config in the `backend` stanza of this service
+* `listen`: these lines will be parsed and placed in the correct `frontend`/`backend` section as applicable; you can put lines which are the same for the frontend and backend here.
 
 ### Configuring HAProxy ###
 

@@ -4,6 +4,494 @@ require 'digest'
 module Synapse
   class Haproxy
     attr_reader :opts
+
+    # these come from the documentation for haproxy 1.5
+    # http://haproxy.1wt.eu/download/1.5/doc/configuration.txt
+    @@section_fields = {
+      "backend" => [
+        "acl",
+        "appsession",
+        "balance",
+        "bind-process",
+        "block",
+        "compression",
+        "contimeout",
+        "cookie",
+        "default-server",
+        "description",
+        "disabled",
+        "dispatch",
+        "enabled",
+        "errorfile",
+        "errorloc",
+        "errorloc302",
+        "errorloc303",
+        "force-persist",
+        "fullconn",
+        "grace",
+        "hash-type",
+        "http-check disable-on-404",
+        "http-check expect",
+        "http-check send-state",
+        "http-request",
+        "http-response",
+        "id",
+        "ignore-persist",
+        "log",
+        "mode",
+        "option abortonclose",
+        "option accept-invalid-http-response",
+        "option allbackups",
+        "option checkcache",
+        "option forceclose",
+        "option forwardfor",
+        "option http-no-delay",
+        "option http-pretend-keepalive",
+        "option http-server-close",
+        "option httpchk",
+        "option httpclose",
+        "option httplog",
+        "option http_proxy",
+        "option independent-streams",
+        "option lb-agent-chk",
+        "option ldap-check",
+        "option log-health-checks",
+        "option mysql-check",
+        "option pgsql-check",
+        "option nolinger",
+        "option originalto",
+        "option persist",
+        "option redispatch",
+        "option redis-check",
+        "option smtpchk",
+        "option splice-auto",
+        "option splice-request",
+        "option splice-response",
+        "option srvtcpka",
+        "option ssl-hello-chk",
+        "option tcp-smart-connect",
+        "option tcpka",
+        "option tcplog",
+        "option transparent",
+        "persist rdp-cookie",
+        "redirect",
+        "redisp",
+        "redispatch",
+        "reqadd",
+        "reqallow",
+        "reqdel",
+        "reqdeny",
+        "reqiallow",
+        "reqidel",
+        "reqideny",
+        "reqipass",
+        "reqirep",
+        "reqisetbe",
+        "reqitarpit",
+        "reqpass",
+        "reqrep",
+        "reqsetbe",
+        "reqtarpit",
+        "retries",
+        "rspadd",
+        "rspdel",
+        "rspdeny",
+        "rspidel",
+        "rspideny",
+        "rspirep",
+        "rsprep",
+        "server",
+        "source",
+        "srvtimeout",
+        "stats admin",
+        "stats auth",
+        "stats enable",
+        "stats hide-version",
+        "stats http-request",
+        "stats realm",
+        "stats refresh",
+        "stats scope",
+        "stats show-desc",
+        "stats show-legends",
+        "stats show-node",
+        "stats uri",
+        "stick match",
+        "stick on",
+        "stick store-request",
+        "stick store-response",
+        "stick-table",
+        "tcp-request content",
+        "tcp-request inspect-delay",
+        "tcp-response content",
+        "tcp-response inspect-delay",
+        "timeout check",
+        "timeout connect",
+        "timeout contimeout",
+        "timeout http-keep-alive",
+        "timeout http-request",
+        "timeout queue",
+        "timeout server",
+        "timeout srvtimeout",
+        "timeout tarpit",
+        "timeout tunnel",
+        "transparent",
+        "use-server"
+      ],
+      "defaults" => [
+        "backlog",
+        "balance",
+        "bind-process",
+        "clitimeout",
+        "compression",
+        "contimeout",
+        "cookie",
+        "default-server",
+        "default_backend",
+        "disabled",
+        "enabled",
+        "errorfile",
+        "errorloc",
+        "errorloc302",
+        "errorloc303",
+        "fullconn",
+        "grace",
+        "hash-type",
+        "http-check disable-on-404",
+        "http-check send-state",
+        "log",
+        "maxconn",
+        "mode",
+        "monitor-net",
+        "monitor-uri",
+        "option abortonclose",
+        "option accept-invalid-http-request",
+        "option accept-invalid-http-response",
+        "option allbackups",
+        "option checkcache",
+        "option clitcpka",
+        "option contstats",
+        "option dontlog-normal",
+        "option dontlognull",
+        "option forceclose",
+        "option forwardfor",
+        "option http-no-delay",
+        "option http-pretend-keepalive",
+        "option http-server-close",
+        "option http-use-proxy-header",
+        "option httpchk",
+        "option httpclose",
+        "option httplog",
+        "option http_proxy",
+        "option independent-streams",
+        "option lb-agent-chk",
+        "option ldap-check",
+        "option log-health-checks",
+        "option log-separate-errors",
+        "option logasap",
+        "option mysql-check",
+        "option pgsql-check",
+        "option nolinger",
+        "option originalto",
+        "option persist",
+        "option redispatch",
+        "option redis-check",
+        "option smtpchk",
+        "option socket-stats",
+        "option splice-auto",
+        "option splice-request",
+        "option splice-response",
+        "option srvtcpka",
+        "option ssl-hello-chk",
+        "option tcp-smart-accept",
+        "option tcp-smart-connect",
+        "option tcpka",
+        "option tcplog",
+        "option transparent",
+        "persist rdp-cookie",
+        "rate-limit sessions",
+        "redisp",
+        "redispatch",
+        "retries",
+        "source",
+        "srvtimeout",
+        "stats auth",
+        "stats enable",
+        "stats hide-version",
+        "stats realm",
+        "stats refresh",
+        "stats scope",
+        "stats show-desc",
+        "stats show-legends",
+        "stats show-node",
+        "stats uri",
+        "timeout check",
+        "timeout client",
+        "timeout clitimeout",
+        "timeout connect",
+        "timeout contimeout",
+        "timeout http-keep-alive",
+        "timeout http-request",
+        "timeout queue",
+        "timeout server",
+        "timeout srvtimeout",
+        "timeout tarpit",
+        "timeout tunnel",
+        "transparent",
+        "unique-id-format",
+        "unique-id-header"
+      ],
+      "frontend" => [
+        "acl",
+        "backlog",
+        "bind",
+        "bind-process",
+        "block",
+        "capture cookie",
+        "capture request header",
+        "capture response header",
+        "clitimeout",
+        "compression",
+        "default_backend",
+        "description",
+        "disabled",
+        "enabled",
+        "errorfile",
+        "errorloc",
+        "errorloc302",
+        "errorloc303",
+        "force-persist",
+        "grace",
+        "http-request",
+        "http-response",
+        "id",
+        "ignore-persist",
+        "log",
+        "maxconn",
+        "mode",
+        "monitor fail",
+        "monitor-net",
+        "monitor-uri",
+        "option accept-invalid-http-request",
+        "option clitcpka",
+        "option contstats",
+        "option dontlog-normal",
+        "option dontlognull",
+        "option forceclose",
+        "option forwardfor",
+        "option http-no-delay",
+        "option http-pretend-keepalive",
+        "option http-server-close",
+        "option http-use-proxy-header",
+        "option httpclose",
+        "option httplog",
+        "option http_proxy",
+        "option independent-streams",
+        "option log-separate-errors",
+        "option logasap",
+        "option nolinger",
+        "option originalto",
+        "option socket-stats",
+        "option splice-auto",
+        "option splice-request",
+        "option splice-response",
+        "option tcp-smart-accept",
+        "option tcpka",
+        "option tcplog",
+        "rate-limit sessions",
+        "redirect",
+        "reqadd",
+        "reqallow",
+        "reqdel",
+        "reqdeny",
+        "reqiallow",
+        "reqidel",
+        "reqideny",
+        "reqipass",
+        "reqirep",
+        "reqisetbe",
+        "reqitarpit",
+        "reqpass",
+        "reqrep",
+        "reqsetbe",
+        "reqtarpit",
+        "rspadd",
+        "rspdel",
+        "rspdeny",
+        "rspidel",
+        "rspideny",
+        "rspirep",
+        "rsprep",
+        "tcp-request connection",
+        "tcp-request content",
+        "tcp-request inspect-delay",
+        "timeout client",
+        "timeout clitimeout",
+        "timeout http-keep-alive",
+        "timeout http-request",
+        "timeout tarpit",
+        "unique-id-format",
+        "unique-id-header",
+        "use_backend"
+      ],
+      "listen" => [
+        "acl",
+        "appsession",
+        "backlog",
+        "balance",
+        "bind",
+        "bind-process",
+        "block",
+        "capture cookie",
+        "capture request header",
+        "capture response header",
+        "clitimeout",
+        "compression",
+        "contimeout",
+        "cookie",
+        "default-server",
+        "default_backend",
+        "description",
+        "disabled",
+        "dispatch",
+        "enabled",
+        "errorfile",
+        "errorloc",
+        "errorloc302",
+        "errorloc303",
+        "force-persist",
+        "fullconn",
+        "grace",
+        "hash-type",
+        "http-check disable-on-404",
+        "http-check expect",
+        "http-check send-state",
+        "http-request",
+        "http-response",
+        "id",
+        "ignore-persist",
+        "log",
+        "maxconn",
+        "mode",
+        "monitor fail",
+        "monitor-net",
+        "monitor-uri",
+        "option abortonclose",
+        "option accept-invalid-http-request",
+        "option accept-invalid-http-response",
+        "option allbackups",
+        "option checkcache",
+        "option clitcpka",
+        "option contstats",
+        "option dontlog-normal",
+        "option dontlognull",
+        "option forceclose",
+        "option forwardfor",
+        "option http-no-delay",
+        "option http-pretend-keepalive",
+        "option http-server-close",
+        "option http-use-proxy-header",
+        "option httpchk",
+        "option httpclose",
+        "option httplog",
+        "option http_proxy",
+        "option independent-streams",
+        "option lb-agent-chk",
+        "option ldap-check",
+        "option log-health-checks",
+        "option log-separate-errors",
+        "option logasap",
+        "option mysql-check",
+        "option pgsql-check",
+        "option nolinger",
+        "option originalto",
+        "option persist",
+        "option redispatch",
+        "option redis-check",
+        "option smtpchk",
+        "option socket-stats",
+        "option splice-auto",
+        "option splice-request",
+        "option splice-response",
+        "option srvtcpka",
+        "option ssl-hello-chk",
+        "option tcp-smart-accept",
+        "option tcp-smart-connect",
+        "option tcpka",
+        "option tcplog",
+        "option transparent",
+        "persist rdp-cookie",
+        "rate-limit sessions",
+        "redirect",
+        "redisp",
+        "redispatch",
+        "reqadd",
+        "reqallow",
+        "reqdel",
+        "reqdeny",
+        "reqiallow",
+        "reqidel",
+        "reqideny",
+        "reqipass",
+        "reqirep",
+        "reqisetbe",
+        "reqitarpit",
+        "reqpass",
+        "reqrep",
+        "reqsetbe",
+        "reqtarpit",
+        "retries",
+        "rspadd",
+        "rspdel",
+        "rspdeny",
+        "rspidel",
+        "rspideny",
+        "rspirep",
+        "rsprep",
+        "server",
+        "source",
+        "srvtimeout",
+        "stats admin",
+        "stats auth",
+        "stats enable",
+        "stats hide-version",
+        "stats http-request",
+        "stats realm",
+        "stats refresh",
+        "stats scope",
+        "stats show-desc",
+        "stats show-legends",
+        "stats show-node",
+        "stats uri",
+        "stick match",
+        "stick on",
+        "stick store-request",
+        "stick store-response",
+        "stick-table",
+        "tcp-request connection",
+        "tcp-request content",
+        "tcp-request inspect-delay",
+        "tcp-response content",
+        "tcp-response inspect-delay",
+        "timeout check",
+        "timeout client",
+        "timeout clitimeout",
+        "timeout connect",
+        "timeout contimeout",
+        "timeout http-keep-alive",
+        "timeout http-request",
+        "timeout queue",
+        "timeout server",
+        "timeout srvtimeout",
+        "timeout tarpit",
+        "timeout tunnel",
+        "transparent",
+        "unique-id-format",
+        "unique-id-header",
+        "use_backend",
+        "use-server"
+      ]
+    }
+
     def initialize(opts)
       super()
 
@@ -28,6 +516,9 @@ module Synapse
       @restart_interval = 2
       @restart_required = true
       @last_restart = Time.new(0)
+
+      # a place to store the parsed haproxy config from each watcher
+      @watcher_configs = {}
     end
 
     def update_config(watchers)
@@ -50,31 +541,35 @@ module Synapse
 
     # generates a new config based on the state of the watchers
     def generate_config(watchers)
-      new_config = generate_base_config + "\n"
+      new_config = generate_base_config
 
-      new_config << watchers.map {|w| generate_listen_stanza(w)}.join("\n")
-      new_config << watchers.map {|w| generate_backend_stanza(w)}.join("\n")
+      watchers.each do |watcher|
+        @watcher_configs[watcher.name] ||= parse_watcher_config(watcher)
+
+        new_config << generate_frontend_stanza(watcher, @watcher_configs[watcher.name]['frontend'])
+        new_config << generate_backend_stanza(watcher, @watcher_configs[watcher.name]['backend'])
+      end
 
       log.debug "synapse: new haproxy config: #{new_config}"
-      return new_config
+      return new_config.flatten.join("\n")
     end
 
     # generates the global and defaults sections of the config file
     def generate_base_config
-      base_config = "# auto-generated by synapse at #{Time.now}\n"
+      base_config = ["# auto-generated by synapse at #{Time.now}\n"]
 
       %w{global defaults}.each do |section|
-        base_config << "\n#{section}\n"
+        base_config << "#{section}"
         @opts[section].each do |option|
-          base_config << "\t#{option}\n"
+          base_config << "\t#{option}"
         end
       end
 
       if @opts['extra_sections']
         @opts['extra_sections'].each do |title, section|
-          base_config << "\n#{title}\n"
+          base_config << "\n#{title}"
           section.each do |option|
-            base_config << "\t#{option}\n"
+            base_config << "\t#{option}"
           end
         end
       end
@@ -82,41 +577,62 @@ module Synapse
       return base_config
     end
 
-    # generates an individual stanza for a particular watcher
-    def generate_listen_stanza(watcher)
-      unless watcher.haproxy.has_key?("port") then
-        log.debug "synapse: not generating listen stanza for watcher #{watcher.name} because it has no port defined"
-        return ""
+    # split the haproxy config in each watcher into fields applicable in
+    # frontend and backend sections
+    def parse_watcher_config(watcher)
+      config = {}
+      %w{frontend backend}.each do |section|
+        config[section] = watcher.haproxy[section] || []
+
+        # copy over the settings from the 'listen' section that pertain to section
+        config[section].concat(
+          watcher.haproxy['listen'].select {|setting|
+            parsed_setting = setting.strip.gsub(/\s+/, ' ').downcase
+            @@section_fields[section].any? {|field| parsed_setting.start_with?(field)}
+          })
+
+        # pick only those fields that are valid and warn about the invalid ones
+        config[section].select!{|setting|
+          parsed_setting = setting.strip.gsub(/\s+/, ' ').downcase
+          if @@section_fields[section].any? {|field| parsed_setting.start_with?(field)}
+            true
+          else
+            log.warn "synapse: service #{watcher.name} contains invalid #{section} setting: '#{setting}'"
+            false
+          end
+        }
       end
 
-      stanza = "\nlisten #{watcher.name}_in localhost:#{watcher.haproxy['port']}\n"
-
-      watcher.haproxy['listen'].each do |line|
-        stanza << "\t#{line}\n"
-      end
-
-      stanza << "\tdefault_backend #{watcher.name}\n"
-
-      return stanza
+      return config
     end
 
-    def generate_backend_stanza(watcher)
+    # generates an individual stanza for a particular watcher
+    def generate_frontend_stanza(watcher, config)
+      unless watcher.haproxy.has_key?("port")
+        log.debug "synapse: not generating frontend stanza for watcher #{watcher.name} because it has no port defined"
+        return []
+      end
+
+      stanza = [
+        "\nfrontend #{watcher.name}",
+        config.map {|c| "\t#{c}"},
+        "\tbind localhost:#{watcher.haproxy['port']}",
+        "\tdefault_backend #{watcher.name}"
+      ]
+    end
+
+    def generate_backend_stanza(watcher, config)
       if watcher.backends.empty?
         log.warn "synapse: no backends found for watcher #{watcher.name}"
-        return ""
       end
 
-      stanza = "\nbackend #{watcher.name}\n"
-
-      watcher.haproxy['backend'].each do |line|
-        stanza << "\t#{line}\n"
-      end
-
-      watcher.backends.shuffle.each do |backend|
-        backend_name = construct_name(backend)
-        stanza << "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}\n"
-      end
-      return stanza
+      stanza = [
+        "\nbackend #{watcher.name}",
+        config.map {|c| "\t#{c}"},
+        watcher.backends.shuffle.map {|backend|
+          backend_name = construct_name(backend)
+          "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}" }
+      ]
     end
 
     # tries to set active backends via haproxy's stats socket
