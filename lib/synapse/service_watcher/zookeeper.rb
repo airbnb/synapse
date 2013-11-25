@@ -53,7 +53,7 @@ module Synapse
             server_port = @server_port_override ? @server_port_override : port
 
             log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
-            new_backends << { 'name' => name, 'host' => host, 'port' => server_port}
+            new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'backup' => @leader_election }
           end
         end
       rescue ZK::Exceptions::NoNode
@@ -72,6 +72,23 @@ module Synapse
       else
         log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
         @backends = new_backends
+
+        if @leader_election
+          log.info "synapse: electing a leader from the discovered backends"
+          begin
+            #sort the list of servers based on their sequence, and the server with lowest 
+            #sequence will be the leader
+            #Integer parsing added to check that a sequence has been appended to the node key
+            @backends = @backends.sort { |x, y| Integer(x['name'].gsub(/^.*-(0)*/, '')) <=> Integer(y['name'].gsub(/^.*-(0)*/, '')) }
+            @backends[0]['backup'] = false
+            log.debug "synapse: electing leader, updated backends #{@backends}"
+          rescue ArgumentError, NoMethodError
+            raise "'sequential' should be enabled in nerve configuration for service " \
+              "#{@name} to perform leader election, please enable 'sequential' in nerve" \
+              " configuration for all servers of #{@name} service,  or disable " \
+              "'leader_election' in synapse configuration"
+          end
+        end
       end
     end
 

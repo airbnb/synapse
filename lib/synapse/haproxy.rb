@@ -631,7 +631,7 @@ module Synapse
         config.map {|c| "\t#{c}"},
         watcher.backends.shuffle.map {|backend|
           backend_name = construct_name(backend)
-          "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}" }
+          "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}#{' backup' if backend['backup']}" }
       ]
     end
 
