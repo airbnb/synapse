@@ -75,20 +75,23 @@ module Synapse
 
         if @leader_election
           log.info "synapse: electing a leader from the discovered backends"
-          begin
-            #sort the list of servers based on their sequence, and the server with lowest 
-            #sequence will be the leader
-            #Integer parsing added to check that a sequence has been appended to the node key
-            @backends = @backends.sort { |x, y| Integer(x['name'].gsub(/^.*-(0)*/, '')) <=> Integer(y['name'].gsub(/^.*-(0)*/, '')) }
-            @backends[0]['backup'] = false
-            log.debug "synapse: electing leader, updated backends #{@backends}"
-          rescue ArgumentError, NoMethodError
-            raise "'sequential' should be enabled in nerve configuration for service " \
-              "#{@name} to perform leader election, please enable 'sequential' in nerve" \
-              " configuration for all servers of #{@name} service,  or disable " \
-              "'leader_election' in synapse configuration"
-          end
+          leader_election
         end
+      end
+    end
+
+    #sort the list of servers based on their sequence, and the server with lowest sequence will be the leader
+    def leader_election
+      begin
+        #Integer parsing added to check that a sequence has been appended to the node key
+        @backends = @backends.sort { |x, y| Integer(x['name'].gsub(/^.*-(0)*/, '')) <=> Integer(y['name'].gsub(/^.*-(0)*/, '')) }
+        @backends[0]['backup'] = false
+        log.debug "synapse: electing leader, updated backends #{@backends}"
+      rescue ArgumentError, NoMethodError
+        raise "'sequential' should be enabled in nerve configuration for service " \
+          "#{@name} to perform leader election, please enable 'sequential' in nerve" \
+          " configuration for all servers of #{@name} service,  or disable " \
+          "'leader_election' in synapse configuration"
       end
     end
 
