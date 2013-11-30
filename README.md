@@ -128,6 +128,7 @@ Each value in the services hash is also a hash, and should contain the following
 * `discovery`: how synapse will discover hosts providing this service (see below)
 * `default_servers`: the list of default servers providing this service; synapse uses these if none others can be discovered
 * `haproxy`: how will the haproxy section for this service be configured
+* `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
 
 #### Service Discovery ####
 
@@ -200,8 +201,99 @@ The `haproxy` section of the config file has the following options:
 * `global`: options listed here will be written into the `global` section of the HAProxy config
 * `defaults`: options listed here will be written into the `defaults` section of the HAProxy config
 * `bind_address`: force HAProxy to listen  on this address (default is localhost)
+* `shared_fronted`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
 
 Note that a non-default `bind_address` can be dangerous: it is up to you to ensure that HAProxy will not attempt to bind an address:port combination that is not already in use by one of your services.
+
+### HAProxy shared HTTP Frontend ###
+
+For HTTP-only services, it it not always necessary or desirable to dedicate a TCP port per service, since HAProxy can route traffic based on host headers.
+To support this, the optional `shared_fronted` section can be added to both the `haproxy` section and each indvidual service definition: synapse will concatenate them all into a single frontend section in the generated haproxy.cfg file.
+Note that synapse does not assemble the routing ACLs for you: you have to do that yourself based on your needs.
+This is probably most useful in combination with the `service_conf_dir` directive in a case where the individual service config files are being distributed by a configuration manager such as puppet or chef, or bundled into service packages.
+For example:
+
+```yaml
+{
+  "haproxy": {
+    "shared_frontend": [
+      "bind 127.0.0.1:8081"
+    ],
+    "reload_command": "service haproxy reload",
+    "config_file_path": "/etc/haproxy/haproxy.cfg",
+    "socket_file_path": "/var/run/haproxy.sock",
+    "global": [
+      "daemon",
+      "user    haproxy",
+      "group   haproxy",
+      "maxconn 4096",
+      "log     127.0.0.1 local2 notice",
+      "stats   socket /var/run/haproxy.sock"
+    ],
+    "defaults": [
+      "log      global",
+      "balance  roundrobin"
+    ]
+  },
+  "services": {
+    "service1": {
+      "discovery": {
+        "method": "zookeeper",
+        "path":  "/nerve/services/service1",
+        "hosts": [ "0.zookeeper.example.com:2181", ]
+      },
+      "haproxy": {
+        "server_options": "check inter 2s rise 3 fall 2",
+        "shared_frontend": [
+         "acl is_service1 hdr_dom(host) -i service1.lb.example.com",
+         "use_backend service1 if is_service1"
+        ],
+        "backend": [
+          "mode http"
+        ]
+      }
+    }
+    "service2": {
+      "discovery": {
+        "method": "zookeeper",
+        "path":  "/nerve/services/service2",
+        "hosts": [ "0.zookeeper.example.com:2181", ]
+      },
+      "haproxy": {
+        "server_options": "check inter 2s rise 3 fall 2",
+        "shared_frontend": [
+         "acl is_service1 hdr_dom(host) -i service2.lb.example.com",
+         "use_backend service2 if is_service2"
+        ],
+        "backend": [
+          "mode http"
+        ]
+      }
+    }
+  }
+}
+```
+
+This would produce an haproxy.cfg much like the following:
+
+```
+backend service1
+        mode http
+        server server1.example.net:80 server1.example.net:80 check inter 2s rise 3 fall 2
+
+backend service2
+        mode http
+        server server2.example.net:80 server2.example.net:80 check inter 2s rise 3 fall 2
+
+frontend shared-frontend
+        bind 127.0.0.1:8081
+        acl is_service1 hdr_dom(host) -i service1.lb
+        use_backend service1 if is_service1
+        acl is_service2 hdr_dom(host) -i service2.lb
+        use_backend service2 if is_service2
+```
+
+Non-HTTP backends such as MySQL or RabbitMQ will obviously continue to need their own dedicated ports.
 
 ## Contributing
 
