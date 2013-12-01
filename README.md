@@ -197,6 +197,9 @@ The `haproxy` section of the config file has the following options:
 * `do_reloads`: whether or not Synapse will reload HAProxy (default to `true`)
 * `global`: options listed here will be written into the `global` section of the HAProxy config
 * `defaults`: options listed here will be written into the `defaults` section of the HAProxy config
+* `bind_address`: force HAProxy to listen  on this address (default is localhost)
+
+Note that a non-default `bind_address` can be dangerous: it is up to you to ensure that HAProxy will not attempt to bind an address:port combination that is not already in use by one of your services.
 
 ## Contributing
 
