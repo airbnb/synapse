@@ -35,7 +35,7 @@ module Synapse
 
           sleep_until_next_check(start)
         rescue => e
-          log.warn "Error in watcher thread: #{e.inspect}"
+          log.warn "synapse: error in watcher thread: #{e.inspect}"
           log.warn e.backtrace
         end
       end
@@ -54,7 +54,7 @@ module Synapse
         begin
           cnts = Docker::Util.parse_json(Docker.connection.get('/containers/json', {}))
         rescue => e
-          log.warn "Error polling docker host #{Docker.url}: #{e.inspect}"
+          log.warn "synapse: error polling docker host #{Docker.url}: #{e.inspect}"
           next []
         end
         # "Ports" comes through (as of 0.6.5) as a string like "0.0.0.0:49153->6379/tcp, 0.0.0.0:49153->6379/tcp"
@@ -81,7 +81,7 @@ module Synapse
       end
       backends.flatten
     rescue => e
-      log.warn "Error while polling for containers: #{e.inspect}"
+      log.warn "synapse: error while polling for containers: #{e.inspect}"
       []
     end
 
