@@ -10,7 +10,10 @@
       ],
       "discovery": {
         "method": "zookeeper",
-        "path": "/airbnb/service/service1",
+        "path": [
+          "/airbnb/service/service1",
+          "/airbnb/service/backup"
+        ],
         "hosts": [
           "zk0.airbnb.com:2181",
           "zk1.airbnb.com:2181"
