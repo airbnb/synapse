@@ -1,8 +1,11 @@
+require 'synapse/log'
+
 require 'socket'
 require 'digest'
 
 module Synapse
   class Haproxy
+    include Logging
     attr_reader :opts
 
     # these come from the documentation for haproxy 1.5

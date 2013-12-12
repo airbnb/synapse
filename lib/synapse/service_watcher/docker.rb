@@ -1,4 +1,4 @@
-require_relative "./base"
+require "synapse/service_watcher/base"
 require 'docker'
 
 module Synapse

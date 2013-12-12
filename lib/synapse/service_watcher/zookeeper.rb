@@ -1,9 +1,11 @@
-require_relative "./base"
+require "synapse/service_watcher/base"
+require "synapse/log"
 
 require 'zk'
 
 module Synapse
   class ZookeeperWatcher < BaseWatcher
+    include Logging
     def start
       zk_hosts = @discovery['hosts'].shuffle.join(',')
 

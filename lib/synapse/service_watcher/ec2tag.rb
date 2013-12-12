@@ -1,4 +1,4 @@
-require_relative "./base"
+require "synapse/service_watcher/base"
 
 module Synapse
   class EC2Watcher < BaseWatcher
