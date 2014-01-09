@@ -1,6 +1,6 @@
 {
   "services": {
-    "service1" => {
+    "service1": {
       "default_servers": [
         {
           "name": "default1",
@@ -10,10 +10,9 @@
       ],
       "discovery": {
         "method": "zookeeper",
-        "path": "/airbnb/service/service1",
+        "path": "/services/service1",
         "hosts": [
-          "zk0.airbnb.com:2181",
-          "zk1.airbnb.com:2181"
+          "localhost:2181"
         ]
       },
       "haproxy": {
@@ -27,7 +26,7 @@
       }
       
     },
-    "service2" => {
+    "service2": {
       "default_servers": [
         {
           "name": "default1",
@@ -37,10 +36,9 @@
       ],
       "discovery": {
         "method": "zookeeper",
-        "path": "/airbnb/service/service2",
+        "path": "/services/service2",
         "hosts": [
-          "zk0.airbnb.com:2181",
-          "zk1.airbnb.com:2181"
+          "localhost:2181"
         ]
       },
       "haproxy": {
@@ -48,7 +46,7 @@
         "server_options": "check inter 2s rise 3 fall 2",
         "listen": [
           "mode http",
-          "option httpchk /health",
+          "option httpchk /health"
         ]
       }
     }
@@ -88,5 +86,5 @@
         "stats refresh 5s"
       ]
     }
-  },
+  }
 }
