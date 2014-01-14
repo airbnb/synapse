@@ -10,10 +10,21 @@ module Synapse
       zk_hosts = @discovery['hosts'].shuffle.join(',')
 
       log.info "synapse: starting ZK watcher #{@name} @ hosts: #{zk_hosts}, path: #{@discovery['path']}"
+      @should_exit = false
       @zk = ZK.new(zk_hosts)
 
       # call the callback to bootstrap the process
       watcher_callback.call
+    end
+
+    def stop
+      log.warn "synapse: zookeeper watcher exiting"
+
+      @should_exit = true
+      @watcher.unsubscribe if defined? @watcher
+      @zk.close! if defined? @zk
+
+      log.info "synapse: zookeeper watcher cleaned up successfully"
     end
 
     def ping?
@@ -79,6 +90,8 @@ module Synapse
 
     # sets up zookeeper callbacks if the data at the discovery path changes
     def watch
+      return if @should_exit
+
       @watcher.unsubscribe if defined? @watcher
       @watcher = @zk.register(@discovery['path'], &watcher_callback)
     end
