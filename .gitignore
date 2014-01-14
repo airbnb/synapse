@@ -19,3 +19,5 @@ tmp
 .vagrant
 .*sw?
 vendor/
+
+synapse.jar

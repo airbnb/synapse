@@ -24,7 +24,7 @@ module Synapse
 
     def watch
       last_containers = []
-      while true
+      until @should_exit
         begin
           start = Time.now
           current_containers = containers
@@ -39,6 +39,8 @@ module Synapse
           log.warn e.backtrace
         end
       end
+
+      log.info "synapse: docker watcher exited successfully"
     end
 
     def sleep_until_next_check(start_time)

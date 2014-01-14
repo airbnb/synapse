@@ -3,17 +3,17 @@
 require 'json'
 require 'optparse'
 
-require_relative "../lib/synapse"
+require 'synapse'
 
 options={}
 
 # set command line options
 optparse = OptionParser.new do |opts|
-  opts.banner =<<EOB
+  opts.banner =<<-EOB
 Welcome to synapse
 
 Usage: synapse --config /path/to/synapse/config
-EOB
+  EOB
 
   options[:config] = ENV['SYNAPSE_CONFIG']
   opts.on('-c config','--config config', String, 'path to synapse config') do |key,value|
@@ -24,9 +24,7 @@ EOB
     puts opts
     exit
   end
-
 end
-
 
 # parse command line arguments
 optparse.parse!
@@ -57,12 +55,8 @@ if config.has_key?('service_conf_dir')
   cfiles.each { |x| config['services'][File.basename(x[/(.*)\.json$/, 1])] = parseconfig(x) }
 end
 
-
-# create synapse object
-s = Synapse::Synapse.new config
-
-# start synapse
+# run synapse
+s = Synapse::Synapse.new(config)
 s.run
 
-
-puts "exiting synapse"
+puts "synapse has exited"

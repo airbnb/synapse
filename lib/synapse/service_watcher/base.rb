@@ -31,12 +31,23 @@ module Synapse
       @default_servers = opts['default_servers'] || []
       @backends = @default_servers
 
+      # set a flag used to tell the watchers to exit
+      # this is not used in every watcher
+      @should_exit = false
+
       validate_discovery_opts
     end
 
     # this should be overridden to actually start your watcher
     def start
       log.info "synapse: starting stub watcher; this means doing nothing at all!"
+    end
+
+    # this should be overridden to actually stop your watcher if necessary
+    # if you are running a thread, your loop should run `until @should_exit`
+    def stop
+      log.info "synapse: stopping watcher #{self.name} using default stop handler"
+      @should_exit = true
     end
 
     # this should be overridden to do a health check of the watcher
