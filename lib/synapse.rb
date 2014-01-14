@@ -53,7 +53,7 @@ module Synapse
 
     rescue StandardError => e
       log.error "synapse: encountered unexpected exception #{e.inspect} in main thread"
-      throw e
+      raise e
     ensure
       log.warn "synapse: exiting; sending stop signal to all watchers"
 
