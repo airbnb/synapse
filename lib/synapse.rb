@@ -50,6 +50,15 @@ module Synapse
         loops += 1
         log.debug "synapse: still running at #{Time.now}" if (loops % 60) == 0
       end
+
+    rescue StandardError => e
+      log.error "synapse: encountered unexpected exception #{e.inspect} in main thread"
+      throw e
+    ensure
+      log.warn "synapse: exiting; sending stop signal to all watchers"
+
+      # stop all the watchers
+      @service_watchers.map(&:stop)
     end
 
     def reconfigure!
