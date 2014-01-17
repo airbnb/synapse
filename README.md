@@ -238,6 +238,7 @@ end
 3. Implement the `start` and `validate_discovery_opts` methods
 4. Implement whatever additional methods your discovery requires
 5. This can now be used in the synapse config as
+
 ```json
 {"services":
     "proddb": {
