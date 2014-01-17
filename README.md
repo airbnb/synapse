@@ -213,13 +213,16 @@ Note that a non-default `bind_address` can be dangerous: it is up to you to ensu
 
 If you'd like to create a new service watcher:
 
-1. Create a file for your watcher in `service_watcher` dir
-2. Use the following template:
+Use the following template:
 ```ruby
-require 'synapse/service_watcher/base'
+require 'synapse/service_watcher
 
 module Synapse
   class NewWatcher < BaseWatcher
+
+    # add this custom watcher so it can be used in configs
+    Synapse::ServiceWatcher.add_service_watcher('my_watcher_name', self.class)
+
     def start
       # write code which begins running service discovery
     end
@@ -234,6 +237,17 @@ end
 
 3. Implement the `start` and `validate_discovery_opts` methods
 4. Implement whatever additional methods your discovery requires
+5. This can now be used in the synapse config as
+```json
+{"services":
+    "proddb": {
+      "discovery": {
+        "method": "my_watcher_name",
+		"module": "module/name",
+		"foo": "bar"
+      },
+...
+```
 
 When your watcher detects a list of new backends, they should be written to `@backends`.
 You should then call `@synapse.configure` to force synapse to update the HAProxy config.
