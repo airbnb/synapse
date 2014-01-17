@@ -1,7 +1,5 @@
 require 'synapse/log'
-
 require 'socket'
-require 'digest'
 
 module Synapse
   class Haproxy
@@ -750,8 +748,12 @@ module Synapse
 
     # used to build unique, consistent haproxy names for backends
     def construct_name(backend)
-      address_digest = Digest::SHA256.hexdigest(backend['host'])[0..7]
-      return "#{backend['name']}:#{backend['port']}_#{address_digest}"
+      name = "#{backend['host']}:#{backend['port']}"
+      if backend['name'] && !backend['name'].empty?
+        name = "#{name}_#{backend['name']}"
+      end
+
+      return name
     end
   end
 end
