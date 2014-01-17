@@ -30,9 +30,8 @@ module Synapse
       discovery_method = opts['discovery']['method']
 
       unless @watchers.has_key?(discovery_method)
-        if m = opts['discovery']['module']
-          require m
-        end
+        m = opts['discovery']['module'] ? opts['discovery']['module'] : "synapse-watcher-#{discovery_method}"
+        require m
       end
 
       raise ArgumentError, "Invalid discovery method #{discovery_method}" \
