@@ -34,7 +34,7 @@ module Synapse
           end
 
           sleep_until_next_check(start)
-        rescue => e
+        rescue Exception => e
           log.warn "synapse: error in watcher thread: #{e.inspect}"
           log.warn e.backtrace
         end
