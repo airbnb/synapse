@@ -70,7 +70,7 @@ module Synapse
             end
           else
             pairs = cnt["Ports"].collect do |v|
-              [v['PrivatePort'], v['PublicPort']]
+              [v['PrivatePort'].to_s, v['PublicPort'].to_s]
             end
           end
           cnt["Ports"] = Hash[pairs]

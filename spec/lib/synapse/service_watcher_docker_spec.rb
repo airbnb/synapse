@@ -119,7 +119,7 @@ describe Synapse::DockerWatcher do
     end
 
     context 'new style port mappings' do
-      let(:docker_data) { [{"Ports" => [{'PrivatePort' => '6379', 'PublicPort' => '49153'}, {'PublicPort' => '49154', 'PrivatePort' => '6390'}], "Image" => "mycool/image:tagname"}] }
+      let(:docker_data) { [{"Ports" => [{'PrivatePort' => 6379, 'PublicPort' => 49153}, {'PublicPort' => 49154, 'PrivatePort' => 6390}], "Image" => "mycool/image:tagname"}] }
       it do
         expect(Docker::Util).to receive(:parse_json).and_return(docker_data)
         expect(subject.send(:containers)).to eql([{"name"=>"mainserver", "host"=>"server1.local", "port"=>"49153"}])
