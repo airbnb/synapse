@@ -98,21 +98,34 @@ describe Synapse::DockerWatcher do
       expect(getter).to receive(:get)
       expect(Docker).to receive(:connection).and_return(getter)
     end
+
     it('has a sane uri') { subject.send(:containers); expect(Docker.url).to eql('http://server1.local:4243') }
-    context 'works for one container' do
-      let(:docker_data) { [{"Ports" => "0.0.0.0:49153->6379/tcp, 0.0.0.0:49154->6390/tcp", "Image" => "mycool/image:tagname"}] }
-      it do 
-        expect(Docker::Util).to receive(:parse_json).and_return(docker_data)
-        expect(subject.send(:containers)).to eql([{"name"=>"mainserver", "host"=>"server1.local", "port"=>"49153"}])
-       end
-    end
-    context 'works for multiple containers' do
-      let(:docker_data) { [{"Ports" => "0.0.0.0:49153->6379/tcp, 0.0.0.0:49154->6390/tcp", "Image" => "mycool/image:tagname"}, {"Ports" => "0.0.0.0:49155->6379/tcp", "Image" => "mycool/image:tagname"}] }
-      it do
-        expect(Docker::Util).to receive(:parse_json).and_return(docker_data)
-        expect(subject.send(:containers)).to eql([{"name"=>"mainserver", "host"=>"server1.local", "port"=>"49153"},{"name"=>"mainserver", "host"=>"server1.local", "port"=>"49155"}])
+
+    context 'old style port mappings' do
+      context 'works for one container' do
+        let(:docker_data) { [{"Ports" => "0.0.0.0:49153->6379/tcp, 0.0.0.0:49154->6390/tcp", "Image" => "mycool/image:tagname"}] }
+        it do 
+          expect(Docker::Util).to receive(:parse_json).and_return(docker_data)
+          expect(subject.send(:containers)).to eql([{"name"=>"mainserver", "host"=>"server1.local", "port"=>"49153"}])
+         end
+      end
+      context 'works for multiple containers' do
+        let(:docker_data) { [{"Ports" => "0.0.0.0:49153->6379/tcp, 0.0.0.0:49154->6390/tcp", "Image" => "mycool/image:tagname"}, {"Ports" => "0.0.0.0:49155->6379/tcp", "Image" => "mycool/image:tagname"}] }
+        it do
+          expect(Docker::Util).to receive(:parse_json).and_return(docker_data)
+          expect(subject.send(:containers)).to eql([{"name"=>"mainserver", "host"=>"server1.local", "port"=>"49153"},{"name"=>"mainserver", "host"=>"server1.local", "port"=>"49155"}])
+        end
       end
     end
+
+    context 'new style port mappings' do
+      let(:docker_data) { [{"Ports" => [{'PrivatePort' => '6379', 'PublicPort' => '49153'}, {'PublicPort' => '49154', 'PrivatePort' => '6390'}], "Image" => "mycool/image:tagname"}] }
+      it do
+        expect(Docker::Util).to receive(:parse_json).and_return(docker_data)
+        expect(subject.send(:containers)).to eql([{"name"=>"mainserver", "host"=>"server1.local", "port"=>"49153"}])
+      end
+    end
+
     context 'filters out wrong images' do
       let(:docker_data) { [{"Ports" => "0.0.0.0:49153->6379/tcp, 0.0.0.0:49154->6390/tcp", "Image" => "mycool/image:tagname"}, {"Ports" => "0.0.0.0:49155->6379/tcp", "Image" => "wrong/image:tagname"}] }
       it do
