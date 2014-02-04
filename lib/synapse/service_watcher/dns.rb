@@ -1,12 +1,10 @@
 require "synapse/service_watcher/base"
-require "synapse/log"
 
 require 'thread'
 require 'resolv'
 
 module Synapse
   class DnsWatcher < BaseWatcher
-    include Logging
     def start
       @check_interval = @discovery['check_interval'] || 30.0
       @nameserver = @discovery['nameserver']

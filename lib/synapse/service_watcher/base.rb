@@ -1,5 +1,8 @@
+require 'synapse/log'
+
 module Synapse
   class BaseWatcher
+    include Logging
     attr_reader :name, :backends, :haproxy
 
     def initialize(opts={}, synapse)

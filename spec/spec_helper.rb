@@ -4,7 +4,7 @@
 # loaded once.
 #
 # See http://rubydoc.info/gems/rspec-core/RSpec/Core/Configuration
-require '../lib/synapse'
+require "#{File.dirname(__FILE__)}/../lib/synapse"
 require 'pry'
 require 'support/config'
 
