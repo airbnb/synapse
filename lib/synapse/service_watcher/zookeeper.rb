@@ -4,6 +4,8 @@ require 'zk'
 
 module Synapse
   class ZookeeperWatcher < BaseWatcher
+    NUMBERS_RE = /^\d+$/
+
     def start
       zk_hosts = @discovery['hosts'].shuffle.join(',')
 
@@ -63,8 +65,12 @@ module Synapse
           else
             server_port = @server_port_override ? @server_port_override : port
 
+            # find the numberic id in the node name; used for leader elections if enabled
+            numeric_id = id.split('_').last
+            numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
+
             log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
-            new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => id}
+            new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id}
           end
         end
       rescue ZK::Exceptions::NoNode
