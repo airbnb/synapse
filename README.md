@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/airbnb/synapse.png?branch=master)](https://travis-ci.org/airbnb/synapse)
+
 # Synapse #
 
 Synapse is Airbnb's new system for service discovery.
