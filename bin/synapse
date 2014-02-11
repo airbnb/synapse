@@ -40,7 +40,7 @@ def parseconfig(filename)
   rescue YAML::ParseError => e
     raise "config file #{filename} is not yaml:\n#{e.inspect}"
   end
-  return c
+  return c.to_ruby
 end
 
 config = parseconfig(options[:config])
