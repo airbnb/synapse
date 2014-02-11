@@ -4,6 +4,8 @@ require 'zk'
 
 module Synapse
   class ZookeeperWatcher < BaseWatcher
+    NUMBERS_RE = /^\d+$/
+
     def start
       zk_hosts = @discovery['hosts'].shuffle.join(',')
 
@@ -53,18 +55,22 @@ module Synapse
 
       new_backends = []
       begin
-        @zk.children(@discovery['path'], :watch => true).map do |name|
-          node = @zk.get("#{@discovery['path']}/#{name}")
+        @zk.children(@discovery['path'], :watch => true).each do |id|
+          node = @zk.get("#{@discovery['path']}/#{id}")
 
           begin
-            host, port = deserialize_service_instance(node.first)
-          rescue
-            log.error "synapse: invalid data in ZK node #{name} at #{@discovery['path']}"
+            host, port, name = deserialize_service_instance(node.first)
+          rescue StandardError => e
+            log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
           else
             server_port = @server_port_override ? @server_port_override : port
 
+            # find the numberic id in the node name; used for leader elections if enabled
+            numeric_id = id.split('_').last
+            numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
+
             log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
-            new_backends << { 'name' => name, 'host' => host, 'port' => server_port}
+            new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id}
           end
         end
       rescue ZK::Exceptions::NoNode
@@ -106,28 +112,16 @@ module Synapse
       end
     end
 
-    # tries to extract host/port from a json hash
-    def parse_json(data)
-      begin
-        json = JSON.parse data
-      rescue Object => o
-        return false
-      end
-      raise 'instance json data does not have host key' unless json.has_key?('host')
-      raise 'instance json data does not have port key' unless json.has_key?('port')
-      return json['host'], json['port']
-    end
-
     # decode the data at a zookeeper endpoint
     def deserialize_service_instance(data)
       log.debug "synapse: deserializing process data"
+      decoded = JSON.parse(data)
 
-      # if that does not work, try json
-      host, port = parse_json(data)
-      return host, port if host
+      host = decoded['host'] || (raise ValueError, 'instance json data does not have host key')
+      port = decoded['port'] || (raise ValueError, 'instance json data does not have port key')
+      name = decoded['name'] || nil
 
-      # if we got this far, then we have a problem
-      raise "could not decode this data:\n#{data}"
+      return host, port, name
     end
   end
 end

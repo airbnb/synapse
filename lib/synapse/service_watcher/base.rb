@@ -3,7 +3,10 @@ require 'synapse/log'
 module Synapse
   class BaseWatcher
     include Logging
-    attr_reader :name, :backends, :haproxy
+
+    LEADER_WARN_INTERVAL = 30
+
+    attr_reader :name, :haproxy
 
     def initialize(opts={}, synapse)
       super()
@@ -17,6 +20,9 @@ module Synapse
 
       @name = opts['name']
       @discovery = opts['discovery']
+
+      @leader_election = opts['leader_election'] || false
+      @leader_last_warn = Time.now - LEADER_WARN_INTERVAL
 
       # the haproxy config
       @haproxy = opts['haproxy']
@@ -56,6 +62,26 @@ module Synapse
     # this should be overridden to do a health check of the watcher
     def ping?
       true
+    end
+
+    def backends
+      if @leader_election
+        if @backends.all?{|b| b.key?('id') && b['id']}
+          smallest = @backends.sort_by{ |b| b['id']}.first
+          log.debug "synapse: leader election chose one of #{@backends.count} backends " \
+            "(#{smallest['host']}:#{smallest['port']} with id #{smallest['id']})"
+
+          return [smallest]
+        elsif (Time.now - @leader_last_warn) > LEADER_WARN_INTERVAL
+          log.warn "synapse: service #{@name}: leader election failed; not all backends include an id"
+          @leader_last_warn = Time.now
+        end
+
+        # if leader election fails, return no backends
+        return []
+      end
+
+      return @backends
     end
 
     private
