@@ -92,6 +92,20 @@ describe Synapse::DockerWatcher do
     end
   end
 
+  context "rewrite_container_ports tests" do
+    it 'doesnt break if Ports => nil' do
+        subject.send(:rewrite_container_ports, nil)
+    end
+    it 'works for old style port mappings' do
+      expect(subject.send(:rewrite_container_ports, "0.0.0.0:49153->6379/tcp, 0.0.0.0:49154->6390/tcp")).to \
+        eql({'6379' => '49153', '6390' => '49154'})
+    end
+    it 'works for new style port mappings' do
+      expect(subject.send(:rewrite_container_ports, [{'PrivatePort' => 6379, 'PublicPort' => 49153}, {'PublicPort' => 49154, 'PrivatePort' => 6390}])).to \
+        eql({'6379' => '49153', '6390' => '49154'})
+    end
+  end
+
   context "container discovery tests" do
     before(:each) do
       getter = double()
