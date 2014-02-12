@@ -15,6 +15,11 @@ module Synapse
       'docker' => DockerWatcher
     }
 
+    # allow users to extend watchers without hacking core
+    def self.add_service_watcher(key, klass)
+      @watchers[key] = klass
+    end
+
     # the method which actually dispatches watcher creation requests
     def self.create(name, opts, synapse)
       opts['name'] = name
@@ -23,6 +28,12 @@ module Synapse
         unless opts.has_key?('discovery') && opts['discovery'].has_key?('method')
 
       discovery_method = opts['discovery']['method']
+
+      unless @watchers.has_key?(discovery_method)
+        m = opts['discovery']['module'] ? opts['discovery']['module'] : "synapse-watcher-#{discovery_method}"
+        require m
+      end
+
       raise ArgumentError, "Invalid discovery method #{discovery_method}" \
         unless @watchers.has_key?(discovery_method)
 
