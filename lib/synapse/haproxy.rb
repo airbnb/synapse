@@ -741,6 +741,7 @@ module Synapse
       # do the actual restart
       res = `#{opts['reload_command']}`.chomp
       raise "failed to reload haproxy via #{opts['reload_command']}: #{res}" unless $?.success?
+      log.info "synapse: restarted haproxy"
 
       @last_restart = Time.now()
       @restart_required = false
