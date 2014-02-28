@@ -5,6 +5,9 @@ require 'zk'
 
 module Synapse
   class ZookeeperWatcher < BaseWatcher
+
+    Synapse::ServiceWatcher.add_service_watcher('zookeeper', self.class)
+
     include Logging
     def start
       zk_hosts = @discovery['hosts'].shuffle.join(',')

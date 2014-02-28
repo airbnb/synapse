@@ -2,6 +2,9 @@ require "synapse/service_watcher/base"
 
 module Synapse
   class EC2Watcher < BaseWatcher
+
+    Synapse::ServiceWatcher.add_service_watcher('ec2tag', self.class)
+
     def start
       # connect to ec2
       # find all servers whose @discovery['tag_name'] matches @discovery['tag_value']

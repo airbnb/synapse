@@ -3,6 +3,9 @@ require 'docker'
 
 module Synapse
   class DockerWatcher < BaseWatcher
+
+    Synapse::ServiceWatcher.add_service_watcher('docker', self.class)
+
     def start
       @check_interval = @discovery['check_interval'] || 15.0
       @watcher = Thread.new do

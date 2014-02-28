@@ -1,18 +1,10 @@
 require "synapse/service_watcher/base"
-require "synapse/service_watcher/zookeeper"
-require "synapse/service_watcher/ec2tag"
-require "synapse/service_watcher/dns"
-require "synapse/service_watcher/docker"
 
 module Synapse
   class ServiceWatcher
 
     @watchers = {
-      'base'=>BaseWatcher,
-      'zookeeper'=>ZookeeperWatcher,
-      'ec2tag'=>EC2Watcher,
-      'dns' => DnsWatcher,
-      'docker' => DockerWatcher
+
     }
 
     # allow users to extend watchers without hacking core
@@ -30,8 +22,14 @@ module Synapse
       discovery_method = opts['discovery']['method']
 
       unless @watchers.has_key?(discovery_method)
-        m = opts['discovery']['module'] ? opts['discovery']['module'] : "synapse-watcher-#{discovery_method}"
-        require m
+        [ opts['discovery']['module'], "synapse-watcher-#{discovery_method}",
+          "synapse/service_watcher/#{discovery_method}" ].compact.each do |m|
+            begin
+              require m
+              break
+            rescue LoadError
+            end
+          end
       end
 
       raise ArgumentError, "Invalid discovery method #{discovery_method}" \

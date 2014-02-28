@@ -6,6 +6,9 @@ require 'resolv'
 
 module Synapse
   class DnsWatcher < BaseWatcher
+
+    Synapse::ServiceWatcher.add_service_watcher('dns', self.class)
+
     include Logging
     def start
       @check_interval = @discovery['check_interval'] || 30.0
