@@ -1,5 +1,6 @@
 require 'synapse/log'
 require 'socket'
+require 'digest/md5'
 
 module Synapse
   class Haproxy
@@ -632,7 +633,9 @@ module Synapse
         config.map {|c| "\t#{c}"},
         watcher.backends.shuffle.map {|backend|
           backend_name = construct_name(backend)
-          "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}" }
+          "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{watcher.haproxy['server_options']}".
+            gsub('{md5cookie}', Digest::MD5.hexdigest(backend_name))
+        }
       ]
     end
 
