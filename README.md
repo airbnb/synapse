@@ -39,7 +39,7 @@ It is easy to write your own watchers for your use case, and we encourage submit
 
 ## Example Migration ##
 
-Lets suppose your rails application depends on a Postgre database instance.
+Lets suppose your rails application depends on a Postgres database instance.
 The database.yaml file has the DB host and port hardcoded:
 
 ```yaml
@@ -156,7 +156,7 @@ We assume that the data contains a hostname and a port for service servers.
 
 ##### Docker #####
 
-This watcher retrieves a list of [docker](http://www.docker.io/) containers via docker's [HTTP API](http://docs.docker.io/en/latest/api/docker_remote_api/).
+This watcher retrieves a list of [docker](http://www.docker.io/) containers via docker's [HTTP API](http://docs.docker.io/en/latest/reference/api/docker_remote_api/).
 It takes the following options:
 
 * `method`: docker
