@@ -543,16 +543,33 @@ module Synapse
     # generates a new config based on the state of the watchers
     def generate_config(watchers)
       new_config = generate_base_config
+      shared_frontend_lines = generate_shared_frontend
 
       watchers.each do |watcher|
         @watcher_configs[watcher.name] ||= parse_watcher_config(watcher)
-
         new_config << generate_frontend_stanza(watcher, @watcher_configs[watcher.name]['frontend'])
         new_config << generate_backend_stanza(watcher, @watcher_configs[watcher.name]['backend'])
+        if watcher.haproxy.include?('shared_frontend')
+          if @opts['shared_frontend'] == nil
+            log.warn "synapse: service #{watcher.name} contains a shared frontend section but the base config does not! skipping."
+          else
+            shared_frontend_lines << validate_haproxy_stanza(watcher.haproxy['shared_frontend'].map{|l| "\t#{l}"}, "frontend", "shared frontend section for #{watcher.name}")
+          end
+        end
       end
+      new_config << shared_frontend_lines.flatten
 
       log.debug "synapse: new haproxy config: #{new_config}"
       return new_config.flatten.join("\n")
+    end
+
+    # pull out the shared frontend section if any
+    def generate_shared_frontend
+      return nil unless @opts.include?('shared_frontend')
+      log.debug "synapse: found a shared frontend section"
+      shared_frontend_lines = ["\nfrontend shared-frontend"]
+      shared_frontend_lines << validate_haproxy_stanza(@opts['shared_frontend'].map{|l| "\t#{l}"}, "frontend", "shared frontend")
+      return shared_frontend_lines
     end
 
     # generates the global and defaults sections of the config file
@@ -593,18 +610,22 @@ module Synapse
           })
 
         # pick only those fields that are valid and warn about the invalid ones
-        config[section].select!{|setting|
-          parsed_setting = setting.strip.gsub(/\s+/, ' ').downcase
-          if @@section_fields[section].any? {|field| parsed_setting.start_with?(field)}
-            true
-          else
-            log.warn "synapse: service #{watcher.name} contains invalid #{section} setting: '#{setting}'"
-            false
-          end
-        }
+        config[section] = validate_haproxy_stanza(config[section], section, watcher.name)
       end
 
       return config
+    end
+
+    def validate_haproxy_stanza(stanza, stanza_type, service_name)
+      return stanza.select {|setting|
+        parsed_setting = setting.strip.gsub(/\s+/, ' ').downcase
+        if @@section_fields[stanza_type].any? {|field| parsed_setting.start_with?(field)}
+          true
+        else
+          log.warn "synapse: service #{service_name} contains invalid #{stanza_type} setting: '#{setting}', discarding"
+          false
+        end
+      }
     end
 
     # generates an individual stanza for a particular watcher
