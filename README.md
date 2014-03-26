@@ -166,6 +166,21 @@ It takes the following options:
 * `container_port`: find containers forwarding this port
 * `check_interval`: how often to poll the docker API on each server. Default is 15s.
 
+##### File #####
+
+This watcher retrieves a list of servers from a file. When the file containing server list is updated, this watcher reloads backend list immediately. This is useful when using with other tools like [Serf](http://www.serfdom.io/).
+It takes the following options:
+
+* `method`: file
+* `path`: the file containing server list
+
+The content of `path` file should be like the following:
+
+```
+localhost 8080
+192.168.11.11 80
+```
+
 #### Listing Default Servers ####
 
 You may list a number of default servers providing a service.
