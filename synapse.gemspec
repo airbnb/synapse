@@ -16,7 +16,7 @@ Gem::Specification.new do |gem|
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
 
-  gem.add_runtime_dependency "zk", "~> 1.9.2"
+  gem.add_runtime_dependency "zk", "~> 1.9.4"
   gem.add_runtime_dependency "docker-api", "~> 1.7.2"
 
   gem.add_development_dependency "rake"
