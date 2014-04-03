@@ -557,7 +557,7 @@ module Synapse
           end
         end
       end
-      new_config << shared_frontend_lines.flatten if shared_frontend_lines
+      new_config << shared_frontend_lines.flatten unless shared_frontend_lines.nil?
 
       log.debug "synapse: new haproxy config: #{new_config}"
       return new_config.flatten.join("\n")
