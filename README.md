@@ -21,7 +21,7 @@ One solution to this problem is a discovery service, like [Apache Zookeeper](htt
 However, Zookeeper and similar services have their own problems:
 
 * Service discovery is embedded in all of your apps; often, integration is not simple
-* The discovery layer itself it subject to failure
+* The discovery layer itself is subject to failure
 * Requires additional servers/instances
 
 Synapse solves these difficulties in a simple and fault-tolerant way.
@@ -40,7 +40,7 @@ It is easy to write your own watchers for your use case, and we encourage submit
 
 ## Example Migration ##
 
-Lets suppose your rails application depends on a Postgres database instance.
+Let's suppose your rails application depends on a Postgres database instance.
 The database.yaml file has the DB host and port hardcoded:
 
 ```yaml
@@ -127,7 +127,7 @@ The name is just a human-readable string; it will be used in logs and notificati
 Each value in the services hash is also a hash, and should contain the following keys:
 
 * `discovery`: how synapse will discover hosts providing this service (see below)
-* `default_servers`: the list of default servers providing this service; synapse uses these if none others can be discovered
+* `default_servers`: the list of default servers providing this service; synapse uses these if no others can be discovered
 * `haproxy`: how will the haproxy section for this service be configured
 * `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
 
@@ -138,7 +138,7 @@ Put these into the `discovery` section of the service hash, with these options:
 
 ##### Stub #####
 
-The stub watcher, this is useful in situations where you only want to use the servers in the `default_servers` list.
+The stub watcher is useful in situations where you only want to use the servers in the `default_servers` list.
 It has only one option:
 
 * `method`: stub
@@ -182,7 +182,7 @@ If you do not list any default servers, no proxy will be created.
 
 #### The `haproxy` Section ####
 
-This section is it's own hash, which should contain the following keys:
+This section is its own hash, which should contain the following keys:
 
 * `port`: the port (on localhost) where HAProxy will listen for connections to the service.
 * `server_port_override`: the port that discovered servers listen on; you should specify this if your discovery mechanism only discovers names or addresses (like the DNS watcher). If the discovery method discovers a port along with hostnames (like the zookeeper watcher) this option may be left out, but will be used in preference if given.
@@ -201,14 +201,14 @@ The `haproxy` section of the config file has the following options:
 * `do_reloads`: whether or not Synapse will reload HAProxy (default to `true`)
 * `global`: options listed here will be written into the `global` section of the HAProxy config
 * `defaults`: options listed here will be written into the `defaults` section of the HAProxy config
-* `bind_address`: force HAProxy to listen  on this address (default is localhost)
+* `bind_address`: force HAProxy to listen on this address (default is localhost)
 * `shared_fronted`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
 
 Note that a non-default `bind_address` can be dangerous: it is up to you to ensure that HAProxy will not attempt to bind an address:port combination that is not already in use by one of your services.
 
 ### HAProxy shared HTTP Frontend ###
 
-For HTTP-only services, it it not always necessary or desirable to dedicate a TCP port per service, since HAProxy can route traffic based on host headers.
+For HTTP-only services, it is not always necessary or desirable to dedicate a TCP port per service, since HAProxy can route traffic based on host headers.
 To support this, the optional `shared_fronted` section can be added to both the `haproxy` section and each indvidual service definition: synapse will concatenate them all into a single frontend section in the generated haproxy.cfg file.
 Note that synapse does not assemble the routing ACLs for you: you have to do that yourself based on your needs.
 This is probably most useful in combination with the `service_conf_dir` directive in a case where the individual service config files are being distributed by a configuration manager such as puppet or chef, or bundled into service packages.
