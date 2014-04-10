@@ -44,7 +44,7 @@ module Synapse
     end
 
     def ping?
-      @zk.ping?
+      @zk.connected?
     end
 
     private
