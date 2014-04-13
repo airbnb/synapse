@@ -1,0 +1,144 @@
+require "synapse/service_watcher/base"
+
+require 'etcd'
+
+# Monkeypatch till 91f9e72d6d57ae3760e9266835f404d986072590 gets to rubygems..
+module Etcd
+  module Keys
+    def watch(key, opts = {})
+      params = { wait: true }
+      fail ArgumentError, 'Second argument must be a hash' unless opts.is_a?(Hash)
+      timeout = opts[:timeout] || @read_timeout
+      index = opts[:waitIndex] || opts[:index]
+      params[:waitIndex] = index unless index.nil?
+      params[:consistent] = opts[:consistent] if opts.key?(:consistent)
+      params[:recursive] = opts[:recursive] if opts.key?(:recursive)
+
+      response = api_execute(key_endpoint + key, :get,
+                             timeout: timeout, params: params)
+      Response.from_http_response(response)
+    end
+  end
+end
+
+module Synapse
+  class EtcdWatcher < BaseWatcher
+    NUMBERS_RE = /^\d+$/
+
+    def start
+      etcd_hosts = @discovery['host']
+
+      log.info "synapse: starting etcd watcher #{@name} @ host: #{@discovery['host']}, path: #{@discovery['path']}"
+      @should_exit = false
+      @etcd = ::Etcd.client(:host => @discovery['host'], :port => @discovery['port'])
+
+      # call the callback to bootstrap the process
+      discover
+      @synapse.reconfigure!
+      watch
+    end
+
+    def stop
+      log.warn "synapse: etcd watcher exiting"
+
+      @should_exit = true
+      @etcd = nil
+
+      log.info "synapse: etcd watcher cleaned up successfully"
+    end
+
+    def ping?
+      @etcd.leader
+    end
+
+    private
+    def validate_discovery_opts
+      raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
+        unless @discovery['method'] == 'etcd'
+      raise ArgumentError, "missing or invalid etcd host for service #{@name}" \
+        unless @discovery['host']
+      raise ArgumentError, "missing or invalid etcd port for service #{@name}" \
+        unless @discovery['port']
+      raise ArgumentError, "invalid etcd path for service #{@name}" \
+        unless @discovery['path']
+    end
+
+    # helper method that ensures that the discovery path exists
+    def create(path)
+      log.debug "synapse: creating etcd path: #{path}"
+      @etcd.create(path, dir: true)
+    end
+
+    # find the current backends at the discovery path; sets @backends
+    def discover
+      log.info "synapse: discovering backends for service #{@name}"
+
+      new_backends = []
+      d = nil
+      begin
+        d = @etcd.get(@discovery['path'])
+      rescue Etcd::KeyNotFound
+        create(@discovery['path'])
+        d = @etcd.get(@discovery['path'])
+      end
+
+      if d.directory?
+        d.children.each do |node|
+          begin
+            host, port, name = deserialize_service_instance(node.value)
+          rescue StandardError => e
+            log.error "synapse: invalid data in etcd node #{id} at #{@discovery['path']}: #{e}"
+          else
+            server_port = @server_port_override ? @server_port_override : port
+
+            # find the numberic id in the node name; used for leader elections if enabled
+            numeric_id = node.key.split('/').last
+            numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
+
+            log.warn "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
+            new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id}
+          end  
+        end
+      else
+        log.warn "synapse: path #{@discovery['path']} is not a directory"
+      end
+
+      if new_backends.empty?
+        if @default_servers.empty?
+          log.warn "synapse: no backends and no default servers for service #{@name}; using previous backends: #{@backends.inspect}"
+        else
+          log.warn "synapse: no backends for service #{@name}; using default servers: #{@default_servers.inspect}"
+          @backends = @default_servers
+        end
+      else
+        log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
+        @backends = new_backends
+      end
+    end
+
+    def watch
+      while !@should_exit
+        begin
+          @etcd.watch(@discovery['path'], :timeout => 60, :recursive => true)
+        rescue Timeout::Error
+        else
+          discover
+          @synapse.reconfigure!
+        end
+      end
+    end
+
+    # decode the data at a zookeeper endpoint
+    def deserialize_service_instance(data)
+      log.debug "synapse: deserializing process data"
+      decoded = JSON.parse(data)
+
+      host = decoded['host'] || (raise ValueError, 'instance json data does not have host key')
+      port = decoded['port'] || (raise ValueError, 'instance json data does not have port key')
+      name = decoded['name'] || nil
+
+      return host, port, name
+    end
+  end
+end
+
