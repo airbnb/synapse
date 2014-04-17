@@ -174,7 +174,9 @@ Each hash in that section has the following options:
 
 The `default_servers` list is used only when service discovery returns no servers.
 In that case, the service proxy will be created with the servers listed here.
-If you do not list any default servers, no proxy will be created.
+If you do not list any default servers, no proxy will be created.  The
+`default_servers` will also be used in addition to discovered servers if the
+`keep_default_servers` option is set.
 
 #### The `haproxy` Section ####
 

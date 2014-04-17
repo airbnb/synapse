@@ -106,7 +106,7 @@ module Synapse
         end
       else
         log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
-        @backends = new_backends
+        set_backends(new_backends)
       end
       @synapse.reconfigure!
     end

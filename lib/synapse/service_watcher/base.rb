@@ -40,6 +40,8 @@ module Synapse
       @default_servers = opts['default_servers'] || []
       @backends = @default_servers
 
+      @keep_default_servers = opts['keep_default_servers'] || false
+
       # set a flag used to tell the watchers to exit
       # this is not used in every watcher
       @should_exit = false
@@ -90,6 +92,14 @@ module Synapse
         unless @discovery['method'] == 'base'
 
       log.warn "synapse: warning: a stub watcher with no default servers is pretty useless" if @default_servers.empty?
+    end
+
+    def set_backends(new_backends)
+      if @keep_default_servers
+        @backends = @default_servers + new_backends
+      else
+        @backends = new_backends
+      end
     end
   end
 end
