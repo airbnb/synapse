@@ -20,11 +20,16 @@ describe Synapse::BaseWatcher do
     it('can at least construct') { expect { subject }.not_to raise_error }
   end
 
-  ['name', 'discovery', 'haproxy'].each do |to_remove|
+  ['name', 'discovery'].each do |to_remove|
     context "without #{to_remove} argument" do
       let(:args) { remove_arg to_remove }
       it('gots bang') { expect { subject }.to raise_error(ArgumentError, "missing required option #{to_remove}") }
     end
+  end
+
+  context "without haproxy or udp_forwarding argument" do
+    let(:args) { remove_arg 'haproxy' }
+    it('has a proxy type') { expect { subject }.to raise_error(ArgumentError, "must have exactly one of haproxy or udp_forwarding") }
   end
 
   context "normal tests" do

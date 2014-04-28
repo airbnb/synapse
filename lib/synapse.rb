@@ -1,6 +1,7 @@
 require "synapse/version"
 require "synapse/service_watcher/base"
 require "synapse/haproxy"
+require "synapse/udp_forwarders"
 require "synapse/service_watcher"
 require "synapse/log"
 
@@ -20,6 +21,7 @@ module Synapse
       # create the haproxy object
       raise "haproxy config section is missing" unless opts.has_key?('haproxy')
       @haproxy = Haproxy.new(opts['haproxy'])
+      @udp_forwarders = UDPForwarders.new
 
       # configuration is initially enabled to configure on first loop
       @config_updated = true
@@ -42,7 +44,9 @@ module Synapse
         if @config_updated
           @config_updated = false
           log.info "synapse: regenerating haproxy config"
-          @haproxy.update_config(@service_watchers)
+          @haproxy.update_config(haproxy_service_watchers)
+          log.info "synapse: updating udp forwarder"
+          @udp_forwarders.update_config(udp_forwarding_service_watchers)
         else
           sleep 1
         end
@@ -75,5 +79,12 @@ module Synapse
       return service_watchers
     end
 
+    def haproxy_service_watchers
+      @service_watchers.select { |sw| sw.haproxy }
+    end
+    
+    def udp_forwarding_service_watchers
+      @service_watchers.select { |sw| sw.udp_forwarding }
+    end
   end
 end
