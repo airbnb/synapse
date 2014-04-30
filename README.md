@@ -241,30 +241,30 @@ For example:
       "discovery": {
         "method": "zookeeper",
         "path":  "/nerve/services/service1",
-        "hosts": [ "0.zookeeper.example.com:2181", ]
+        "hosts": [ "0.zookeeper.example.com:2181" ]
       },
       "haproxy": {
         "server_options": "check inter 2s rise 3 fall 2",
         "shared_frontend": [
-         "acl is_service1 hdr_dom(host) -i service1.lb.example.com",
-         "use_backend service1 if is_service1"
+          "acl is_service1 hdr_dom(host) -i service1.lb.example.com",
+          "use_backend service1 if is_service1"
         ],
         "backend": [
           "mode http"
         ]
       }
-    }
+    },
     "service2": {
       "discovery": {
         "method": "zookeeper",
         "path":  "/nerve/services/service2",
-        "hosts": [ "0.zookeeper.example.com:2181", ]
+        "hosts": [ "0.zookeeper.example.com:2181" ]
       },
       "haproxy": {
         "server_options": "check inter 2s rise 3 fall 2",
         "shared_frontend": [
-         "acl is_service1 hdr_dom(host) -i service2.lb.example.com",
-         "use_backend service2 if is_service2"
+          "acl is_service1 hdr_dom(host) -i service2.lb.example.com",
+          "use_backend service2 if is_service2"
         ],
         "backend": [
           "mode http"
