@@ -66,8 +66,8 @@ Add a hash under `services` that looks like this:
      port: 5432
    discovery:
     method: "awstag"
-    tag: "proddb"
-    value: "true"
+    tag_name: "proddb"
+    tag_value: "true"
    haproxy:
     port: 3219
     server_options: "check inter 2000 rise 3 fall 2"
@@ -160,6 +160,29 @@ It takes the following options:
 * `image_name`: find containers running this image
 * `container_port`: find containers forwarding this port
 * `check_interval`: how often to poll the docker API on each server. Default is 15s.
+
+##### AWS EC2 tags #####
+
+This watcher retrieves a list of Amazon EC2 instances that have a tag
+with particular value using the AWS API.
+It takes the following options:
+
+* `method`: ec2tag
+* `tag_name`: the name of the tag to inspect. As per the AWS docs,
+  this is case-sensitive.
+* `tag_value`: the value to match on. Case-sensitive.
+
+Additionally, you MUST supply `server_port_override` in the `haproxy`
+section of the configuration as this watcher does not know which port
+the backend service is listening on.
+
+The following options are optional, provided the well-known `AWS_`
+environment variables shown are set. If supplied, these options will
+be used in preference to the `AWS_` environment variables.
+
+* `aws_access_key_id`: AWS key or set `AWS_ACCESS_KEY_ID` in the environment.
+* `aws_secret_access_key`: AWS secret key or set `AWS_SECRET_ACCESS_KEY` in the environment.
+* `aws_region`: AWS region (i.e. `us-east-1`) or set `AWS_REGION` in the environment.
 
 #### Listing Default Servers ####
 
