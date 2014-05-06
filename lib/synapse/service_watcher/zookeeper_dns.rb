@@ -22,13 +22,26 @@ require 'thread'
 module Synapse
   class ZookeeperDnsWatcher < BaseWatcher
 
+    # Valid messages that can be passed through the internal message queue
     module Messages
       class InvalidMessageError < RuntimeError; end
 
+      # Indicates new servers identified by DNS names to be resolved.  This is
+      # sent from Zookeeper on events that modify the ZK node. The payload is
+      # an array of hashes containing {'host', 'port', 'name'}
       class NewServers < Struct.new(:servers); end
+
+      # Indicates that DNS should be re-resolved.  This is sent by the
+      # ZookeeperDnsWatcher thread every check_interval seconds to cause a
+      # refresh of the IP addresses.
       class CheckInterval; end
+
+      # Indicates that the DNS watcher should shut down.  This is sent when
+      # stop is called.
       class StopWatcher; end
 
+      # Saved instances of message types with contents that cannot vary.  This
+      # reduces object allocation.
       STOP_WATCHER_MESSAGE = StopWatcher.new
       CHECK_INTERVAL_MESSAGE = CheckInterval.new
     end
@@ -50,6 +63,9 @@ module Synapse
       def watch
         last_resolution = nil
         while true
+          # Blocks on message queue, the message will be a signal to stop
+          # watching, to check a new set of servers from ZK, or to re-resolve
+          # the DNS (triggered every check_interval seconds)
           message = @message_queue.pop
 
           case message
@@ -66,6 +82,7 @@ module Synapse
 
           # Empty servers means we haven't heard back from ZK yet
           unless self.discovery_servers.nil? || self.discovery_servers.empty?
+            # Resolve DNS names with the nameserver
             current_resolution = resolve_servers
             unless last_resolution == current_resolution
               last_resolution = current_resolution
@@ -77,6 +94,7 @@ module Synapse
 
       private
 
+      # Validation is skipped as it has already occurred in the parent watcher
       def validate_discovery_opts
       end
     end
@@ -88,6 +106,8 @@ module Synapse
         @message_queue = message_queue
       end
 
+      # Overrides reconfigure! to cause the new list of servers to be messaged
+      # to the DNS watcher rather than invoking a synapse reconfigure directly
       def reconfigure!
         # push the new backends onto the queue
         @message_queue.push(Messages::NewServers.new(@backends))
@@ -95,6 +115,7 @@ module Synapse
 
       private
 
+      # Validation is skipped as it has already occurred in the parent watcher
       def validate_discovery_opts
       end
     end
@@ -130,9 +151,14 @@ module Synapse
         @dns.start
 
         until @should_exit
+          # Trigger a DNS resolve every @check_interval seconds
           sleep @check_interval
 
-          @message_queue.push(Messages::CHECK_INTERVAL_MESSAGE)
+          # Only trigger the resolve if the queue is empty, every other message
+          # on the queue would either cause a resolve or stop the watcher
+          if @message_queue.empty?
+            @message_queue.push(Messages::CHECK_INTERVAL_MESSAGE)
+          end
         end
       end
     end
@@ -168,6 +194,8 @@ module Synapse
       end
     end
 
+    # Method to generate a full config for the children (Dns and Zookeeper)
+    # watchers
     def mk_child_watcher_opts(discovery_opts)
       {
         'name' => @name,
@@ -176,8 +204,9 @@ module Synapse
       }
     end
 
+    # Override reconfigure! as this class should not explicitly reconfigure
+    # synapse
     def reconfigure!
     end
   end
 end
-
