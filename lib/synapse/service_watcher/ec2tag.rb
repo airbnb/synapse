@@ -41,6 +41,10 @@ module Synapse
           "Missing server_port_override for service #{@name} - which port are backends listening on?"
       end
 
+      unless @haproxy['server_port_override'].match(/^\d+$/)
+        raise ArgumentError, "Invalid server_port_override value"
+      end
+
       # Required, but can use well-known environment variables.
       %w[aws_access_key_id aws_secret_access_key aws_region].each do |attr|
         unless (@discovery[attr] || ENV[attr.upcase])
@@ -92,7 +96,7 @@ module Synapse
         new_backends << {
           'name' => instance.private_dns_name,
           'host' => instance.private_ip_address,
-          'port' => @server_port_override
+          'port' => @haproxy['server_port_override']
         }
       end
 
