@@ -663,7 +663,7 @@ module Synapse
       # first, get a list of existing servers for various backends
       begin
         s = UNIXSocket.new(@opts['socket_file_path'])
-        s.write('show stat;')
+        s.write("show stat\n")
         info = s.read()
       rescue StandardError => e
         log.warn "synapse: unhandled error reading stats socket: #{e.inspect}"
@@ -711,9 +711,9 @@ module Synapse
       cur_backends.each do |section, backends|
         backends.each do |backend|
           if enabled_backends[section].include? backend
-            command = "enable server #{section}/#{backend};"
+            command = "enable server #{section}/#{backend}\n"
           else
-            command = "disable server #{section}/#{backend};"
+            command = "disable server #{section}/#{backend}\n"
           end
 
           # actually write the command to the socket
@@ -734,6 +734,8 @@ module Synapse
           end
         end
       end
+
+      log.info "synapse: reconfigured haproxy"
     end
 
     # writes the config
