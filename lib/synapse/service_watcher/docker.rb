@@ -113,7 +113,7 @@ module Synapse
         log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
         set_backends(new_backends)
       end
-      @synapse.reconfigure!
+      reconfigure!
     end
 
   end
