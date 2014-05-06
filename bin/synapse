@@ -37,7 +37,7 @@ def parseconfig(filename)
     raise ArgumentError, "config file does not exist:\n#{e.inspect}"
   rescue Errno::EACCES => e
     raise ArgumentError, "could not open config file:\n#{e.inspect}"
-  rescue YAML::ParseError => e
+  rescue YAML::SyntaxError => e
     raise "config file #{filename} is not yaml:\n#{e.inspect}"
   end
   return c.to_ruby
