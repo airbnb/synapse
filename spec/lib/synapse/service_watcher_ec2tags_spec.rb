@@ -72,6 +72,12 @@ describe Synapse::EC2Watcher do
     args
   end
 
+  def munge_haproxy_arg(name, new_value)
+    args = basic_config.clone
+    args['haproxy'][name] = new_value
+    args
+  end
+
   describe '#new' do
     let(:args) { basic_config }
 
@@ -99,6 +105,14 @@ describe Synapse::EC2Watcher do
         expect {
           Synapse::EC2Watcher.new(remove_haproxy_arg('server_port_override'), mock_synapse)
         }.to raise_error(ArgumentError, /Missing server_port_override/)
+      end
+    end
+
+    context 'invalid data' do
+      it 'complains if the haproxy server_port_override is not a number' do
+          expect {
+            Synapse::EC2Watcher.new(munge_haproxy_arg('server_port_override', '80deadbeef'), mock_synapse)
+          }.to raise_error(ArgumentError, /Invalid server_port_override/)
       end
     end
   end
