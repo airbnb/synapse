@@ -18,12 +18,16 @@ module Synapse
       !(resolver.getaddresses('airbnb.com').empty?)
     end
 
+    def discovery_servers
+      @discovery['servers']
+    end
+
     private
     def validate_discovery_opts
       raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
         unless @discovery['method'] == 'dns'
       raise ArgumentError, "a non-empty list of servers is required" \
-        if @discovery['servers'].empty?
+        if discovery_servers.empty?
     end
 
     def watch
@@ -57,7 +61,7 @@ module Synapse
 
     def resolve_servers
       resolver.tap do |dns|
-        resolution = @discovery['servers'].map do |server|
+        resolution = discovery_servers.map do |server|
           addresses = dns.getaddresses(server['host']).map(&:to_s)
           [server, addresses.sort]
         end
@@ -79,7 +83,8 @@ module Synapse
         addresses.map do |address|
           {
             'host' => address,
-            'port' => server['port']
+            'port' => server['port'],
+            'name' => server['name'],
           }
         end
       end
@@ -97,7 +102,8 @@ module Synapse
         log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
         set_backends(new_backends)
       end
-      @synapse.reconfigure!
+
+      reconfigure!
     end
   end
 end
