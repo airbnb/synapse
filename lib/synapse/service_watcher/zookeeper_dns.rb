@@ -69,6 +69,8 @@ module Synapse
           # the DNS (triggered every check_interval seconds)
           message = @message_queue.pop
 
+          log.debug "synapse: received message #{message.inspect}"
+
           case message
           when Messages::StopWatcher
             break
@@ -163,6 +165,8 @@ module Synapse
           if @message_queue.empty?
             @message_queue.push(Messages::CHECK_INTERVAL_MESSAGE)
           end
+
+          log.info "synapse: zookeeper_dns watcher exited successfully"
         end
       end
     end
