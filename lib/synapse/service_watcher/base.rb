@@ -101,5 +101,9 @@ module Synapse
         @backends = new_backends
       end
     end
+
+    def reconfigure!
+      @synapse.reconfigure!
+    end
   end
 end
