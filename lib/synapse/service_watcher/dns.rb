@@ -15,7 +15,7 @@ module Synapse
     end
 
     def ping?
-      !(resolver.getaddresses('airbnb.com').empty?)
+      @watcher.alive? && !(resolver.getaddresses('airbnb.com').empty?)
     end
 
     def discovery_servers

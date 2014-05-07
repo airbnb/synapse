@@ -48,6 +48,7 @@ module Synapse
 
     class Dns < Synapse::DnsWatcher
 
+      # Overrides the discovery_servers method on the parent class
       attr_accessor :discovery_servers
 
       def initialize(opts={}, synapse, message_queue)
@@ -80,8 +81,12 @@ module Synapse
               "Received unrecognized message: #{message.inspect}"
           end
 
-          # Empty servers means we haven't heard back from ZK yet
-          unless self.discovery_servers.nil? || self.discovery_servers.empty?
+          # Empty servers means we haven't heard back from ZK yet or ZK is
+          # empty.  This should only occur if we don't get results from ZK
+          # within check_interval seconds or if ZK is empty.
+          if self.discovery_servers.nil? || self.discovery_servers.empty?
+            log.warn "synapse: no backends for service #{@name}"
+          else
             # Resolve DNS names with the nameserver
             current_resolution = resolve_servers
             unless last_resolution == current_resolution
@@ -122,13 +127,12 @@ module Synapse
 
     def start
       dns_discovery_opts = @discovery.select do |k,_|
-        k == 'nameserver' || k == 'default_servers'
+        k == 'nameserver'
       end
 
       zookeeper_discovery_opts = @discovery.select do |k,_|
         k == 'hosts' || k == 'path'
       end
-
 
       @check_interval = @discovery['check_interval'] || 30.0
 
@@ -164,7 +168,7 @@ module Synapse
     end
 
     def ping?
-      @dns.ping? && @zk.ping?
+      @watcher.alive? && @dns.ping? && @zk.ping?
     end
 
     def stop
@@ -196,11 +200,23 @@ module Synapse
 
     # Method to generate a full config for the children (Dns and Zookeeper)
     # watchers
+    #
+    # Notes on passing in the default_servers:
+    #
+    #   Setting the default_servers here allows the Zookeeper watcher to return
+    #   a list of backends based on the default servers when it fails to find
+    #   any matching servers.  These are passed on as the discovered backends
+    #   to the DNS watcher, which will then watch them as normal for DNS
+    #   changes.  The default servers can also come into play if none of the
+    #   hostnames from Zookeeper resolve to addresses in the DNS watcher.  This
+    #   should generally result in the expected behavior, but caution should be
+    #   taken when deciding that this is the desired behavior.
     def mk_child_watcher_opts(discovery_opts)
       {
         'name' => @name,
         'haproxy' => @haproxy,
         'discovery' => discovery_opts,
+        'default_servers' => @default_servers,
       }
     end
 
