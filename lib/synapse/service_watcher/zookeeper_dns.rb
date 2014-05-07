@@ -152,10 +152,10 @@ module Synapse
         @message_queue
       )
 
-      @watcher = Thread.new do
-        @zk.start
-        @dns.start
+      @zk.start
+      @dns.start
 
+      @watcher = Thread.new do
         until @should_exit
           # Trigger a DNS resolve every @check_interval seconds
           sleep @check_interval
@@ -166,8 +166,8 @@ module Synapse
             @message_queue.push(Messages::CHECK_INTERVAL_MESSAGE)
           end
 
-          log.info "synapse: zookeeper_dns watcher exited successfully"
         end
+        log.info "synapse: zookeeper_dns watcher exited successfully"
       end
     end
 
