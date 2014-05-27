@@ -4,14 +4,21 @@ require 'zk'
 
 module Synapse
   class ZookeeperWatcher < BaseWatcher
+    @@zk=nil;
+    @@zk_hosts=nil;
     NUMBERS_RE = /^\d+$/
-
     def start
-      zk_hosts = @discovery['hosts'].shuffle.join(',')
 
-      log.info "synapse: starting ZK watcher #{@name} @ hosts: #{zk_hosts}, path: #{@discovery['path']}"
-      @should_exit = false
-      @zk = ZK.new(zk_hosts)
+      if !@discovery['hosts'].nil?
+        zk_hosts = @discovery['hosts'].shuffle.join(',')
+
+        log.info "synapse: starting ZK watcher #{@name} @ hosts: #{zk_hosts}, path: #{@discovery['path']}"
+        @should_exit = false
+        @zk = ZK.new(zk_hosts)
+      else
+        set_zookeper
+        @zk=@@zk;
+      end
 
       # call the callback to bootstrap the process
       watcher_callback.call
@@ -23,7 +30,7 @@ module Synapse
       @should_exit = true
       @watcher.unsubscribe if defined? @watcher
       @zk.close! if defined? @zk
-
+      close_zookeper
       log.info "synapse: zookeeper watcher cleaned up successfully"
     end
 
@@ -33,10 +40,13 @@ module Synapse
 
     private
     def validate_discovery_opts
+      if !@synapse.zookeeper_hosts.nil?
+        @@zk_hosts = @synapse.zookeeper_hosts.shuffle.join(',')
+      end
       raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
         unless @discovery['method'] == 'zookeeper'
       raise ArgumentError, "missing or invalid zookeeper host for service #{@name}" \
-        unless @discovery['hosts']
+        unless @discovery['hosts'] ||  @@zk_hosts
       raise ArgumentError, "invalid zookeeper path for service #{@name}" \
         unless @discovery['path']
     end
@@ -110,6 +120,24 @@ module Synapse
         # send a message to calling class to reconfigure
         reconfigure!
       end
+    end
+
+    def set_zookeper
+      if @@zk.nil?
+        log.info "synapse: starting GLobal ZK watcher #{@name} @ hosts: #{@@zk_hosts}"
+        @@zk=ZK.new(@@zk_hosts)
+        log.info "synapse: connected to zookeeper : #{@@zk}"
+      else
+        log.info "synapse: Connected to global ZK: #{@@zk}"
+      end
+
+    end
+
+    def close_zookeper
+      if !@@zk.nil?
+        log.info "synapse: Closing gLobal zookeeper connection"
+        @@zk.close!
+      end 
     end
 
     # decode the data at a zookeeper endpoint

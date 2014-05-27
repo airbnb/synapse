@@ -13,6 +13,15 @@ module Synapse
   class Synapse
     include Logging
     def initialize(opts={})
+
+      #initialize global zookeper config
+      if opts.has_key?('zookeeper')
+        log.info "Found global zookeeper config. Initializing zookeeper_hosts"
+        @zookeeper_hosts = opts['zookeeper']['hosts']
+      else
+        log.info "No global zookeeper found."
+      end
+
       # create the service watchers for all our services
       raise "specify a list of services to connect in the config" unless opts.has_key?('services')
       @service_watchers = create_service_watchers(opts['services'])
@@ -24,6 +33,7 @@ module Synapse
       # configuration is initially enabled to configure on first loop
       @config_updated = true
     end
+    attr_reader :zookeeper_hosts
 
     # start all the watchers and enable haproxy configuration
     def run
