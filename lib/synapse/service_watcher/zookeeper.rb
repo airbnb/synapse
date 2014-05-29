@@ -7,28 +7,47 @@ module Synapse
     NUMBERS_RE = /^\d+$/
 
     def start
-      zk_hosts = @discovery['hosts'].shuffle.join(',')
+      @zk_hosts = @discovery['hosts'].shuffle.join(',')
 
-      log.info "synapse: starting ZK watcher #{@name} @ hosts: #{zk_hosts}, path: #{@discovery['path']}"
+      log.info "synapse: starting ZK watcher #{@name} @ hosts: #{@zk_hosts}, path: #{@discovery['path']}"
       @should_exit = false
-      @zk = ZK.new(zk_hosts)
-
-      # call the callback to bootstrap the process
-      watcher_callback.call
+      @watcher = nil
+      @reconnecting = false
+      zk_connect
     end
 
     def stop
       log.warn "synapse: zookeeper watcher exiting"
 
       @should_exit = true
-      @watcher.unsubscribe if defined? @watcher
-      @zk.close! if defined? @zk
+      @watcher.unsubscribe unless @watcher.nil?
+      @watcher = nil
+      @zk.close! unless !defined?(@zk) || !@zk.nil?
 
       log.info "synapse: zookeeper watcher cleaned up successfully"
     end
 
+    def zk_connect
+      @watcher.unsubscribe unless @watcher.nil?
+      @watcher = nil
+
+      log.info "synapse: connecting to ZK at #{@zk_hosts}"
+      @zk.close! unless !defined?(@zk) || !@zk.nil?
+      @zk = ZK.new(@zk_hosts)
+
+      @zk.on_expired_session do
+        @reconnecting = true
+        log.info "synapse: ZK session expired for path: #{@discovery['path']}"
+        zk_connect
+        @reconnecting = false
+      end
+
+      # call the callback to bootstrap the process
+      watcher_callback.call
+    end
+
     def ping?
-      @zk.ping?
+      @reconnecting || @zk.connected?
     end
 
     private
@@ -96,8 +115,14 @@ module Synapse
     def watch
       return if @should_exit
 
-      @watcher.unsubscribe if defined? @watcher
+      @watcher.unsubscribe unless @watcher.nil?
       @watcher = @zk.register(@discovery['path'], &watcher_callback)
+
+      # Verify that we actually set up the watcher.
+      unless @zk.exists?(@discovery['path'], :watch => true)
+        log.warn "synapse: failed to create watcher at #{@discovery['path']}"
+        zk_connect
+      end
     end
 
     # handles the event that a watched path has changed in zookeeper
