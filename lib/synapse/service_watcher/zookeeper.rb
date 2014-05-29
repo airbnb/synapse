@@ -22,7 +22,7 @@ module Synapse
     end
 
     def ping?
-      @zk.connected?
+      @zk && @zk.connected?
     end
 
     private
@@ -121,15 +121,14 @@ module Synapse
     end
 
     def zk_connect
-      zk_cleanup
-
       log.info "synapse: zookeeper watcher connecting to ZK at #{@zk_hosts}"
       @zk = ZK.new(@zk_hosts)
 
-      # handle session expiry
+      # handle session expiry -- by cleaning up zk, this will make `ping?`
+      # fail and so synapse will exit
       @zk.on_expired_session do
         log.warn "synapse: zookeeper watcher ZK session expired!"
-        zk_connect
+        zk_cleanup
       end
 
       # the path must exist, otherwise watch callbacks will not work
