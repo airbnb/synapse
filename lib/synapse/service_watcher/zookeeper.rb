@@ -12,6 +12,7 @@ module Synapse
       log.info "synapse: starting ZK watcher #{@name} @ hosts: #{@zk_hosts}, path: #{@discovery['path']}"
       @should_exit = false
       @watcher = nil
+      @reconnecting = false
       zk_connect
     end
 
@@ -35,8 +36,10 @@ module Synapse
       @zk = ZK.new(@zk_hosts)
 
       @zk.on_expired_session do
+        @reconnecting = true
         log.info "synapse: ZK session expired for path: #{@discovery['path']}"
         zk_connect
+        @reconnecting = false
       end
 
       # call the callback to bootstrap the process
@@ -44,7 +47,7 @@ module Synapse
     end
 
     def ping?
-      @zk.connected?
+      @reconnecting || @zk.connected?
     end
 
     private
