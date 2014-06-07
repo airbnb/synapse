@@ -35,7 +35,9 @@ module Synapse
       # call the callback to bootstrap the process
       discover
       @synapse.reconfigure!
-      watch
+      @watcher = Thread.new do
+        watch
+      end
     end
 
     def stop
