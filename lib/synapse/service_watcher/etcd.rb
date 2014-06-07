@@ -69,11 +69,43 @@ module Synapse
       @etcd.create(path, dir: true)
     end
 
+    def each_node(node)
+      begin
+        host, port, name = deserialize_service_instance(node.value)
+      rescue StandardError => e
+        log.error "synapse: invalid data in etcd node #{node.inspect} at #{@discovery['path']}: #{e} DATA #{node.value}"
+        nil 
+     else
+        server_port = @server_port_override ? @server_port_override : port
+
+        # find the numberic id in the node name; used for leader elections if enabled
+        numeric_id = node.key.split('/').last
+        numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
+
+        log.warn "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
+        { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id}
+      end
+    end
+
+    def each_dir(d)
+      new_backends = []
+      d.children.each do |node|
+        if node.directory?
+          new_backends << each_dir(node)
+        else
+          backend = each_node(node)
+          if backend
+            new_backends << backend
+          end
+        end
+      end
+      new_backends.flatten
+    end
+
     # find the current backends at the discovery path; sets @backends
     def discover
       log.info "synapse: discovering backends for service #{@name}"
 
-      new_backends = []
       d = nil
       begin
         d = @etcd.get(@discovery['path'])
@@ -82,23 +114,9 @@ module Synapse
         d = @etcd.get(@discovery['path'])
       end
 
+      new_backends = []
       if d.directory?
-        d.children.each do |node|
-          begin
-            host, port, name = deserialize_service_instance(node.value)
-          rescue StandardError => e
-            log.error "synapse: invalid data in etcd node #{id} at #{@discovery['path']}: #{e}"
-          else
-            server_port = @server_port_override ? @server_port_override : port
-
-            # find the numberic id in the node name; used for leader elections if enabled
-            numeric_id = node.key.split('/').last
-            numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
-
-            log.warn "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
-            new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id}
-          end  
-        end
+        new_backends = each_dir(d)
       else
         log.warn "synapse: path #{@discovery['path']} is not a directory"
       end
