@@ -126,13 +126,21 @@ module Synapse
       if new_backends.empty?
         if @default_servers.empty?
           log.warn "synapse: no backends and no default servers for service #{@name}; using previous backends: #{@backends.inspect}"
+          false
         else
           log.warn "synapse: no backends for service #{@name}; using default servers: #{@default_servers.inspect}"
           @backends = @default_servers
+          true
         end
       else
         log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
-        @backends = new_backends
+        if @backends == new_backends
+          log.info "synapse: discovered #{new_backends.length} backends (including new) for service #{@name}"
+          true
+        else
+          log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
+          false
+        end
       end
     end
 
@@ -142,8 +150,9 @@ module Synapse
           @etcd.watch(@discovery['path'], :timeout => 60, :recursive => true)
         rescue Timeout::Error
         else
-          discover
-          @synapse.reconfigure!
+          if discover
+            @synapse.reconfigure!
+          end
         end
       end
     end
