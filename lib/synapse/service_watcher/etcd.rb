@@ -136,6 +136,7 @@ module Synapse
         log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
         if @backends == new_backends
           log.info "synapse: discovered #{new_backends.length} backends (including new) for service #{@name}"
+          @backends = new_backends
           true
         else
           log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
