@@ -91,7 +91,7 @@ module Synapse
       new_backends = []
       d.children.each do |node|
         if node.directory?
-          new_backends << each_dir(node)
+          new_backends << each_dir(@etcd.get(node.key))
         else
           backend = each_node(node)
           if backend
