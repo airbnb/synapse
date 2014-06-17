@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/airbnb/synapse.png?branch=master)](https://travis-ci.org/airbnb/synapse)
-[![Inline docs](http://inch-pages.github.io/github/airbnb/synapse.png)](http://inch-pages.github.io/github/airbnb/synapse)
+[![Inline docs](http://inch-ci.org/github/airbnb/synapse.png)](http://inch-ci.org/github/airbnb/synapse)
 
 # Synapse #
 
