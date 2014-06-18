@@ -23,6 +23,12 @@ module Synapse
 
       # configuration is initially enabled to configure on first loop
       @config_updated = true
+
+      # Any exceptions in the watcher threads should wake the main thread so
+      # that we can fail fast.
+      Thread.abort_on_exception = true
+
+      log.debug "synapse: completed init"
     end
 
     # start all the watchers and enable haproxy configuration
