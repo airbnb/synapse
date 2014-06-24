@@ -52,36 +52,27 @@ production:
 
 You would like to be able to fail over to a different database in case the original dies.
 Let's suppose your instance is running in AWS and you're using the tag 'proddb' set to 'true' to indicate the prod DB.
-You set up synapse to proxy the DB connection on `localhost:3219` in the `synapse.conf.json` file.
+You set up synapse to proxy the DB connection on `localhost:3219` in the `synapse.conf.yaml` file.
 Add a hash under `services` that looks like this:
 
-```json
-{"services":
-    "proddb": {
-      "default_servers": [
-        {
-          "name": "default-db",
-          "host": "mydb.example.com",
-          "port": 5432
-        }
-      ],
-      "discovery": {
-        "method": "awstag",
-        "tag": "proddb",
-        "value": "true"
-      },
-      "haproxy": {
-        "port": 3219,
-        "server_options": "check inter 2000 rise 3 fall 2",
-        "frontend": [
-          "mode tcp",
-        ],
-        "backend": [
-          "mode tcp",
-        ],
-      },
-    },
-...
+```yaml
+---
+ services:
+  proddb:
+   default_servers:
+    -
+     name: "default-db"
+     host: "mydb.example.com"
+     port: 5432
+   discovery:
+    method: "awstag"
+    tag: "proddb"
+    value: "true"
+   haproxy:
+    port: 3219
+    server_options: "check inter 2000 rise 3 fall 2"
+    frontend: mode tcp
+    backend: mode tcp
 ```
 
 And then change your database.yaml file to look like this:
@@ -112,6 +103,9 @@ And then execute:
 Or install it yourself as:
 
     $ gem install synapse
+    
+
+Don't forget to install HAProxy prior to installing Synapse.
 
 ## Configuration ##
 
@@ -217,64 +211,47 @@ This is probably most useful in combination with the `service_conf_dir` directiv
 For example:
 
 ```yaml
-{
-  "haproxy": {
-    "shared_frontend": [
-      "bind 127.0.0.1:8081"
-    ],
-    "reload_command": "service haproxy reload",
-    "config_file_path": "/etc/haproxy/haproxy.cfg",
-    "socket_file_path": "/var/run/haproxy.sock",
-    "global": [
-      "daemon",
-      "user    haproxy",
-      "group   haproxy",
-      "maxconn 4096",
-      "log     127.0.0.1 local2 notice",
-      "stats   socket /var/run/haproxy.sock"
-    ],
-    "defaults": [
-      "log      global",
-      "balance  roundrobin"
-    ]
-  },
-  "services": {
-    "service1": {
-      "discovery": {
-        "method": "zookeeper",
-        "path":  "/nerve/services/service1",
-        "hosts": [ "0.zookeeper.example.com:2181" ]
-      },
-      "haproxy": {
-        "server_options": "check inter 2s rise 3 fall 2",
-        "shared_frontend": [
-          "acl is_service1 hdr_dom(host) -i service1.lb.example.com",
-          "use_backend service1 if is_service1"
-        ],
-        "backend": [
-          "mode http"
-        ]
-      }
-    },
-    "service2": {
-      "discovery": {
-        "method": "zookeeper",
-        "path":  "/nerve/services/service2",
-        "hosts": [ "0.zookeeper.example.com:2181" ]
-      },
-      "haproxy": {
-        "server_options": "check inter 2s rise 3 fall 2",
-        "shared_frontend": [
-          "acl is_service1 hdr_dom(host) -i service2.lb.example.com",
-          "use_backend service2 if is_service2"
-        ],
-        "backend": [
-          "mode http"
-        ]
-      }
-    }
-  }
-}
+ haproxy:
+  shared_frontend: "bind 127.0.0.1:8081"
+  reload_command: "service haproxy reload"
+  config_file_path: "/etc/haproxy/haproxy.cfg"
+  socket_file_path: "/var/run/haproxy.sock"
+  global:
+   - "daemon"
+   - "user    haproxy"
+   - "group   haproxy"
+   - "maxconn 4096"
+   - "log     127.0.0.1 local2 notice"
+   - "stats   socket /var/run/haproxy.sock"
+  defaults:
+   - "log      global"
+   - "balance  roundrobin"
+ services:
+  service1:
+   discovery: 
+    method: "zookeeper"
+    path:  "/nerve/services/service1"
+    hosts: "0.zookeeper.example.com:2181"
+   haproxy:
+    server_options: "check inter 2s rise 3 fall 2"
+    shared_frontend:
+     - "acl is_service1 hdr_dom(host) -i service1.lb.example.com"
+     - "use_backend service1 if is_service1"
+    backend: "mode http"
+
+  service2:
+   discovery:
+    method: "zookeeper"
+    path:  "/nerve/services/service2"
+    hosts: "0.zookeeper.example.com:2181"
+
+   haproxy:
+    server_options: "check inter 2s rise 3 fall 2"
+    shared_frontend:
+     - "acl is_service1 hdr_dom(host) -i service2.lb.example.com"
+     - "use_backend service2 if is_service2
+    backend: "mode http"
+
 ```
 
 This would produce an haproxy.cfg much like the following:
