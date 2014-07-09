@@ -1,0 +1,22 @@
+{
+	"service1":{
+		"discovery":{
+			"method":"version",
+			"hosts":[
+				"127.0.0.1:2181"
+			],
+			"path":"/service/service1/v1",
+			"version_path":"/version/service1",
+			"synapse_config":"/opt/smartstack/synapse/config.json",
+			"reload_command":"sudo service synapse restart"
+		},
+		"haproxy":{
+			"server_options":"check",
+			"listen":[
+				"mode tcp",
+				"option tcplog"
+			],
+			"port":80
+		}
+	}
+}

@@ -156,6 +156,21 @@ The watcher assumes that each node under `path` represents a service server.
 Synapse attempts to decode the data in each of these nodes using JSON and also using Thrift under the standard Twitter service encoding.
 We assume that the data contains a hostname and a port for service servers.
 
+##### Version #####
+
+This watcher retrieves a list of servers from zookeeper based on the set version.
+It takes the following options:
+
+* `method`: version
+* `path`: the zookeeper path where ephemeral nodes will be created for each available service server
+* `hosts`: the list of zookeeper servers to query
+* `version_path`: the zookeeper path where the active version is set
+* `synapse_config`: synapse config path so we can update the `path` with latest version
+* `reload_command`: command to restart synapse on version change
+
+The watcher is an extension on Zookeepr watcher. It checks for the current version path
+and update the config and restart the synpase.
+
 ##### Docker #####
 
 This watcher retrieves a list of [docker](http://www.docker.io/) containers via docker's [HTTP API](http://docs.docker.io/en/latest/reference/api/docker_remote_api/).
