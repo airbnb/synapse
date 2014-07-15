@@ -645,6 +645,10 @@ module Synapse
         log.debug "synapse: not generating frontend stanza for watcher #{watcher.name} because it has no port defined"
         return []
       end
+      if watcher.haproxy['do_not_generate_frontend'] == true
+        log.debug "synapse: not generating frontend stanza for watcher #{watcher.name} because we have told it not to"
+        return []
+      end
 
       stanza = [
         "\nfrontend #{watcher.name}",
