@@ -123,7 +123,6 @@ Each value in the services hash is also a hash, and should contain the following
 * `discovery`: how synapse will discover hosts providing this service (see below)
 * `default_servers`: the list of default servers providing this service; synapse uses these if no others can be discovered
 * `haproxy`: how will the haproxy section for this service be configured
-* `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
 
 #### Service Discovery ####
 
@@ -203,12 +202,13 @@ If you do not list any default servers, no proxy will be created.  The
 
 This section is its own hash, which should contain the following keys:
 
-* `port`: the port (on localhost) where HAProxy will listen for connections to the service.
+* `port`: the port (on localhost) where HAProxy will listen for connections to the service. If this is omitted, only a backend stanza (and no frontend stanza) will be generated for this service; you'll need to get traffic to your service yourself via the `shared_frontend` or manual frontends in `extra_sections`
 * `server_port_override`: the port that discovered servers listen on; you should specify this if your discovery mechanism only discovers names or addresses (like the DNS watcher). If the discovery method discovers a port along with hostnames (like the zookeeper watcher) this option may be left out, but will be used in preference if given.
 * `server_options`: the haproxy options for each `server` line of the service in HAProxy config; it may be left out.
 * `frontend`: additional lines passed to the HAProxy config in the `frontend` stanza of this service
 * `backend`: additional lines passed to the HAProxy config in the `backend` stanza of this service
 * `listen`: these lines will be parsed and placed in the correct `frontend`/`backend` section as applicable; you can put lines which are the same for the frontend and backend here.
+* `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
 
 ### Configuring HAProxy ###
 
@@ -220,16 +220,19 @@ The `haproxy` section of the config file has the following options:
 * `do_reloads`: whether or not Synapse will reload HAProxy (default to `true`)
 * `global`: options listed here will be written into the `global` section of the HAProxy config
 * `defaults`: options listed here will be written into the `defaults` section of the HAProxy config
+* `extra_sections`: additional, manually-configured `frontend`, `backend`, or `listen` stanzas
 * `bind_address`: force HAProxy to listen on this address (default is localhost)
 * `shared_fronted`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
 
-Note that a non-default `bind_address` can be dangerous: it is up to you to ensure that HAProxy will not attempt to bind an address:port combination that is not already in use by one of your services.
+Note that a non-default `bind_address` can be dangerous.
+If you configure an `address:port` combination that is already in use on the system, haproxy will fail to start.
 
 ### HAProxy shared HTTP Frontend ###
 
 For HTTP-only services, it is not always necessary or desirable to dedicate a TCP port per service, since HAProxy can route traffic based on host headers.
-To support this, the optional `shared_fronted` section can be added to both the `haproxy` section and each indvidual service definition: synapse will concatenate them all into a single frontend section in the generated haproxy.cfg file.
-Note that synapse does not assemble the routing ACLs for you: you have to do that yourself based on your needs.
+To support this, the optional `shared_fronted` section can be added to both the `haproxy` section and each indvidual service definition.
+Synapse will concatenate them all into a single frontend section in the generated haproxy.cfg file.
+Note that synapse does not assemble the routing ACLs for you; you have to do that yourself based on your needs.
 This is probably most useful in combination with the `service_conf_dir` directive in a case where the individual service config files are being distributed by a configuration manager such as puppet or chef, or bundled into service packages.
 For example:
 
