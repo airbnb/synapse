@@ -2,6 +2,7 @@ PATH
   remote: .
   specs:
     synapse (0.11.1)
+      aws-sdk (~> 1.39)
       docker-api (~> 1.7.2)
       zk (~> 1.9.4)
 
@@ -9,21 +10,29 @@ GEM
   remote: https://rubygems.org/
   specs:
     archive-tar-minitar (0.5.2)
+    aws-sdk (1.47.0)
+      json (~> 1.4)
+      nokogiri (>= 1.4.4)
     coderay (1.0.9)
     diff-lcs (1.2.4)
     docker-api (1.7.6)
       archive-tar-minitar
       excon (>= 0.28)
       json
-    excon (0.32.1)
+    excon (0.38.0)
     ffi (1.9.3-java)
     json (1.8.1)
+    json (1.8.1-java)
     little-plugger (1.1.3)
     logging (1.8.2)
       little-plugger (>= 1.1.3)
       multi_json (>= 1.8.4)
     method_source (0.8.2)
-    multi_json (1.9.2)
+    mini_portile (0.6.0)
+    multi_json (1.10.1)
+    nokogiri (1.6.2.1)
+      mini_portile (= 0.6.0)
+    nokogiri (1.6.2.1-java)
     pry (0.9.12.2)
       coderay (~> 1.0.5)
       method_source (~> 0.8)
@@ -45,12 +54,17 @@ GEM
       diff-lcs (>= 1.1.3, < 2.0)
     rspec-mocks (2.14.3)
     slop (3.4.6)
+    slyphon-log4j (1.2.15)
+    slyphon-zookeeper_jar (3.3.5-java)
     spoon (0.0.4)
       ffi
     zk (1.9.4)
       logging (~> 1.8.2)
       zookeeper (~> 1.4.0)
     zookeeper (1.4.8)
+    zookeeper (1.4.8-java)
+      slyphon-log4j (= 1.2.15)
+      slyphon-zookeeper_jar (= 3.3.5)
 
 PLATFORMS
   java
