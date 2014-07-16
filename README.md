@@ -203,6 +203,7 @@ If you do not list any default servers, no proxy will be created.  The
 This section is its own hash, which should contain the following keys:
 
 * `port`: the port (on localhost) where HAProxy will listen for connections to the service. If this is omitted, only a backend stanza (and no frontend stanza) will be generated for this service; you'll need to get traffic to your service yourself via the `shared_frontend` or manual frontends in `extra_sections`
+* `bind_address`: the IP address the frontend will listen on. This will override a bind_address specified globally below.
 * `server_port_override`: the port that discovered servers listen on; you should specify this if your discovery mechanism only discovers names or addresses (like the DNS watcher). If the discovery method discovers a port along with hostnames (like the zookeeper watcher) this option may be left out, but will be used in preference if given.
 * `server_options`: the haproxy options for each `server` line of the service in HAProxy config; it may be left out.
 * `frontend`: additional lines passed to the HAProxy config in the `frontend` stanza of this service
