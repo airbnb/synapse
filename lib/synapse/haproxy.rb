@@ -664,7 +664,7 @@ module Synapse
         config.map {|c| "\t#{c}"},
         watcher.backends.shuffle.map {|backend|
           backend_name = construct_name(backend)
-          "\tserver #{backend_name} #{backend['host']}:#{backend['port']} " \
+          "\tserver #{backend_name} #{backend['host']}:#{backend['port']} #{' backup' if backend['backup']} " \
             "cookie #{backend_name} #{watcher.haproxy['server_options']}" }
       ]
     end
