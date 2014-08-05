@@ -137,8 +137,9 @@ describe Synapse::EC2Watcher do
 
         subject.ec2.should_receive(:instances).and_return(instance_collection)
 
-        instance_collection.should_receive(:tagged).and_return(instance_collection)
-        instance_collection.should_receive(:tagged_values).and_return(instance_collection)
+        instance_collection.should_receive(:tagged).with('foo').and_return(instance_collection)
+        instance_collection.should_receive(:tagged_values).with('bar').and_return(instance_collection)
+        instance_collection.should_receive(:select).and_return(instance_collection)
 
         subject.send(:instances_with_tags, 'foo', 'bar')
       end
