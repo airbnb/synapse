@@ -86,21 +86,24 @@ describe Synapse::EC2Watcher do
     end
 
     context 'when missing arguments' do
-      it 'complains if aws_region is missing' do
+      it 'does not complain if aws_region is missing' do
         expect {
           Synapse::EC2Watcher.new(remove_discovery_arg('aws_region'), mock_synapse)
-        }.to raise_error(ArgumentError, /Missing aws_region/)
+        }.to_not raise_error(ArgumentError)
       end
-      it 'complains if aws_access_key_id is missing' do
+
+      it 'does not complain if aws_access_key_id is missing' do
         expect {
           Synapse::EC2Watcher.new(remove_discovery_arg('aws_access_key_id'), mock_synapse)
-        }.to raise_error(ArgumentError, /Missing aws_access_key_id/)
+        }.to_not raise_error(ArgumentError)
       end
-      it 'complains if aws_secret_access_key is missing' do
+
+      it 'does not complain if aws_secret_access_key is missing' do
         expect {
           Synapse::EC2Watcher.new(remove_discovery_arg('aws_secret_access_key'), mock_synapse)
-        }.to raise_error(ArgumentError, /Missing aws_secret_access_key/)
+        }.to_not raise_error(ArgumentError)
       end
+
       it 'complains if server_port_override is missing' do
         expect {
           Synapse::EC2Watcher.new(remove_haproxy_arg('server_port_override'), mock_synapse)
