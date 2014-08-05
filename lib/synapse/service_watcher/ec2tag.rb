@@ -86,25 +86,30 @@ module Synapse
     end
 
     def discover_instances
-      instances = instances_with_tags(@discovery['tag_name'], @discovery['tag_value'])
+      AWS.memoize do
+        instances = instances_with_tags(@discovery['tag_name'], @discovery['tag_value'])
 
-      new_backends = []
+        new_backends = []
 
-      # choice of private_dns_name, dns_name, private_ip_address or
-      # ip_address, for now, just stick with the private fields.
-      instances.each do |instance|
-        new_backends << {
-          'name' => instance.private_dns_name,
-          'host' => instance.private_ip_address,
-          'port' => @haproxy['server_port_override']
-        }
+        # choice of private_dns_name, dns_name, private_ip_address or
+        # ip_address, for now, just stick with the private fields.
+        instances.each do |instance|
+          new_backends << {
+            'name' => instance.private_dns_name,
+            'host' => instance.private_ip_address,
+            'port' => @haproxy['server_port_override'],
+          }
+        end
+
+        new_backends
       end
-
-      new_backends
     end
 
     def instances_with_tags(tag_name, tag_value)
-      @ec2.instances.tagged(tag_name).tagged_values(tag_value)
+      @ec2.instances
+        .tagged(tag_name)
+        .tagged_values(tag_value)
+        .select { |i| i.status == :running }
     end
 
     def configure_backends(new_backends)
