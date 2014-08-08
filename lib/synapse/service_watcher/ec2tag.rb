@@ -88,14 +88,16 @@ module Synapse
     def discover_instances
       AWS.memoize do
         instances = instances_with_tags(@discovery['tag_name'], @discovery['tag_value'])
-
+        if @discovery['selector']
+            instances = eval("instances.select { |i| #{@discovery['selector']}}")
+        end
         new_backends = []
 
         # choice of private_dns_name, dns_name, private_ip_address or
         # ip_address, for now, just stick with the private fields.
         instances.each do |instance|
           new_backends << {
-            'name' => instance.private_dns_name,
+            'name' => instance.tags["Name"],
             'host' => instance.private_ip_address,
             'port' => @haproxy['server_port_override'],
           }
