@@ -69,11 +69,11 @@ module Synapse
     def backends
       if @leader_election
         if @backends.all?{|b| b.key?('id') && b['id']}
-          smallest = @backends.sort_by{ |b| b['id']}.first
+          @backends.sort_by{ |b| b['id']}.first['backup'] = false
           log.debug "synapse: leader election chose one of #{@backends.count} backends " \
             "(#{smallest['host']}:#{smallest['port']} with id #{smallest['id']})"
 
-          return [smallest]
+          return @backends
         elsif (Time.now - @leader_last_warn) > LEADER_WARN_INTERVAL
           log.warn "synapse: service #{@name}: leader election failed; not all backends include an id"
           @leader_last_warn = Time.now

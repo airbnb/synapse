@@ -65,7 +65,7 @@ module Synapse
           numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
 
           log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
-          new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id}
+          new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id, 'backup' => @leader_election}
         end
       end
 
