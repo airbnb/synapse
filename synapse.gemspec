@@ -18,6 +18,7 @@ Gem::Specification.new do |gem|
 
   gem.add_runtime_dependency "aws-sdk", "~> 1.39"
   gem.add_runtime_dependency "docker-api", "~> 1.7.2"
+  gem.add_runtime_dependency "marathon_client", "~> 0.2.3"
   gem.add_runtime_dependency "zk", "~> 1.9.4"
 
   gem.add_development_dependency "rake"
