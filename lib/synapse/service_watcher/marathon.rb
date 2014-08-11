@@ -74,9 +74,9 @@ module Synapse
 
         tasks.each do |task|
           new_backends << {
-            'name' => task.id,
-            'host' => task.host,
-            'port' => task.ports[@port_index]
+            'name' => task['id'],
+            'host' => task['host'],
+            'port' => task['ports'][@port_index]
           }
         end
 
@@ -84,7 +84,7 @@ module Synapse
     end
 
     def list_app_tasks(app_id)
-      @marathon.list_tasks(app_id).parsed_response['tasks']
+      @marathon.list_tasks(app_id).parsed_response[app_id]
     end
 
     def configure_backends(new_backends)

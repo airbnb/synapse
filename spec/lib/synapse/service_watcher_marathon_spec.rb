@@ -6,24 +6,6 @@ class Synapse::MarathonWatcher
   attr_accessor :default_servers, :marathon
 end
 
-class FakeMarathonTask
-  def id
-    @id ||= fake_address
-  end
-
-  def host
-    @host ||= "marathon-#{id.gsub('.', '-')}.example.com"
-  end
-
-  def ports
-    @ports = []
-  end
-
-  def fake_address
-    4.times.map { (0...254).to_a.shuffle.pop.to_s }.join('.')
-  end
-end
-
 describe Synapse::MarathonWatcher do
   let(:mock_synapse) { double }
   subject { Synapse::MarathonWatcher.new(basic_config, mock_synapse) }
@@ -84,8 +66,8 @@ describe Synapse::MarathonWatcher do
   end
 
   context "instance discovery" do
-    let(:instance1) { FakeMarathonTask.new }
-    let(:instance2) { FakeMarathonTask.new }
+    let(:instance1) { { "id" => "foo", "host" => "foo.example.com", "ports" => [80, 81, 82] } }
+    let(:instance2) { { "id" => "bar", "host" => "bar.example.com", "ports" => [90, 91, 92] } }
 
     context 'using the Marathon API' do
       let(:marathon_client) { double('Marathon::Client') }
@@ -124,11 +106,15 @@ describe Synapse::MarathonWatcher do
       let(:backend) { subject.send(:discover_instances).pop }
 
       it "returns a task's host as the hostname" do
-        expect( backend['host'] ).to eq instance1.host
+        expect( backend['host'] ).to eq instance1['host']
       end
 
       it "returns a task's id as the server name" do
-        expect( backend['name'] ).to eq instance1.id
+        expect( backend['name'] ).to eq instance1['id']
+      end
+
+      it "returns a tasks first port as the server port" do
+        expect( backend['port'] ).to eq instance1['ports'][1]
       end
     end
   end
