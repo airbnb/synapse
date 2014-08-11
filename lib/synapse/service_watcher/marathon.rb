@@ -43,11 +43,11 @@ module Synapse
           current_backends = discover_instances
 
           if last_backends != current_backends
-            log.info "synapse: marathon watcher backends have changed."
+            log.debug "synapse: marathon watcher backends have changed."
             last_backends = current_backends
             configure_backends(current_backends)
           else
-            log.info "synapse: marathon watcher backends are unchanged."
+            log.debug "synapse: marathon watcher backends are unchanged."
           end
 
           sleep_until_next_check(start)
@@ -68,7 +68,7 @@ module Synapse
     end
 
     def discover_instances
-        tasks = list_app_tasks(@discovery['app_id'])
+        tasks = list_app_tasks(@discovery['app_id']) || []
 
         new_backends = []
 
