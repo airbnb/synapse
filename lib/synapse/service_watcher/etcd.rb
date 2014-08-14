@@ -7,11 +7,15 @@ module Synapse
     NUMBERS_RE = /^\d+$/
 
     def start
-      etcd_hosts = @discovery['host']
+      @etcd_hosts = @discovery['hosts'].shuffle
 
       log.info "synapse: starting etcd watcher #{@name} @ host: #{@discovery['host']}, path: #{@discovery['path']}"
       @should_exit = false
-      @etcd = ::Etcd.client(:host => @discovery['host'], :port => @discovery['port'])
+
+      host, port = @etcd_hosts[0].split(':')
+      host = host || '127.0.0.1'
+      port = port || 4003
+      @etcd = ::Etcd.client(:host => host, :port => port)
 
       # call the callback to bootstrap the process
       discover
@@ -31,6 +35,22 @@ module Synapse
     end
 
     def ping?
+      etcd_connected?
+    end
+
+    private
+    def etcd_connected?
+      unless @etcd.leader
+        @etcd_hosts.each do |h|
+          host, port = h.split(':')
+          host = host || '127.0.0.1'
+          port = port || 4003
+          @etcd = ::Etcd.client(:host => host, :port => port)
+
+          break if @etcd.leader
+        end
+      end
+
       @etcd.leader
     end
 
