@@ -12,10 +12,20 @@ module Synapse
       log.info "synapse: starting etcd watcher #{@name} @ host: #{@discovery['host']}, path: #{@discovery['path']}"
       @should_exit = false
 
-      host, port = @etcd_hosts[0].split(':')
-      host = host || '127.0.0.1'
-      port = port || 4003
-      @etcd = ::Etcd.client(:host => host, :port => port)
+      @etcd_hosts.each do |h|
+        host, port = h.split(':')
+        port = port || 4003
+        @etcd = ::Etcd.client(:host => host, :port => port)
+        
+        connected =
+          begin
+            @etcd.leader
+          rescue
+            false
+          end
+
+        break if connected
+      end
 
       # call the callback to bootstrap the process
       discover
@@ -35,22 +45,6 @@ module Synapse
     end
 
     def ping?
-      etcd_connected?
-    end
-
-    private
-    def etcd_connected?
-      unless @etcd.leader
-        @etcd_hosts.each do |h|
-          host, port = h.split(':')
-          host = host || '127.0.0.1'
-          port = port || 4003
-          @etcd = ::Etcd.client(:host => host, :port => port)
-
-          break if @etcd.leader
-        end
-      end
-
       @etcd.leader
     end
 
