@@ -27,6 +27,16 @@ module Synapse
       # Any exceptions in the watcher threads should wake the main thread so
       # that we can fail fast.
       Thread.abort_on_exception = true
+      if opts['check_interval']
+        @check_interval = opts['check_interval'].to_i
+      else
+        @check_interval = 15
+      end 
+      if opts['max_checks']
+        @max_checks = opts['max_checks'].to_i
+      else
+        @max_checks = 0
+      end 
 
       log.debug "synapse: completed init"
     end
@@ -50,10 +60,14 @@ module Synapse
           log.info "synapse: regenerating haproxy config"
           @haproxy.update_config(@service_watchers)
         else
-          sleep 1
+          sleep @check_interval
         end
 
         loops += 1
+        if @max_checks != 0 and loops > @max_checks
+            log.info "synapse: exiting after #{loops} loops"
+            break
+        end
         log.debug "synapse: still running at #{Time.now}" if (loops % 60) == 0
       end
 
