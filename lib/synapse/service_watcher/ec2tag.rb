@@ -1,8 +1,34 @@
 require 'synapse/service_watcher/base'
 require 'aws-sdk'
+require 'ostruct'
 
+InstanceCache = Object.new
+class << InstanceCache
+    def __init__
+        @i_time = Time.now
+        @instances = nil
+        @cacheTimeout = 60
+        @mutex = Mutex.new
+    end
+    def set(instances)
+        @instances = instances
+        @i_time = Time.now
+    end
+    def get()
+        if Time.now - @i_time > (@cacheTimeout + rand(10))
+            @instances = nil
+        end
+        @instances
+    end
+    def get_mutex()
+        @mutex
+    end
+end
+
+InstanceCache.__init__()
 module Synapse
   class EC2Watcher < BaseWatcher
+  
 
     attr_reader :check_interval
 
@@ -18,9 +44,10 @@ module Synapse
       @check_interval = @discovery['check_interval'] || 15.0
 
       log.info "synapse: ec2tag watcher looking for instances " +
-        "tagged with #{@discovery['tag_name']}=#{@discovery['tag_value']}"
+        "tagged with #{@discovery['tag_name']}=#{@discovery['tag_value']} #{@discovery['selector']} "
 
       @watcher = Thread.new { watch }
+      instances = instances_with_tags(@discovery['tag_name'], @discovery['tag_value'])
     end
 
     private
@@ -86,32 +113,41 @@ module Synapse
     end
 
     def discover_instances
-      AWS.memoize do
         instances = instances_with_tags(@discovery['tag_name'], @discovery['tag_value'])
         if @discovery['selector']
             instances = eval("instances.select { |i| #{@discovery['selector']}}")
         end
-        new_backends = []
-
-        # choice of private_dns_name, dns_name, private_ip_address or
-        # ip_address, for now, just stick with the private fields.
-        instances.each do |instance|
-          new_backends << {
-            'name' => instance.tags["Name"],
-            'host' => instance.private_ip_address,
-            'port' => @haproxy['server_port_override'],
-          }
-        end
-
-        new_backends
-      end
+        # do not want to update the cached objects
+        inst = instances.clone()
+        # add server port
+        inst.each { | i | i['port'] = @haproxy['server_port_override'] }
+        # sort so that the back end are generated in the same way
+        inst.sort_by! { |i| i['name'] }
+        inst
     end
 
     def instances_with_tags(tag_name, tag_value)
-      @ec2.instances
-        .tagged(tag_name)
-        .tagged_values(tag_value)
-        .select { |i| i.status == :running }
+      InstanceCache.get_mutex().synchronize do
+          inst = InstanceCache.get()
+          if inst.nil?
+            AWS.memoize do
+                log.info ("AWS API Call for #{tag_name}, #{tag_value}")
+                instances = @ec2.instances
+                    .tagged(tag_name)
+                    .tagged_values(tag_value)
+                    .select { |i| i.status == :running }
+                inst = []
+                instances.each { | i |
+                    inst << OpenStruct.new({'tags' => i.tags.to_h, 
+                                        'host' => i.private_ip_address,
+                                        'name' => i.tags["Name"]})
+                }
+       
+            end
+            InstanceCache.set(inst)
+          end
+          return inst
+      end
     end
 
     def configure_backends(new_backends)
