@@ -88,11 +88,11 @@ module Synapse
           current_backends = discover_instances
 
           if last_backends != current_backends
-            log.info "synapse: ec2tag watcher backends have changed."
+            log.info "synapse: ec2tag watcher #{@name} backends have changed."
             last_backends = current_backends
             configure_backends(current_backends)
           else
-            log.info "synapse: ec2tag watcher backends are unchanged."
+            log.info "synapse: ec2tag watcher #{@name} backends are unchanged."
           end
 
           sleep_until_next_check(start)
@@ -118,9 +118,13 @@ module Synapse
             instances = eval("instances.select { |i| #{@discovery['selector']}}")
         end
         # do not want to update the cached objects
-        inst = instances.clone()
+        inst = []
         # add server port
-        inst.each { | i | i['port'] = @haproxy['server_port_override'] }
+        instances.each { | i |
+            iclone = OpenStruct.new(i.to_h)
+            iclone['port'] = @haproxy['server_port_override'] 
+            inst << iclone
+        }
         # sort so that the back end are generated in the same way
         inst.sort_by! { |i| i['name'] }
         inst
@@ -132,17 +136,25 @@ module Synapse
           if inst.nil?
             AWS.memoize do
                 log.info ("AWS API Call for #{tag_name}, #{tag_value}")
-                instances = @ec2.instances
-                    .tagged(tag_name)
-                    .tagged_values(tag_value)
-                    .select { |i| i.status == :running }
+                begin
+                    instances = @ec2.instances
+                        .tagged(tag_name)
+                        .tagged_values(tag_value)
+                        .select { |i| i.status == :running }
+                    rescue Exception => e 
+                        puts e.backtrace.inspect  
+                        puts e.message
+                        raise e
+                    end
                 inst = []
                 instances.each { | i |
-                    inst << OpenStruct.new({'tags' => i.tags.to_h, 
+                    inst_info = OpenStruct.new({'tags' => i.tags.to_h, 
                                         'host' => i.private_ip_address,
                                         'name' => i.tags["Name"]})
+                    inst_info.freeze
+                    inst << inst_info
                 }
-       
+                inst.freeze 
             end
             InstanceCache.set(inst)
           end
