@@ -83,8 +83,14 @@ module Synapse
         new_backends
     end
 
-    def list_app_tasks(app_id)
-      @marathon.list_tasks(app_id).parsed_response[app_id]
+   def list_app_tasks(app_id)
+      response = @marathon.list_tasks(app_id)
+      if response.success?
+        response.parsed_response[app_id]
+      else
+        log.warn "synapse: error polling Marathon host #{@discovery['hostname']}: #{response.error}"
+        []
+      end
     end
 
     def configure_backends(new_backends)

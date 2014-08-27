@@ -79,9 +79,20 @@ describe Synapse::MarathonWatcher do
 
       it 'fetches tasks' do
         expect(subject.marathon).to receive(:list_tasks).and_return(task_list)
+        expect(task_list).to receive(:success?).and_return(true)
         expect(task_list).to receive(:parsed_response).and_return({ 'tasks' => [instance1, instance2] })
 
         subject.send(:list_app_tasks, 'foo')
+      end
+
+      it 'handles client errors' do
+        expect(subject.marathon).to receive(:list_tasks).and_return(task_list)
+        expect(task_list).to receive(:success?).and_return(false)
+        expect(task_list).to receive(:error).and_return({ 'error' => 'message' })
+
+        tasks = subject.send(:list_app_tasks, 'foo')
+
+        expect( tasks ).to be_empty
       end
     end
 
