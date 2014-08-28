@@ -134,18 +134,28 @@ module Synapse
       InstanceCache.get_mutex().synchronize do
           inst = InstanceCache.get()
           if inst.nil?
+            tries = 0
+            ntries = 4
             AWS.memoize do
-                log.info ("AWS API Call for #{tag_name}, #{tag_value}")
-                begin
-                    instances = @ec2.instances
-                        .tagged(tag_name)
-                        .tagged_values(tag_value)
-                        .select { |i| i.status == :running }
+                while tries < ntries do
+                    log.info ("AWS API Call for #{tag_name}, #{tag_value}")
+                    begin
+                        instances = @ec2.instances
+                            .tagged(tag_name)
+                            .tagged_values(tag_value)
+                            .select { |i| i.status == :running }
+                        break
                     rescue Exception => e 
-                        puts e.backtrace.inspect  
-                        puts e.message
-                        raise e
+                        if e.message.include?("Request limit exceeded")
+                            sleeping = rand(6) + 4
+                            log.warn ("#{e.message} retry #{tries} after #{sleeping} sec")
+                            tries += 1
+                            sleep(sleeping)
+                        else
+                            raise e
+                        end
                     end
+                end
                 inst = []
                 instances.each { | i |
                     inst_info = OpenStruct.new({'tags' => i.tags.to_h, 
