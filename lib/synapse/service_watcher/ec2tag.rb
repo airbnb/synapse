@@ -35,7 +35,7 @@ module Synapse
     def start
       region = @discovery['aws_region'] || ENV['AWS_REGION']
       log.info "Connecting to EC2 region: #{region}"
-
+      AWS.config(:logger => log)
       @ec2 = AWS::EC2.new(
         region:            region,
         access_key_id:     @discovery['aws_access_key_id']     || ENV['AWS_ACCESS_KEY_ID'],
