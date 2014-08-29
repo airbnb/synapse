@@ -60,9 +60,15 @@ module Synapse
           [ pair[1].rpartition("/").first, pair[0].rpartition(":").last ]
         end
       elsif ports.is_a?(Array)
-        # New style API, ports is an array of hashes, with numeric values (or nil if no ports forwarded)
+      # New style API, ports is an array of hashes, with numeric values (or nil if no ports forwarded)
+      # CSC - Check to see if we are using addressable IP addresses.  If so, we don't need the 'PublicPort' as the 'PrivatePort' is available
         pairs = ports.collect do |v|
-          [v['PrivatePort'].to_s, v['PublicPort'].to_s]
+          addressable = @discovery['addressable_ip']
+          if addressable == "true"
+            [v['PrivatePort'].to_s,v['PrivatePort'].to_s]
+          else
+            [v['PrivatePort'].to_s, v['PublicPort'].to_s]
+          end
         end
       end
       Hash[pairs]
@@ -85,12 +91,45 @@ module Synapse
           cnt["Image"].rpartition(":").first == @discovery["image_name"] \
             and cnt["Ports"].has_key?(@discovery["container_port"].to_s())
         end
-        cnts.map do |cnt|
-          {
-            'name' => server['name'],
-            'host' => server['host'],
-            'port' => cnt["Ports"][@discovery["container_port"].to_s()]
-          }
+
+        # CSC - added addressable ip check
+        addressable = @discovery['addressable_ip']
+        if addressable == "true"
+          cnts.map do |cnt|
+            id = cnt['Id']
+            request = '/containers/' + id + '/json'
+            begin
+              Docker.url = "http://#{server['host']}:#{server['port'] || 4243}"
+              response = Docker::Util.parse_json("[" + Docker.connection.get(request, {})+ "]")
+            rescue => an_error
+              log.warn "checker: error making request : #{an_error.inspect}"
+              next []
+            end
+        
+            the_name = ""
+            the_host = ""
+            response.each do |info|
+              the_name = info["Config"]["Hostname"]
+              the_host = info["NetworkSettings"]["IPAddress"]
+            end
+        
+            {
+              'name' => the_name,
+              'host' => the_host,
+              'port' => cnt["Ports"][@discovery["container_port"].to_s()]
+            }
+
+          end
+
+        else
+          cnts.map do |cnt|
+            id = cnt['Id']
+            {
+              'name' => server['name'],
+              'host' => server['host'],
+              'port' => cnt["Ports"][@discovery["container_port"].to_s()]
+            }
+          end
         end
       end
       backends.flatten
