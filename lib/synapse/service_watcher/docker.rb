@@ -103,25 +103,19 @@ module Synapse
             request = '/containers/' + id + '/json'
             begin
               Docker.url = "http://#{server['host']}:#{server['port'] || 4243}"
-              response = Docker::Util.parse_json("[" + Docker.connection.get(request, {})+ "]")
+              response = Docker::Util.parse_json('[' + Docker.connection.get(request, {})+ ']')
             rescue => an_error
               log.warn "synapse: error inspecting container : #{an_error.inspect}"
               next []
             end
         
-            the_name = ""
-            the_host = ""
-            response.each do |info|
-              the_name = info["Config"]["Hostname"]
-              the_host = info["NetworkSettings"]["IPAddress"]
-            end
-        
+            # Nothing to loop through here, so just look at the response and get what we want
             {
-              'name' => the_name,
-              'host' => the_host,
-              'port' => cnt["Ports"][@discovery["container_port"].to_s()]
+              'name' => response[0]['Config']['Hostname'],
+              'host' => response[0]['NetworkSettings']['IPAddress'],
+              'port' => cnt['Ports'][@discovery['container_port'].to_s()]
             }
-            
+
           end
 
         # If the IP isn't addressable, then we pick our host and server from the config and use the Private Port.
