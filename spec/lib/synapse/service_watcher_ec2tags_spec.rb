@@ -183,40 +183,5 @@ describe Synapse::EC2Watcher do
       end
     end
   end
-
-  context "configure_backends tests" do
-    let(:backend1) { { 'name' => 'foo',  'host' => 'foo.backend.tld',  'port' => '123' } }
-    let(:backend2) { { 'name' => 'bar',  'host' => 'bar.backend.tld',  'port' => '456' } }
-    let(:fallback) { { 'name' => 'fall', 'host' => 'fall.backend.tld', 'port' => '789' } }
-
-    before(:each) do
-      expect(subject.synapse).to receive(:'reconfigure!').at_least(:once)
-    end
-
-    it 'runs' do
-      expect { subject.send(:configure_backends, []) }.not_to raise_error
-    end
-
-    it 'sets backends correctly' do
-      subject.send(:configure_backends, [ backend1, backend2 ])
-      expect(subject.backends).to eq([ backend1, backend2 ])
-    end
-
-    it 'resets to default backends if no instances are found' do
-      subject.default_servers = [ fallback ]
-      subject.send(:configure_backends, [ backend1 ])
-      expect(subject.backends).to eq([ backend1 ])
-      subject.send(:configure_backends, [])
-      expect(subject.backends).to eq([ fallback ])
-    end
-
-    it 'does not reset to default backends if there are no default backends' do
-      subject.default_servers = []
-      subject.send(:configure_backends, [ backend1 ])
-      expect(subject.backends).to eq([ backend1 ])
-      subject.send(:configure_backends, [])
-      expect(subject.backends).to eq([ backend1 ])
-    end
-  end
 end
 

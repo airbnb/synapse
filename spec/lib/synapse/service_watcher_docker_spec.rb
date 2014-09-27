@@ -46,12 +46,7 @@ describe Synapse::DockerWatcher do
     end
     it('has a happy first run path, configuring backends') do
       expect(subject).to receive(:containers).and_return(['container1'])
-      expect(subject).to receive(:configure_backends).with(['container1'])
-      subject.send(:watch)
-    end
-    it('does not call configure_backends if there is no change') do
-      expect(subject).to receive(:containers).and_return([])
-      expect(subject).to_not receive(:configure_backends)
+      expect(subject).to receive(:set_backends).with(['container1'])
       subject.send(:watch)
     end
   end
@@ -62,33 +57,6 @@ describe Synapse::DockerWatcher do
         raise('throw exception inside watch')
       end
       expect { subject.send(:watch) }.not_to raise_error
-    end
-  end
-
-  context "configure_backends tests" do
-    before(:each) do
-      expect(subject.synapse).to receive(:'reconfigure!').at_least(:once)
-    end
-    it 'runs' do
-      expect { subject.send(:configure_backends, []) }.not_to raise_error
-    end
-    it 'sets backends right' do
-      subject.send(:configure_backends, ['foo'])
-      expect(subject.backends).to eq(['foo'])
-    end
-    it 'resets to default backends if no container found' do
-      subject.default_servers = ['fallback1']
-      subject.send(:configure_backends, ['foo'])
-      expect(subject.backends).to eq(['foo'])
-      subject.send(:configure_backends, [])
-      expect(subject.backends).to eq(['fallback1'])
-    end
-    it 'does not reset to default backends if there are no default backends' do
-      subject.default_servers = []
-      subject.send(:configure_backends, ['foo'])
-      expect(subject.backends).to eq(['foo'])
-      subject.send(:configure_backends, [])
-      expect(subject.backends).to eq(['foo'])
     end
   end
 
