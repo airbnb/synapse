@@ -54,20 +54,12 @@ module Synapse
     end
 
     def watch
-      last_backends = []
       until @should_exit
         begin
           start = Time.now
-          current_backends = discover_instances
-
-          if last_backends != current_backends
+          if set_backends(discover_instances)
             log.info "synapse: ec2tag watcher backends have changed."
-            last_backends = current_backends
-            configure_backends(current_backends)
-          else
-            log.info "synapse: ec2tag watcher backends are unchanged."
           end
-
           sleep_until_next_check(start)
         rescue Exception => e
           log.warn "synapse: error in ec2tag watcher thread: #{e.inspect}"
@@ -110,23 +102,6 @@ module Synapse
         .tagged(tag_name)
         .tagged_values(tag_value)
         .select { |i| i.status == :running }
-    end
-
-    def configure_backends(new_backends)
-      if new_backends.empty?
-        if @default_servers.empty?
-          log.warn "synapse: no backends and no default servers for service #{@name};" \
-            " using previous backends: #{@backends.inspect}"
-        else
-          log.warn "synapse: no backends for service #{@name};" \
-            " using default servers: #{@default_servers.inspect}"
-          @backends = @default_servers
-        end
-      else
-        log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
-        @backends = new_backends
-      end
-      @synapse.reconfigure!
     end
   end
 end

@@ -45,7 +45,7 @@ module Synapse
       @zk.create(path, ignore: :node_exists)
     end
 
-    # find the current backends at the discovery path; sets @backends
+    # find the current backends at the discovery path
     def discover
       log.info "synapse: discovering backends for service #{@name}"
 
@@ -69,17 +69,7 @@ module Synapse
         end
       end
 
-      if new_backends.empty?
-        if @default_servers.empty?
-          log.warn "synapse: no backends and no default servers for service #{@name}; using previous backends: #{@backends.inspect}"
-        else
-          log.warn "synapse: no backends for service #{@name}; using default servers: #{@default_servers.inspect}"
-          @backends = @default_servers
-        end
-      else
-        log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
-        set_backends(new_backends)
-      end
+      set_backends(new_backends)
     end
 
     # sets up zookeeper callbacks if the data at the discovery path changes
@@ -103,8 +93,6 @@ module Synapse
         watch
         # Rediscover
         discover
-        # send a message to calling class to reconfigure
-        reconfigure!
       end
     end
 
