@@ -157,7 +157,7 @@ describe Synapse::DockerWatcher do
     end
 
     context 'filters out wrong image tags' do
-      let(:args) { add_arg 'image_tag', 'mycooltag' }
+      let(:testargs) { add_arg 'image_tag', 'mycooltag' }
       let(:docker_data) { [{"Ports" => "0.0.0.0:49153->6379/tcp, 0.0.0.0:49154->6390/tcp", "Image" => "mycool/image:mycooltag"}, {"Ports" => "0.0.0.0:49155->6379/tcp", "Image" => "mycool/image:wrong_tagname"}] }
       it do
         expect(Docker::Util).to receive(:parse_json).and_return(docker_data)
