@@ -157,6 +157,7 @@ It takes the following options:
 * `method`: docker
 * `servers`: a list of servers running docker as a daemon. Format is `{"name":"...", "host": "..."[, port: 4243]}`
 * `image_name`: find containers running this image
+* `image_tag`: (OPTIONAL) if specified, only find containers running the above image with this tag
 * `container_port`: find containers forwarding this port
 * `check_interval`: how often to poll the docker API on each server. Default is 15s.
 
@@ -222,7 +223,7 @@ The `haproxy` section of the config file has the following options:
 * `defaults`: options listed here will be written into the `defaults` section of the HAProxy config
 * `extra_sections`: additional, manually-configured `frontend`, `backend`, or `listen` stanzas
 * `bind_address`: force HAProxy to listen on this address (default is localhost)
-* `shared_fronted`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
+* `shared_frontend`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
 
 Note that a non-default `bind_address` can be dangerous.
 If you configure an `address:port` combination that is already in use on the system, haproxy will fail to start.
