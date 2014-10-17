@@ -223,7 +223,7 @@ The `haproxy` section of the config file has the following options:
 * `defaults`: options listed here will be written into the `defaults` section of the HAProxy config
 * `extra_sections`: additional, manually-configured `frontend`, `backend`, or `listen` stanzas
 * `bind_address`: force HAProxy to listen on this address (default is localhost)
-* `shared_fronted`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
+* `shared_frontend`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
 
 Note that a non-default `bind_address` can be dangerous.
 If you configure an `address:port` combination that is already in use on the system, haproxy will fail to start.
