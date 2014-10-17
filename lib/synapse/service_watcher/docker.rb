@@ -20,6 +20,8 @@ module Synapse
         if @discovery['image_name'].nil? or @discovery['image_name'].empty?
       raise ArgumentError, "container_port required" \
         if @discovery['container_port'].nil?
+      raise ArgumentError, "image_tag cannot be empty" \
+        if @discovery['image_tag'] != nil and @discovery['image_tag'].empty?
     end
 
     def watch
@@ -81,9 +83,16 @@ module Synapse
           cnt['Ports'] = rewrite_container_ports cnt['Ports']
         end
         # Discover containers that match the image/port we're interested in
-        cnts = cnts.find_all do |cnt|
-          cnt["Image"].rpartition(":").first == @discovery["image_name"] \
-            and cnt["Ports"].has_key?(@discovery["container_port"].to_s())
+        if @discovery["image_tag"]
+          cnts = cnts.find_all do |cnt|
+            cnt["Image"] == @discovery["image_name"] + ":" + @discovery["image_tag"] \
+              and cnt["Ports"].has_key?(@discovery["container_port"].to_s())
+          end
+        else
+          cnts = cnts.find_all do |cnt|
+            cnt["Image"].rpartition(":").first == @discovery["image_name"] \
+              and cnt["Ports"].has_key?(@discovery["container_port"].to_s())
+          end
         end
         cnts.map do |cnt|
           {
