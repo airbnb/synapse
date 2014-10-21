@@ -7,7 +7,7 @@ end
 
 describe Synapse::DockerWatcher do
   let(:mocksynapse) { double() }
-  subject { Synapse::DockerWatcher.new(testargs, mocksynapse) }
+  subject { Synapse::DockerWatcher.new(args, mocksynapse) }
   let(:testargs) { { 'name' => 'foo', 'discovery' => { 'method' => 'docker', 'servers' => [{'host' => 'server1.local', 'name' => 'mainserver'}], 'image_name' => 'mycool/image', 'container_port' => 6379 }, 'haproxy' => {} }}
   before(:each) do
     allow(subject.log).to receive(:warn)
@@ -21,10 +21,12 @@ describe Synapse::DockerWatcher do
   end
 
   context "can construct normally" do
+    let(:args) { testargs }
     it('can at least construct') { expect { subject }.not_to raise_error }
   end
 
   context "normal tests" do
+    let(:args) { testargs }
     it('starts a watcher thread') do
       watcher_mock = double()
       expect(Thread).to receive(:new).and_return(watcher_mock)
@@ -39,6 +41,7 @@ describe Synapse::DockerWatcher do
   end
 
   context "watch tests" do
+    let(:args) { testargs }
     before(:each) do
       expect(subject).to receive(:sleep_until_next_check) do |arg|
         subject.instance_variable_set('@should_exit', true)
@@ -56,6 +59,7 @@ describe Synapse::DockerWatcher do
     end
   end
   context "watch eats exceptions" do
+    let(:args) { testargs }
     it "blows up when finding containers" do
       expect(subject).to receive(:containers) do |arg|
         subject.instance_variable_set('@should_exit', true)
@@ -66,6 +70,7 @@ describe Synapse::DockerWatcher do
   end
 
   context "configure_backends tests" do
+    let(:args) { testargs }
     before(:each) do
       expect(subject.synapse).to receive(:'reconfigure!').at_least(:once)
     end
@@ -93,6 +98,7 @@ describe Synapse::DockerWatcher do
   end
 
   context "rewrite_container_ports tests" do
+    let(:args) { testargs }
     it 'doesnt break if Ports => nil' do
         subject.send(:rewrite_container_ports, nil)
     end
@@ -113,9 +119,13 @@ describe Synapse::DockerWatcher do
       expect(Docker).to receive(:connection).and_return(getter)
     end
 
-    it('has a sane uri') { subject.send(:containers); expect(Docker.url).to eql('http://server1.local:4243') }
+    context 'uri sane' do
+      let(:args) { testargs }
+      it('has a sane uri') { subject.send(:containers); expect(Docker.url).to eql('http://server1.local:4243') }
+    end
 
     context 'old style port mappings' do
+      let(:args) { testargs }
       context 'works for one container' do
         let(:docker_data) { [{"Ports" => "0.0.0.0:49153->6379/tcp, 0.0.0.0:49154->6390/tcp", "Image" => "mycool/image:tagname"}] }
         it do 
@@ -133,6 +143,7 @@ describe Synapse::DockerWatcher do
     end
 
     context 'new style port mappings' do
+      let(:args) { testargs }
       let(:docker_data) { [{"Ports" => [{'PrivatePort' => 6379, 'PublicPort' => 49153}, {'PublicPort' => 49154, 'PrivatePort' => 6390}], "Image" => "mycool/image:tagname"}] }
       it do
         expect(Docker::Util).to receive(:parse_json).and_return(docker_data)
@@ -141,6 +152,7 @@ describe Synapse::DockerWatcher do
     end
 
     context 'filters out wrong images' do
+      let(:args) { testargs }
       let(:docker_data) { [{"Ports" => "0.0.0.0:49153->6379/tcp, 0.0.0.0:49154->6390/tcp", "Image" => "mycool/image:tagname"}, {"Ports" => "0.0.0.0:49155->6379/tcp", "Image" => "wrong/image:tagname"}] }
       it do
         expect(Docker::Util).to receive(:parse_json).and_return(docker_data)
@@ -149,6 +161,7 @@ describe Synapse::DockerWatcher do
     end
 
     context 'matches any tag' do
+      let(:args) { testargs }
       let(:docker_data) { [{"Ports" => "0.0.0.0:49153->6379/tcp, 0.0.0.0:49154->6390/tcp", "Image" => "mycool/image:mycooltag"}, {"Ports" => "0.0.0.0:49155->6379/tcp", "Image" => "mycool/image:wrong_tagname"}] }
       it do
         expect(Docker::Util).to receive(:parse_json).and_return(docker_data)
@@ -157,7 +170,7 @@ describe Synapse::DockerWatcher do
     end
 
     context 'filters out wrong image tags' do
-      let(:testargs) { add_arg('image_tag', 'mycooltag') }
+      let(:args) { add_arg('image_tag', 'mycooltag') }
       let(:docker_data) { [{"Ports" => "0.0.0.0:49153->6379/tcp, 0.0.0.0:49154->6390/tcp", "Image" => "mycool/image:mycooltag"}, {"Ports" => "0.0.0.0:49155->6379/tcp", "Image" => "mycool/image:wrong_tagname"}] }
       it do
         expect(Docker::Util).to receive(:parse_json).and_return(docker_data)
