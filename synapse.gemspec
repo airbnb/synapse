@@ -4,7 +4,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'synapse/version'
 
 Gem::Specification.new do |gem|
-  gem.name          = "synapse"
+  gem.name          = "strava-synapse"
   gem.version       = Synapse::VERSION
   gem.authors       = ["Martin Rhoads"]
   gem.email         = ["martin.rhoads@airbnb.com"]

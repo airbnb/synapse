@@ -7,13 +7,13 @@ module Synapse
     attr_reader :check_interval
 
     def start
-      region = @discovery['aws_region'] || ENV['AWS_REGION']
+      region = @discovery['aws_region']
       log.info "Connecting to EC2 region: #{region}"
 
       @ec2 = AWS::EC2.new(
         region:            region,
-        access_key_id:     @discovery['aws_access_key_id']     || ENV['AWS_ACCESS_KEY_ID'],
-        secret_access_key: @discovery['aws_secret_access_key'] || ENV['AWS_SECRET_ACCESS_KEY'] )
+        access_key_id:     @discovery['aws_access_key_id'],
+        secret_access_key: @discovery['aws_secret_access_key'])
 
       @check_interval = @discovery['check_interval'] || 15.0
 
@@ -43,13 +43,6 @@ module Synapse
 
       unless @haproxy['server_port_override'].match(/^\d+$/)
         raise ArgumentError, "Invalid server_port_override value"
-      end
-
-      # Required, but can use well-known environment variables.
-      %w[aws_access_key_id aws_secret_access_key aws_region].each do |attr|
-        unless (@discovery[attr] || ENV[attr.upcase])
-          raise ArgumentError, "Missing #{attr} option or #{attr.upcase} environment variable"
-        end
       end
     end
 
