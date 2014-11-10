@@ -108,6 +108,22 @@ describe Synapse::EC2Watcher do
       end
     end
 
+    context 'when using iam profile' do
+      let(:iam_config) do
+        config = basic_config.clone
+        config['discovery']['use_iam_profile'] = true
+        config['discovery'].delete 'aws_access_key_id'
+        config['discovery'].delete 'aws_secret_access_key'
+        config
+      end
+
+      it 'does not complain if aws credentials are missing' do
+        expect {
+          Synapse::EC2Watcher.new(iam_config, mock_synapse)
+        }.not_to raise_error()
+      end
+    end
+
     context 'invalid data' do
       it 'complains if the haproxy server_port_override is not a number' do
           expect {
