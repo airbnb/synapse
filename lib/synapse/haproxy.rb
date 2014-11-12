@@ -717,7 +717,7 @@ module Synapse
         config.map {|c| "\t#{c}"},
         backends.keys.shuffle.map {|backend_name|
           backend = backends[backend_name]
-          b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
+          b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}#{' backup' if backend['backup']}#{' check port ' if backend['httpchk']}#{backend['chkport']}"
           b = "#{b} cookie #{backend_name}" unless config.include?('mode tcp')
           b = "#{b} #{watcher.haproxy['server_options']}"
           b = "#{b} disabled" unless backend['enabled']
