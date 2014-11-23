@@ -715,8 +715,13 @@ module Synapse
       stanza = [
         "\nbackend #{watcher.name}",
         config.map {|c| "\t#{c}"},
+<<<<<<< HEAD
         backends.keys.shuffle.map {|backend_name|
           backend = backends[backend_name]
+=======
+        watcher.backends.shuffle.map {|backend|
+          backend_name = construct_name(backend)
+>>>>>>> Allow haproxy httpchk on a custom port
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}#{' backup' if backend['backup']}#{' check port ' if backend['httpchk']}#{backend['chkport']}"
           b = "#{b} cookie #{backend_name}" unless config.include?('mode tcp')
           b = "#{b} #{watcher.haproxy['server_options']}"
