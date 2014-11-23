@@ -194,6 +194,9 @@ Each hash in that section has the following options:
 * `name`: a human-readable name for the default server; must be unique
 * `host`: the host or IP address of the server
 * `port`: the port where the service runs on the `host`
+* `backup` : boolean, use the server in backup mode
+* `httpchk` : boolean, use haproxy httpchk for this server, requires `"option httpchk /"` to be set under haproxy options
+* `chkport` : custom port for httpchk
 
 The `default_servers` list is used only when service discovery returns no servers.
 In that case, the service proxy will be created with the servers listed here.
