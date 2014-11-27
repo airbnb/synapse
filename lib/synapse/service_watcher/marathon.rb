@@ -43,7 +43,7 @@ module Synapse
           response = @connection.request Net::HTTP::Get.new(@marathon_api.request_uri)
 
           tasks = JSON.parse(response.body).fetch('tasks', [])
-          backends = tasks.map do |task|
+          backends = tasks.keep_if { |task| task['startedAt'] }.map do |task|
             {
               'name' => task['host'],
               'host' => task['host'],
