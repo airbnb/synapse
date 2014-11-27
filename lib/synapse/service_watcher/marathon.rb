@@ -40,7 +40,9 @@ module Synapse
         start = Time.now
 
         begin
-          response = @connection.request Net::HTTP::Get.new(@marathon_api.request_uri)
+          req = Net::HTTP::Get.new(@marathon_api.request_uri)
+          req['Accept'] = 'application/json'
+          response = @connection.request(req)
 
           tasks = JSON.parse(response.body).fetch('tasks', [])
           backends = tasks.keep_if { |task| task['startedAt'] }.map do |task|
