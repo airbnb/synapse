@@ -6,12 +6,13 @@ module Synapse
   class MarathonWatcher < BaseWatcher
     def start
       @check_interval = @discovery['check_interval'] || 10.0
-      @watcher = Thread.new { watch }
 
       @marathon_api = URI.join(@discovery['marathon_api_url'], "/v2/apps/#{@discovery['application_name']}/tasks")
       @connection = Net::HTTP.new(@marathon_api.host, @marathon_api.port)
       @connection.open_timeout = 5
       @connection.start
+
+      @watcher = Thread.new { watch }
     end
 
     def stop
@@ -34,7 +35,6 @@ module Synapse
     end
 
     def watch
-
       until @should_exit
         retry_count = 0
         start = Time.now
@@ -51,7 +51,7 @@ module Synapse
               'host' => task['host'],
               'port' => task['ports'].first,
             }
-          end
+          end.sort
 
           if backends.empty?
             log.warn "synapse: no backends discovered for #{@discovery['application_name']}"
@@ -63,7 +63,7 @@ module Synapse
             unless previous_backends == new_backends
               log.info "synapse: found #{backends.length} backends for #{@discovery['application_name']}"
 
-              reconfigure! 
+              reconfigure!
             end
           end
         rescue EOFError
@@ -79,7 +79,13 @@ module Synapse
           elapsed_time = Time.now - start
           sleep (@check_interval - elapsed_time) if elapsed_time < @check_interval
         end
+
+        @should_exit = true if only_run_once? # for testability
       end
+    end
+
+    def only_run_once?
+      false
     end
   end
 end
