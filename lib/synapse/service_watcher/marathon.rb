@@ -10,6 +10,7 @@ module Synapse
 
       @marathon_api = URI.join(@discovery['marathon_api_url'], "/v2/apps/#{@discovery['application_name']}/tasks")
       @connection = Net::HTTP.new(@marathon_api.host, @marathon_api.port)
+      @connection.open_timeout = 5
       @connection.start
     end
 
