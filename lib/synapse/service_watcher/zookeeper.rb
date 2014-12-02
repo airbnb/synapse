@@ -12,7 +12,12 @@ module Synapse
       @watcher = nil
       @zk = nil
 
-      log.info "synapse: starting ZK watcher #{@name} @ hosts: #{@zk_hosts}, path: #{@discovery['path']}"
+      if @discovery['indirect_path']
+        log.info "synapse: starting ZK watcher #{@name} @ hosts: #{@zk_hosts}, indirect_path: #{@discovery['indirect_path']}"
+      else
+        log.info "synapse: starting ZK watcher #{@name} @ hosts: #{@zk_hosts}, path: #{@discovery['path']}"
+      end
+
       zk_connect
     end
 
@@ -33,7 +38,7 @@ module Synapse
       raise ArgumentError, "missing or invalid zookeeper host for service #{@name}" \
         unless @discovery['hosts']
       raise ArgumentError, "invalid zookeeper path for service #{@name}" \
-        unless @discovery['path']
+        unless @discovery['path'] or @discovery['indirect_path']
     end
 
     # helper method that ensures that the discovery path exists
@@ -42,7 +47,17 @@ module Synapse
 
       # recurse if the parent node does not exist
       create File.dirname(path) unless @zk.exists? File.dirname(path)
-      @zk.create(path, ignore: :node_exists)
+      @zk.create(path, :ignore => :node_exists)
+    end
+
+    def indirection_discover
+      @discovery['path'] = @zk.get(@discovery['indirect_path'], :watch => true)[0]
+      if @discovery['path'].empty?
+        log.info "indirection path #{@discovery['indirect_path']} is currently empty."
+      else
+        log.info "indirection path #{@discovery['indirect_path']} refers to #{@discovery['path']}"
+        create(@discovery['path'])
+      end
     end
 
     # find the current backends at the discovery path; sets @backends
@@ -50,22 +65,25 @@ module Synapse
       log.info "synapse: discovering backends for service #{@name}"
 
       new_backends = []
-      @zk.children(@discovery['path'], :watch => true).each do |id|
-        node = @zk.get("#{@discovery['path']}/#{id}")
 
-        begin
-          host, port, name = deserialize_service_instance(node.first)
-        rescue StandardError => e
-          log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
-        else
-          server_port = @server_port_override ? @server_port_override : port
+      unless @discovery['path'].empty?
+        @zk.children(@discovery['path'], :watch => true).each do |id|
+          node = @zk.get("#{@discovery['path']}/#{id}")
 
-          # find the numberic id in the node name; used for leader elections if enabled
-          numeric_id = id.split('_').last
-          numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
+          begin
+            host, port, name = deserialize_service_instance(node.first)
+          rescue StandardError => e
+            log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
+          else
+            server_port = @server_port_override ? @server_port_override : port
 
-          log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
-          new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id}
+            # find the numberic id in the node name; used for leader elections if enabled
+            numeric_id = id.split('_').last
+            numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
+
+            log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
+            new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id}
+          end
         end
       end
 
@@ -87,12 +105,36 @@ module Synapse
       return if @zk.nil?
 
       @watcher.unsubscribe unless @watcher.nil?
+
+      return if @discovery['path'].empty?
+
       @watcher = @zk.register(@discovery['path'], &watcher_callback)
 
       # Verify that we actually set up the watcher.
       unless @zk.exists?(@discovery['path'], :watch => true)
         log.error "synapse: zookeeper watcher path #{@discovery['path']} does not exist!"
         raise RuntimeError.new('could not set a ZK watch on a node that should exist')
+      end
+    end
+
+    def indirection_watch
+      return if @zk.nil?
+
+      @indirection_watcher.unsubscribe unless @indirection_watcher.nil?
+      @indirection_watcher = @zk.register(@discovery['indirect_path'], &indirection_watcher_callback)
+
+      # Verify that we actually set up the watcher.
+      unless @zk.exists?(@discovery['indirect_path'], :watch => true)
+        log.error "synapse: zookeeper watcher indirect_path #{@discovery['indirect_path']} does not exist!"
+        raise RuntimeError.new('could not set a ZK watch on a node that should exist')
+      end
+    end
+
+    def indirection_watcher_callback
+      @indirection_callback ||= Proc.new do |event|
+        indirection_watch
+        indirection_discover
+        watcher_callback.call
       end
     end
 
@@ -132,10 +174,14 @@ module Synapse
       end
 
       # the path must exist, otherwise watch callbacks will not work
-      create(@discovery['path'])
-
-      # call the callback to bootstrap the process
-      watcher_callback.call
+      #
+      if @discovery['indirect_path']
+        create(@discovery['indirect_path'])
+        indirection_watcher_callback.call
+      else
+        create(@discovery['path'])
+        watcher_callback.call
+      end
     end
 
     # decode the data at a zookeeper endpoint
