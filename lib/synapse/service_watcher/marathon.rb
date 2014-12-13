@@ -51,7 +51,7 @@ module Synapse
               'host' => task['host'],
               'port' => task['ports'].first,
             }
-          end.sort
+          end.sort_by { |task| task['name'] }
 
           if backends.empty?
             log.warn "synapse: no backends discovered for #{@discovery['application_name']}"
