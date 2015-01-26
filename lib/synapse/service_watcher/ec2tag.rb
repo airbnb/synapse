@@ -1,5 +1,5 @@
 require 'synapse/service_watcher/base'
-require 'aws-sdk'
+require 'aws-sdk-v1'
 
 module Synapse
   class EC2Watcher < BaseWatcher
