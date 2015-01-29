@@ -2,6 +2,20 @@ require 'synapse/service_watcher/base'
 require 'aws-sdk'
 
 module Synapse
+  # AwsEcsWatcher will use the Amazon ECS and EC2 APIs to discover tasks and containers running in your Amazon ECS cluster.
+  #
+  # Recognized configuration keys are
+  #   aws_region: For the region to speak to ECS and EC2 APIs
+  #   aws_ecs_cluster: For the ECS cluster in which you want to discover tasks and containers
+  #   aws_ecs_family: Is the family of TaskDefinition to discover, for example my_app, or redis
+  #
+  # Usage:
+  #   You'll need to create a TaskDefinition for ECS specifying the service which needs discovery, as well as a linked container
+  #   including both haproxy and synapse.  In the synapse container include standard synapse configuration with the ECS cluster and
+  #   family set.  By default, this container will use the credentials from the EC2 instance to make calls to ECS and EC2.  With
+  #   this configuration, your application container will now be able to use standard Docker mechanisms for speaking to a linked
+  #   container but it will instead be routed to one of the running tasks for the specific TaskDefinition family.
+  #
   class AwsEcsWatcher < BaseWatcher
     
     attr_reader :check_interval
