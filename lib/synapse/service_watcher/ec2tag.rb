@@ -101,6 +101,17 @@ module Synapse
           }
         end
 
+        if @haproxy['server_backup_port']
+          instances.each do |instance|
+            new_backends << {
+              'name' => instance.private_dns_name,
+              'host' => instance.private_ip_address,
+              'port' => @haproxy['server_backup_port'],
+              'backup' => true
+            }
+          end
+        end
+
         new_backends
       end
     end
@@ -130,4 +141,3 @@ module Synapse
     end
   end
 end
-
