@@ -153,15 +153,17 @@ describe Synapse::EC2Watcher do
       let(:backends) { subject.send(:discover_instances) }
 
       it 'returns an Array of backend name/host/port Hashes' do
-
-        expect { backends.all? {|b| %w[name host port].each {|k| b.has_key?(k) }} }.to be_true
+        required_keys = %w[name host port]
+        expect(
+          backends.all?{|b| required_keys.each{|k| b.has_key?(k)}}
+        ).to be_truthy
       end
 
       it 'sets the backend port to server_port_override for all backends' do
         backends = subject.send(:discover_instances)
-        expect {
+        expect(
           backends.all? { |b| b['port'] == basic_config['haproxy']['server_port_override'] }
-        }.to be_true
+        ).to be_truthy
       end
     end
 
