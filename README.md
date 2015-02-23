@@ -238,7 +238,8 @@ For example:
 
 ```yaml
  haproxy:
-  shared_frontend: "bind 127.0.0.1:8081"
+  shared_frontend:
+   - "bind 127.0.0.1:8081"
   reload_command: "service haproxy reload"
   config_file_path: "/etc/haproxy/haproxy.cfg"
   socket_file_path: "/var/run/haproxy.sock"
@@ -257,7 +258,8 @@ For example:
    discovery: 
     method: "zookeeper"
     path:  "/nerve/services/service1"
-    hosts: "0.zookeeper.example.com:2181"
+    hosts:
+     - "0.zookeeper.example.com:2181"
    haproxy:
     server_options: "check inter 2s rise 3 fall 2"
     shared_frontend:
@@ -276,7 +278,8 @@ For example:
     shared_frontend:
      - "acl is_service1 hdr_dom(host) -i service2.lb.example.com"
      - "use_backend service2 if is_service2
-    backend: "mode http"
+    backend:
+     - "mode http"
 
 ```
 
