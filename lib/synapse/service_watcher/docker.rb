@@ -23,16 +23,10 @@ module Synapse
     end
 
     def watch
-      last_containers = []
       until @should_exit
         begin
           start = Time.now
-          current_containers = containers
-          unless last_containers == current_containers
-            last_containers = current_containers
-            configure_backends(last_containers)
-          end
-
+          set_backends(containers)
           sleep_until_next_check(start)
         rescue Exception => e
           log.warn "synapse: error in watcher thread: #{e.inspect}"
@@ -98,23 +92,5 @@ module Synapse
       log.warn "synapse: error while polling for containers: #{e.inspect}"
       []
     end
-
-    def configure_backends(new_backends)
-      if new_backends.empty?
-        if @default_servers.empty?
-          log.warn "synapse: no backends and no default servers for service #{@name};" \
-            " using previous backends: #{@backends.inspect}"
-        else
-          log.warn "synapse: no backends for service #{@name};" \
-            " using default servers: #{@default_servers.inspect}"
-          @backends = @default_servers
-        end
-      else
-        log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
-        set_backends(new_backends)
-      end
-      reconfigure!
-    end
-
   end
 end
