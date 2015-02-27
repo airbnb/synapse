@@ -1,6 +1,7 @@
 require "synapse/version"
 require "synapse/service_watcher/base"
 require "synapse/haproxy"
+require "synapse/file_output"
 require "synapse/service_watcher"
 require "synapse/log"
 
@@ -17,9 +18,17 @@ module Synapse
       raise "specify a list of services to connect in the config" unless opts.has_key?('services')
       @service_watchers = create_service_watchers(opts['services'])
 
-      # create the haproxy object
+      # create objects that need to be notified of service changes
+      @config_generators = []
+      # create the haproxy config generator, this is mandatory
       raise "haproxy config section is missing" unless opts.has_key?('haproxy')
-      @haproxy = Haproxy.new(opts['haproxy'])
+      @config_generators << Haproxy.new(opts['haproxy'])
+
+      # possibly create a file manifestation for services that do not
+      # want to communicate via haproxy, e.g. cassandra
+      if opts.has_key?('file_output')
+        @config_generators << FileOutput.new(opts['file_output'])
+      end
 
       # configuration is initially enabled to configure on first loop
       @config_updated = true
@@ -47,8 +56,10 @@ module Synapse
 
         if @config_updated
           @config_updated = false
-          log.info "synapse: regenerating haproxy config"
-          @haproxy.update_config(@service_watchers)
+          @config_generators.each do |config_generator|
+            log.info "synapse: regenerating #{config_generator.name} config"
+            config_generator.update_config(@service_watchers)
+          end
         else
           sleep 1
         end
