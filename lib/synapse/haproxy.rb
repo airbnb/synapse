@@ -4,7 +4,7 @@ require 'socket'
 module Synapse
   class Haproxy
     include Logging
-    attr_reader :opts
+    attr_reader :opts, :name
 
     # these come from the documentation for haproxy 1.5
     # http://haproxy.1wt.eu/download/1.5/doc/configuration.txt
@@ -523,6 +523,7 @@ module Synapse
       end
 
       @opts = opts
+      @name = 'haproxy'
 
       # how to restart haproxy
       @restart_interval = 2
