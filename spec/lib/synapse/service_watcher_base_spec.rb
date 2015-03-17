@@ -38,19 +38,24 @@ describe Synapse::BaseWatcher do
   end
 
   context 'set_backends test' do
-    default_servers = ['default_server_1', 'default_server_2']
+    default_servers = [
+      {'name' => 'default_server1', 'host' => 'default_server1', 'port' => 123},
+      {'name' => 'default_server2', 'host' => 'default_server2', 'port' => 123}
+    ]
+    backends = [
+      {'name' => 'server1', 'host' => 'server1', 'port' => 123},
+      {'name' => 'server2', 'host' => 'server2', 'port' => 123}
+    ]
     let(:args) { testargs.merge({'default_servers' => default_servers}) }
 
     it 'sets backends' do
       expect(subject).to receive(:'reconfigure!').exactly(:once)
-      backends = ['server1', 'server2']
       expect(subject.send(:set_backends, backends)).to equal(true)
       expect(subject.backends).to eq(backends)
     end
 
     it 'removes duplicate backends' do
       expect(subject).to receive(:'reconfigure!').exactly(:once)
-      backends = ['server1', 'server2']
       duplicate_backends = backends + backends
       expect(subject.send(:set_backends, duplicate_backends)).to equal(true)
       expect(subject.backends).to eq(backends)
@@ -66,7 +71,6 @@ describe Synapse::BaseWatcher do
       let(:args) { remove_arg 'default_servers' }
       it 'uses previous backends if no default_servers set' do
         expect(subject).to receive(:'reconfigure!').exactly(:once)
-        backends = ['server1', 'server2']
         expect(subject.send(:set_backends, backends)).to equal(true)
         expect(subject.send(:set_backends, [])).to equal(false)
         expect(subject.backends).to eq(backends)
@@ -80,7 +84,6 @@ describe Synapse::BaseWatcher do
       }
       it 'removes all backends if no default_servers set and use_previous_backends disabled' do
         expect(subject).to receive(:'reconfigure!').exactly(:twice)
-        backends = ['server1', 'server2']
         expect(subject.send(:set_backends, backends)).to equal(true)
         expect(subject.backends).to eq(backends)
         expect(subject.send(:set_backends, [])).to equal(true)
@@ -90,7 +93,6 @@ describe Synapse::BaseWatcher do
 
     it 'calls reconfigure only once for duplicate backends' do
       expect(subject).to receive(:'reconfigure!').exactly(:once)
-      backends = ['server1', 'server2']
       expect(subject.send(:set_backends, backends)).to equal(true)
       expect(subject.backends).to eq(backends)
       expect(subject.send(:set_backends, backends)).to equal(false)
@@ -102,7 +104,6 @@ describe Synapse::BaseWatcher do
         testargs.merge({'default_servers' => default_servers, 'keep_default_servers' => true})
       }
       it('keeps default_servers when setting backends') do
-        backends = ['server1', 'server2']
         expect(subject).to receive(:'reconfigure!').exactly(:once)
         expect(subject.send(:set_backends, backends)).to equal(true)
         expect(subject.backends).to eq(backends + default_servers)
