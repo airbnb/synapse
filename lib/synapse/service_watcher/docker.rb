@@ -54,15 +54,22 @@ module Synapse
       pairs = []
       if ports.is_a?(String)
         # "Ports" comes through (as of 0.6.5) as a string like "0.0.0.0:49153->6379/tcp, 0.0.0.0:49153->6379/tcp"
-        # Convert string to a map of container port to host port: {"7000"->"49158", "6379": "49159"}
+        # Convert string to a map of container ports and host to host port:
+        # {"7000"-> { "host": "localhost", "port": 49158" }, etc..}
         pairs = ports.split(", ").collect do |v|
-          pair = v.split('->')
-          [ pair[1].rpartition("/").first, pair[0].rpartition(":").last ]
+          pair = v.split("->")
+          [
+            pair[1].rpartition("/").first,
+            {
+              "host" => vpair[0].rpartition(":").first,
+              "port" => vpair[0].rpartition(":").last
+            }
+          ]
         end
       elsif ports.is_a?(Array)
         # New style API, ports is an array of hashes, with numeric values (or nil if no ports forwarded)
         pairs = ports.collect do |v|
-          [v['PrivatePort'].to_s, v['PublicPort'].to_s]
+          [ v["PrivatePort"].to_s, { "host" => v["IP"], "port" => v["PublicPort"].to_s } ]
         end
       end
       Hash[pairs]
@@ -88,8 +95,13 @@ module Synapse
         cnts.map do |cnt|
           {
             'name' => server['name'],
-            'host' => server['host'],
-            'port' => cnt["Ports"][@discovery["container_port"].to_s()]
+            'host' => if cnt["Ports"][@discovery["container_port"].to_s()]["host"] == "0.0.0.0" \
+                          or cnt["Ports"][@discovery["container_port"].to_s()]["host"] == ""
+                        server["host"]
+                      else
+                        cnt["Ports"][@discovery["container_port"].to_s()]["host"]
+                      end,
+            'port' => cnt["Ports"][@discovery["container_port"].to_s()]["port"]
           }
         end
       end
