@@ -157,6 +157,7 @@ It takes the following options:
 * `method`: docker
 * `servers`: a list of servers running docker as a daemon. Format is `{"name":"...", "host": "..."[, port: 4243]}`
 * `image_name`: find containers running this image
+* `image_tag`: (OPTIONAL) if specified, only find containers running the above image with this tag
 * `container_port`: find containers forwarding this port
 * `check_interval`: how often to poll the docker API on each server. Default is 15s.
 
