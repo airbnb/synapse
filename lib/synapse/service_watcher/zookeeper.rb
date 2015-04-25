@@ -65,13 +65,19 @@ module Synapse
           numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
 
           log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
-          new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id}
-        end
+          new_backends << {'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id}
+        end unless node[1].ephemeralOwner == 0
       end
 
       if new_backends.empty?
         if @default_servers.empty?
-          log.warn "synapse: no backends and no default servers for service #{@name}; using previous backends: #{@backends.inspect}"
+          log.info @discovery['empty_backend_pool']
+          if @discovery['empty_backend_pool'].nil? or @discovery['empty_backend_pool']=="false"            
+            log.warn "synapse: no backends and no default servers for service #{@name}; using previous backends: #{@backends.inspect}"
+          else
+            log.warn "synapse: no backends and no default servers for service #{@name}; purging backends"
+            @backends=[]
+          end
         else
           log.warn "synapse: no backends for service #{@name}; using default servers: #{@default_servers.inspect}"
           @backends = @default_servers

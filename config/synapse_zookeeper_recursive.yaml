@@ -1,0 +1,35 @@
+haproxy:
+  reload_command: "haproxy -p /tmp/haproxy.pid -f /etc/haproxy/haproxy.cfg -sf `cat /tmp/haproxy.pid`"
+  config_file_path: "/etc/haproxy/haproxy.cfg"
+  do_writes: true
+  do_reloads: true
+  global:
+    - "daemon"
+    - "user    haproxy"
+    - "group   haproxy"
+    - "maxconn 4096"
+    - "log     127.0.0.1 local2 notice"
+    - "stats   socket /var/run/haproxy.pid"
+  defaults:
+    - "log global"
+    - "mode http"
+    - "balance roundrobin"
+    - "timeout connect 5000ms"
+    - "timeout client 50000ms"
+    - "timeout server 50000ms"
+  shared_frontend:
+    - "bind 127.0.0.1:80"
+services:
+  zookeeper_recursive:
+    discovery:
+      method: "zookeeper_recursive"
+      path:  "/path/to/synapse"
+      hosts:
+        - "localhost:2181"
+      empty_backend_pool: "true"
+    haproxy:
+      server_options: "check inter 2s rise 3 fall 2"
+      shared_frontend:
+        - "acl is#[service] path_beg #[servicePath]"
+        - "use_backend #[service] if is#[service]"
+

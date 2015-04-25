@@ -7,6 +7,7 @@
 require "#{File.dirname(__FILE__)}/../lib/synapse"
 require 'pry'
 require 'support/configuration'
+require 'support/tree'
 
 RSpec.configure do |config|
   config.run_all_when_everything_filtered = true
