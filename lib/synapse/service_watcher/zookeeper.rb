@@ -72,7 +72,7 @@ module Synapse
       if new_backends.empty?
         if @default_servers.empty?
           log.info @discovery['empty_backend_pool']
-          if @discovery['empty_backend_pool'].nil? or @discovery['empty_backend_pool']=="false"            
+          if @discovery['empty_backend_pool'].nil? or @discovery['empty_backend_pool'] == "false"
             log.warn "synapse: no backends and no default servers for service #{@name}; using previous backends: #{@backends.inspect}"
           else
             log.warn "synapse: no backends and no default servers for service #{@name}; purging backends"

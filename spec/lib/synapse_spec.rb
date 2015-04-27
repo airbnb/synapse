@@ -49,7 +49,7 @@ describe Synapse::Synapse do
       service_config = { "foo" => "bar" }
       subject.append_service_watcher(service_name, service_config)
       expect(subject.get_service_watchers.length).to be(1)
-      expect(subject.get_service_watchers[0].started?).to be true 
+      expect(subject.get_service_watchers.first.started?).to be true 
     }
   end
   
@@ -63,7 +63,7 @@ describe Synapse::Synapse do
       service_name = "watcher1"
       subject.remove_watcher_by_name(service_name)
       expect(subject.get_service_watchers.length).to be(1)
-      expect(subject.get_service_watchers[0].name).to eq("watcher2") 
+      expect(subject.get_service_watchers.first.name).to eq("watcher2") 
     }
   end
 end

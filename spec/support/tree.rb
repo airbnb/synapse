@@ -28,14 +28,14 @@ class Tree
     existing
   end
   def add_path(path)
-    if path.is_a?(Array) && path.size > 0
+    if path.is_a?(Array) && !path.empty?
       child = add_child(Tree.new(path[0], []))
       child.add_path(path.drop(1))
     end
   end
   def find(path)
     if path.is_a?(Array)
-      if path.size == 0
+      if path.empty?
         return self
       else
         child = getChild(path[0])
