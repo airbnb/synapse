@@ -84,12 +84,14 @@ describe Synapse::ZookeeperRecursiveWatcher do
                                                   {"discovery" => {"method" => "zookeeper", "path" => "/foo/synapse/service1", "hosts" => ["localhost:2181"], "empty_backend_pool" => nil},
                                                    "haproxy" => {"option_with_param" => "has _foo_synapse_service1 param", "server_options" => "", "server_port_override" => nil, "backend" => [], "frontend" => [], "listen" => []}})
         subject.get_zk.set_children("/foo/synapse", ["service1"])
+        expect(subject.get_synapse).to receive(:remove_watcher_by_name).with("_foo_synapse")
         subject.get_zk.fire_event("/foo/synapse", false)
 
         expect(subject.get_synapse).to receive(:append_service_watcher).
                                              with("_foo_synapse_service1_subservice",
                                                   {"discovery" => {"method" => "zookeeper", "path" => "/foo/synapse/service1/subservice", "hosts" => ["localhost:2181"], "empty_backend_pool" => nil},
                                                    "haproxy" => {"option_with_param" => "has _foo_synapse_service1_subservice param", "server_options" => "", "server_port_override" => nil, "backend" => [], "frontend" => [], "listen" => []}})
+        expect(subject.get_synapse).to receive(:remove_watcher_by_name).with("_foo_synapse_service1")
         subject.get_zk.set_children("/foo/synapse/service1", ["subservice"])
         subject.get_zk.fire_event("/foo/synapse/service1", false)
       }

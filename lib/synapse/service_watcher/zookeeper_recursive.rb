@@ -81,7 +81,12 @@ module Synapse
       persistent_children = children.select { |child| @zk.get("#{child}")[1].ephemeralOwner == 0 }
       persistent_children.each { |child| watch_services(child) }
 
-      create_service_watcher(path) unless @subwatcher.include? path
+      if (!@subwatcher.include?(path) && persistent_children.empty?) then
+        create_service_watcher(path)
+      end
+      if (@subwatcher.include?(path) && !persistent_children.empty?) then
+        cleanup_service_watcher(path)
+      end
     end
 
     def create_service_watcher(service_path)
@@ -109,6 +114,7 @@ module Synapse
 
     def parse_section(section, service_name, service_path)
       service_url = service_path.sub(@discovery["path"], "")
+      service_url = "/" if service_url.empty?
       if section.is_a?(String)
         new_section = section.gsub(/#\[servicePath\]/, "#{service_url}").gsub(/#\[service\]/, "#{service_name}")
       else
