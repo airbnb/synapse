@@ -81,11 +81,14 @@ module Synapse
       persistent_children = children.select { |child| @zk.get("#{child}")[1].ephemeralOwner == 0 }
       persistent_children.each { |child| watch_services(child) }
 
-      if (!@subwatcher.include?(path) && persistent_children.empty?) then
-        create_service_watcher(path)
-      end
-      if (@subwatcher.include?(path) && !persistent_children.empty?) then
-        cleanup_service_watcher(path)
+
+      unless (path == @discovery["path"])
+        if (!@subwatcher.include?(path) && persistent_children.empty?) then
+          create_service_watcher(path)
+        end
+        if (@subwatcher.include?(path) && !persistent_children.empty?) then
+          cleanup_service_watcher(path)
+        end
       end
     end
 

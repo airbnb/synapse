@@ -65,17 +65,12 @@ describe Synapse::ZookeeperRecursiveWatcher do
       ZK = ZKMock
     end
     it("sets up the zk-client and registers for the path") {
-      expect(subject.get_synapse).to receive(:append_service_watcher).
-                                           with("_foo_synapse",
-                                                {"discovery" => {"method" => "zookeeper", "path" => "/foo/synapse", "hosts" => ["localhost:2181"], "empty_backend_pool" => nil},
-                                                 "haproxy" => {"option_with_param" => "has _foo_synapse param", "server_options" => "", "server_port_override" => nil, "backend" => [], "frontend" => [], "listen" => []}})
       subject.start
       expect(subject.get_zk.start_successful).to be true
     }
     context("when a registered event is fired") do
       before(:each) do
         ZK = ZKMock
-        expect(subject.get_synapse).to receive(:append_service_watcher)
         subject.start
       end
       it("adds a new zookeeper service_watcher on child-events and discovers new services in the new directory") {
@@ -84,7 +79,6 @@ describe Synapse::ZookeeperRecursiveWatcher do
                                                   {"discovery" => {"method" => "zookeeper", "path" => "/foo/synapse/service1", "hosts" => ["localhost:2181"], "empty_backend_pool" => nil},
                                                    "haproxy" => {"option_with_param" => "has _foo_synapse_service1 param", "server_options" => "", "server_port_override" => nil, "backend" => [], "frontend" => [], "listen" => []}})
         subject.get_zk.set_children("/foo/synapse", ["service1"])
-        expect(subject.get_synapse).to receive(:remove_watcher_by_name).with("_foo_synapse")
         subject.get_zk.fire_event("/foo/synapse", false)
 
         expect(subject.get_synapse).to receive(:append_service_watcher).
@@ -96,8 +90,11 @@ describe Synapse::ZookeeperRecursiveWatcher do
         subject.get_zk.fire_event("/foo/synapse/service1", false)
       }
       it("removes a service_watcher on delete-events") {
-        expect(subject.get_synapse).to receive(:remove_watcher_by_name).with("_foo_synapse")
-        subject.get_zk.fire_event("/foo/synapse", true)
+        expect(subject.get_synapse).to receive(:append_service_watcher)
+        expect(subject.get_synapse).to receive(:remove_watcher_by_name).with("_foo_synapse_service1")
+        subject.get_zk.set_children("/foo/synapse", ["service1"])
+        subject.get_zk.fire_event("/foo/synapse", false)
+        subject.get_zk.fire_event("/foo/synapse/service1", true)
       }
     end
   end
