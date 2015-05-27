@@ -529,7 +529,8 @@ module Synapse
       @name = 'haproxy'
 
       # how to restart haproxy
-      @restart_interval = 2
+      @restart_interval = @opts.fetch('restart_interval', 2).to_i
+      @restart_jitter = @opts.fetch('restart_jitter', 0).to_f
       @restart_required = true
       @last_restart = Time.new(0)
 
@@ -660,7 +661,7 @@ module Synapse
 
     def generate_backend_stanza(watcher, config)
       if watcher.backends.empty?
-        log.warn "synapse: no backends found for watcher #{watcher.name}"
+        log.debug "synapse: no backends found for watcher #{watcher.name}"
       end
 
       stanza = [
@@ -775,8 +776,9 @@ module Synapse
 
     # restarts haproxy
     def restart
-      # sleep if we restarted too recently
+      # sleep with jitter if we restarted too recently
       delay = (@last_restart - Time.now) + @restart_interval
+      delay += rand(@restart_jitter * @restart_interval + 1)
       sleep(delay) if delay > 0
 
       # do the actual restart
