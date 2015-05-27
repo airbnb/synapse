@@ -2,7 +2,6 @@ require "synapse/version"
 require "synapse/service_watcher/base"
 require "synapse/haproxy"
 require "synapse/file_output"
-require "synapse/rate_limiter"
 require "synapse/service_watcher"
 require "synapse/log"
 
@@ -34,8 +33,6 @@ module Synapse
       # configuration is initially enabled to configure on first loop
       @config_updated = true
 
-      @rate_limiter = RateLimiter.new(opts['rate_limiter_path'])
-
       # Any exceptions in the watcher threads should wake the main thread so
       # that we can fail fast.
       Thread.abort_on_exception = true
@@ -57,16 +54,15 @@ module Synapse
           raise "synapse: service watcher #{w.name} failed ping!" unless w.ping?
         end
 
-        if @config_updated && @rate_limiter.proceed?
+        if @config_updated
           @config_updated = false
           @config_generators.each do |config_generator|
             log.info "synapse: regenerating #{config_generator.name} config"
             config_generator.update_config(@service_watchers)
           end
+        else
+          sleep 1
         end
-
-        @rate_limiter.tick
-        sleep 1
 
         loops += 1
         log.debug "synapse: still running at #{Time.now}" if (loops % 60) == 0

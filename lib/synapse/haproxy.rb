@@ -529,7 +529,9 @@ module Synapse
       @name = 'haproxy'
 
       # how to restart haproxy
+      @restart_interval = 2
       @restart_required = true
+      @last_restart = Time.new(0)
 
       # a place to store the parsed haproxy config from each watcher
       @watcher_configs = {}
@@ -773,10 +775,16 @@ module Synapse
 
     # restarts haproxy
     def restart
+      # sleep if we restarted too recently
+      delay = (@last_restart - Time.now) + @restart_interval
+      sleep(delay) if delay > 0
+
+      # do the actual restart
       res = `#{opts['reload_command']}`.chomp
       raise "failed to reload haproxy via #{opts['reload_command']}: #{res}" unless $?.success?
       log.info "synapse: restarted haproxy"
 
+      @last_restart = Time.now()
       @restart_required = false
     end
 
