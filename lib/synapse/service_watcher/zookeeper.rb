@@ -1,13 +1,18 @@
 require "synapse/service_watcher/base"
 
+require 'thread'
 require 'zk'
 
 module Synapse
   class ZookeeperWatcher < BaseWatcher
     NUMBERS_RE = /^\d+$/
 
+    @@zk_pool = {}
+    @@zk_pool_count = {}
+    @@zk_pool_lock = Mutex.new
+
     def start
-      @zk_hosts = @discovery['hosts'].shuffle.join(',')
+      @zk_hosts = @discovery['hosts'].sort.join(',')
 
       @watcher = nil
       @zk = nil
@@ -99,18 +104,47 @@ module Synapse
     def zk_cleanup
       log.info "synapse: zookeeper watcher cleaning up"
 
-      @watcher.unsubscribe unless @watcher.nil?
-      @watcher = nil
-
-      @zk.close! unless @zk.nil?
-      @zk = nil
+      begin
+        @watcher.unsubscribe unless @watcher.nil?
+        @watcher = nil
+      ensure
+        @@zk_pool_lock.synchronize {
+          @@zk_pool_count[@zk_hosts] -= 1
+          # Last thread to use the connection closes it
+          if @@zk_pool_count[@zk_hosts] == 0
+            log.info "synapse: closing zk connection to #{@zk_hosts}"
+            begin
+              @zk.close! unless @zk.nil?
+              @zk = nil
+            ensure
+              @@zk_pool.delete(@zk_hosts)
+            end
+          end
+        }
+      end
 
       log.info "synapse: zookeeper watcher cleaned up successfully"
     end
 
     def zk_connect
       log.info "synapse: zookeeper watcher connecting to ZK at #{@zk_hosts}"
-      @zk = ZK.new(@zk_hosts)
+
+      # Ensure that all Zookeeper watcher re-use a single zookeeper
+      # connection to any given set of zk hosts.
+      @@zk_pool_lock.synchronize {
+        unless @@zk_pool.has_key?(@zk_hosts)
+          log.info "synapse: creating pooled connection to #{@zk_hosts}"
+          @@zk_pool[@zk_hosts] = ZK.new(@zk_hosts, :timeout => 5)
+          @@zk_pool_count[@zk_hosts] = 1
+          log.info "synapse: successfully created zk connection to #{@zk_hosts}"
+        else
+          @@zk_pool_count[@zk_hosts] += 1
+          log.info "synapse: re-using existing zookeeper connection to #{@zk_hosts}"
+        end
+      }
+
+      @zk = @@zk_pool[@zk_hosts]
+      log.info "synapse: retrieved zk connection to #{@zk_hosts}"
 
       # handle session expiry -- by cleaning up zk, this will make `ping?`
       # fail and so synapse will exit
