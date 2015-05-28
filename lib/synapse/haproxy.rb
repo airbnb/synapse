@@ -532,16 +532,26 @@ module Synapse
       @restart_interval = @opts.fetch('restart_interval', 2).to_i
       @restart_jitter = @opts.fetch('restart_jitter', 0).to_f
       @restart_required = true
-      @last_restart = Time.new(0)
+
+      # virtual clock bookkeeping for controlling how often haproxy restarts
+      @time = 0
+      @next_restart = @time
 
       # a place to store the parsed haproxy config from each watcher
       @watcher_configs = {}
     end
 
+    def tick(watchers)
+      @time += 1
+      # We potentially have to restart if the restart was rate limited
+      # in the original call to update_config
+      restart if @opts['do_reloads'] && @restart_required
+    end
+
     def update_config(watchers)
       # if we support updating backends, try that whenever possible
       if @opts['do_socket']
-        update_backends(watchers) unless @restart_required
+        update_backends(watchers)
       else
         @restart_required = true
       end
@@ -667,7 +677,7 @@ module Synapse
       stanza = [
         "\nbackend #{watcher.name}",
         config.map {|c| "\t#{c}"},
-        watcher.backends.shuffle.map {|backend|
+        watcher.backends.map {|backend|
           backend_name = construct_name(backend)
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
           b = "#{b} cookie #{backend_name}" unless config.include?('mode tcp')
@@ -709,20 +719,19 @@ module Synapse
         next if watcher.backends.empty?
 
         unless cur_backends.include? watcher.name
-          log.debug "synapse: restart required because we added new section #{watcher.name}"
+          log.info "synapse: restart required because we added new section #{watcher.name}"
           @restart_required = true
-          return
+          next
         end
 
         watcher.backends.each do |backend|
           backend_name = construct_name(backend)
-          unless cur_backends[watcher.name].include? backend_name
-            log.debug "synapse: restart required because we have a new backend #{watcher.name}/#{backend_name}"
+          if cur_backends[watcher.name].include? backend_name
+            enabled_backends[watcher.name] << backend_name
+          else
+            log.info "synapse: restart required because we have a new backend #{watcher.name}/#{backend_name}"
             @restart_required = true
-            return
           end
-
-          enabled_backends[watcher.name] << backend_name
         end
       end
 
@@ -743,12 +752,10 @@ module Synapse
           rescue StandardError => e
             log.warn "synapse: unknown error writing to socket"
             @restart_required = true
-            return
           else
             unless output == "\n"
               log.warn "synapse: socket command #{command} failed: #{output}"
               @restart_required = true
-              return
             end
           end
         end
@@ -774,19 +781,24 @@ module Synapse
       end
     end
 
-    # restarts haproxy
+    # restarts haproxy if the time is right
     def restart
-      # sleep with jitter if we restarted too recently
-      delay = (@last_restart - Time.now) + @restart_interval
-      delay += rand(@restart_jitter * @restart_interval + 1)
-      sleep(delay) if delay > 0
+      if @time < @next_restart
+        log.info "synapse: at time #{@time} waiting until #{@next_restart} to restart"
+        return
+      end
+
+      @next_restart = @time + @restart_interval
+      @next_restart += rand(@restart_jitter * @restart_interval + 1)
 
       # do the actual restart
       res = `#{opts['reload_command']}`.chomp
-      raise "failed to reload haproxy via #{opts['reload_command']}: #{res}" unless $?.success?
+      unless $?.success?
+        log.error "failed to reload haproxy via #{opts['reload_command']}: #{res}"
+        return
+      end
       log.info "synapse: restarted haproxy"
 
-      @last_restart = Time.now()
       @restart_required = false
     end
 
