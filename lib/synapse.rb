@@ -57,11 +57,14 @@ module Synapse
         if @config_updated
           @config_updated = false
           @config_generators.each do |config_generator|
-            log.info "synapse: regenerating #{config_generator.name} config"
+            log.info "synapse: configuring #{config_generator.name}"
             config_generator.update_config(@service_watchers)
           end
-        else
-          sleep 1
+        end
+
+        sleep 1
+        @config_generators.each do |config_generator|
+          config_generator.tick(@service_watchers)
         end
 
         loops += 1

@@ -24,6 +24,9 @@ module Synapse
       @name = 'file_output'
     end
 
+    def tick(watchers)
+    end
+
     def update_config(watchers)
       watchers.each do |watcher|
         write_backends_to_file(watcher.name, watcher.backends)
