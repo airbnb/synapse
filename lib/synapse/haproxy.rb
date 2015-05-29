@@ -1,3 +1,5 @@
+require 'fileutils'
+require 'json'
 require 'synapse/log'
 require 'socket'
 
@@ -539,10 +541,27 @@ module Synapse
 
       # a place to store the parsed haproxy config from each watcher
       @watcher_configs = {}
+
+      @state_file_path = @opts['state_file_path']
+      @state_file_ttl = @opts.fetch('state_file_ttl', 60 * 60 * 24).to_i
+      @seen = {}
+
+      unless @state_file_path.nil?
+        begin
+          @seen = JSON.load(File.read(@state_file_path))
+        rescue StandardError => e
+          # It's ok if the state file doesn't exist
+        end
+      end
     end
 
     def tick(watchers)
+      if @time % 60 == 0 && !@state_file_path.nil?
+        update_state_file(watchers)
+      end
+
       @time += 1
+
       # We potentially have to restart if the restart was rate limited
       # in the original call to update_config
       restart if @opts['do_reloads'] && @restart_required
@@ -670,6 +689,21 @@ module Synapse
     end
 
     def generate_backend_stanza(watcher, config)
+      backends = {}
+
+      # The ordering here is important.  First we add all the backends in the
+      # disabled state...
+      @seen.fetch(watcher.name, []).each do |backend_name, backend|
+        backends[backend_name] = backend.merge('enabled' => false)
+      end
+
+      # ... and then we overwite any backends that the watchers know about,
+      # setting the enabled state.
+      watcher.backends.each do |backend|
+        backend_name = construct_name(backend)
+        backends[backend_name] = backend.merge('enabled' => true)
+      end
+
       if watcher.backends.empty?
         log.debug "synapse: no backends found for watcher #{watcher.name}"
       end
@@ -677,11 +711,11 @@ module Synapse
       stanza = [
         "\nbackend #{watcher.name}",
         config.map {|c| "\t#{c}"},
-        watcher.backends.map {|backend|
-          backend_name = construct_name(backend)
+        backends.map {|backend_name, backend|
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
           b = "#{b} cookie #{backend_name}" unless config.include?('mode tcp')
           b = "#{b} #{watcher.haproxy['server_options']}"
+          b = "#{b} disabled" unless backend['enabled']
           b }
       ]
     end
@@ -810,6 +844,44 @@ module Synapse
       end
 
       return name
+    end
+
+    def update_state_file(watchers)
+      log.info "synapse: writing state file"
+
+      timestamp = Time.now.to_i
+
+      # Remove stale backends
+      @seen.each do |watcher_name, backends|
+        backends.each do |backend_name, backend|
+          ts = backend.fetch('timestamp', 0)
+          delta = (timestamp - ts).abs
+          if delta > @state_file_ttl
+            log.info "synapse: expiring #{backend_name} with age #{delta}"
+            backends.delete(backend_name)
+          end
+        end
+      end
+
+      # Remove any services which no longer have any backends
+      @seen = @seen.reject{|watcher_name, backends| backends.keys.length == 0}
+
+      # Add backends from watchers
+      watchers.each do |watcher|
+        unless @seen.key?(watcher.name)
+          @seen[watcher.name] = {}
+        end
+
+        watcher.backends.each do |backend|
+          backend_name = construct_name(backend)
+          @seen[watcher.name][backend_name] = backend.merge('timestamp' => timestamp)
+        end
+      end
+
+      # Atomically write new state file
+      tmp_state_file_path = @state_file_path + ".tmp"
+      File.write(tmp_state_file_path, JSON.pretty_generate(@seen))
+      FileUtils.mv(tmp_state_file_path, @state_file_path)
     end
   end
 end
