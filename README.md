@@ -222,7 +222,7 @@ The `haproxy` section of the config file has the following options:
 * `defaults`: options listed here will be written into the `defaults` section of the HAProxy config
 * `extra_sections`: additional, manually-configured `frontend`, `backend`, or `listen` stanzas
 * `bind_address`: force HAProxy to listen on this address (default is localhost)
-* `shared_fronted`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
+* `shared_frontend`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
 
 Note that a non-default `bind_address` can be dangerous.
 If you configure an `address:port` combination that is already in use on the system, haproxy will fail to start.
@@ -230,7 +230,7 @@ If you configure an `address:port` combination that is already in use on the sys
 ### HAProxy shared HTTP Frontend ###
 
 For HTTP-only services, it is not always necessary or desirable to dedicate a TCP port per service, since HAProxy can route traffic based on host headers.
-To support this, the optional `shared_fronted` section can be added to both the `haproxy` section and each indvidual service definition.
+To support this, the optional `shared_frontend` section can be added to both the `haproxy` section and each indvidual service definition.
 Synapse will concatenate them all into a single frontend section in the generated haproxy.cfg file.
 Note that synapse does not assemble the routing ACLs for you; you have to do that yourself based on your needs.
 This is probably most useful in combination with the `service_conf_dir` directive in a case where the individual service config files are being distributed by a configuration manager such as puppet or chef, or bundled into service packages.
