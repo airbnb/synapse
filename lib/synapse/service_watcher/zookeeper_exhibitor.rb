@@ -3,11 +3,11 @@ require "synapse/service_watcher/base"
 require 'zk'
 
 module Synapse
-  class ExhibitorWatcher < BaseWatcher
+  class ZookeeperExhibitorWatcher < BaseWatcher
     NUMBERS_RE = /^\d+$/
+    DEFAULT_EXHIBITOR_POLL_INTERVAL = 5
 
     def start
-      @exhibitor_url = @discovery['exhibitor_url']
       @zk_hosts = fetch_hosts_from_exhibitor
 
       @watcher = nil
@@ -15,6 +15,7 @@ module Synapse
 
       log.info "synapse: starting ZK watcher #{@name} @ hosts: #{@zk_hosts}, path: #{@discovery['path']}"
       zk_connect
+      poll
     end
 
     def stop
@@ -23,21 +24,28 @@ module Synapse
     end
 
     def ping?
-      new_zk_hosts = fetch_hosts_from_exhibitor
-      if new_zk_hosts and @zk_hosts != new_zk_hosts
-        log.info "synapse: ZooKeeper ensamble changed, going to reconnect"
-        @zk_hosts = new_zk_hosts
-        stop
-        start
-      end
       @zk && @zk.connected?
     end
 
     private
 
+    def poll
+      @exhibitor_watcher = Thread.new do
+        while true do
+          new_zk_hosts = fetch_hosts_from_exhibitor
+          if new_zk_hosts and @zk_hosts != new_zk_hosts
+            log.info "synapse: ZooKeeper ensamble changed, stopping watcher"
+            stop
+            break
+          end
+          sleep @discovery['exhibitor_poll_interval'] || DEFAULT_EXHIBITOR_POLL_INTERVAL
+        end
+      end
+    end
+
     def validate_discovery_opts
       raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
-        unless @discovery['method'] == 'exhibitor'
+        unless @discovery['method'] == 'zookeeper_exhibitor'
       raise ArgumentError, "missing or invalid exhibitor url for service #{@name}" \
         unless @discovery['exhibitor_url']
       raise ArgumentError, "invalid zookeeper path for service #{@name}" \
@@ -91,11 +99,12 @@ module Synapse
     end
 
     def fetch_hosts_from_exhibitor
-      uri = URI(@exhibitor_url)
+      uri = URI(@discovery['exhibitor_url'])
       req = Net::HTTP::Get.new(uri)
       if @discovery['exhibitor_user'] and @discovery['exhibitor_password']
         req.basic_auth(@discovery['exhibitor_user'], @discovery['exhibitor_password'])
       end
+      req.add_field('Accept', 'application/json')
       res = Net::HTTP.start(uri.hostname, uri.port) do |http|
         http.request(req)
       end
@@ -104,7 +113,7 @@ module Synapse
         raise "Something went wrong: #{res.body}"
       end
       hosts = JSON.load(res.body)
-      log.info hosts
+      log.debug hosts
       zk_hosts = hosts['servers'].map { |s| s.concat(':' + hosts['port'].to_s) }
       zk_hosts.sort.join(',')
     end
