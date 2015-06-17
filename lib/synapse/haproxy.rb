@@ -772,7 +772,7 @@ module Synapse
       # actually enable the enabled backends, and disable the disabled ones
       cur_backends.each do |section, backends|
         backends.each do |backend|
-          if enabled_backends[section].include? backend
+          if enabled_backends.fetch(section, []).include? backend
             command = "enable server #{section}/#{backend}\n"
           else
             command = "disable server #{section}/#{backend}\n"
