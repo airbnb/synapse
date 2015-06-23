@@ -45,11 +45,14 @@ class Synapse::ServiceWatcher
         raise ArgumentError, "Invalid server_port_override value"
       end
 
-      # Required, but can use well-known environment variables.
-      %w[aws_access_key_id aws_secret_access_key aws_region].each do |attr|
-        unless (@discovery[attr] || ENV[attr.upcase])
-          raise ArgumentError, "Missing #{attr} option or #{attr.upcase} environment variable"
-        end
+      # aws region is optional in the SDK, aws will use a default value if not provided
+      unless @discovery['aws_region'] || ENV['AWS_REGION']
+        log.info "aws region is missing, will use default"
+      end
+      # access key id & secret are optional, might be using IAM instance profile for credentials
+      unless ((@discovery['aws_access_key_id'] || ENV['aws_access_key_id']) \
+              && (@discovery['aws_secret_access_key'] || ENV['aws_secret_access_key'] ))
+        log.info "aws access key id & secret not set in config or env variables for service #{name}, will attempt to use IAM instance profile"
       end
     end
 

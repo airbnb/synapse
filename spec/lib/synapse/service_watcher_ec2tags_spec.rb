@@ -87,20 +87,20 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
     end
 
     context 'when missing arguments' do
-      it 'complains if aws_region is missing' do
+      it 'does not break if aws_region is missing' do
         expect {
-          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_region'), mock_synapse)
-        }.to raise_error(ArgumentError, /Missing aws_region/)
+          Synapse::ServiceWatcher::EC2Watcher.new(remove_discovery_arg('aws_region'), mock_synapse)
+        }.not_to raise_error
       end
-      it 'complains if aws_access_key_id is missing' do
+      it 'does not break if aws_access_key_id is missing' do
         expect {
-          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_access_key_id'), mock_synapse)
-        }.to raise_error(ArgumentError, /Missing aws_access_key_id/)
+          Synapse::ServiceWatcher::EC2Watcher.new(remove_discovery_arg('aws_access_key_id'), mock_synapse)
+        }.not_to raise_error
       end
-      it 'complains if aws_secret_access_key is missing' do
+      it 'does not break if aws_secret_access_key is missing' do
         expect {
-          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_secret_access_key'), mock_synapse)
-        }.to raise_error(ArgumentError, /Missing aws_secret_access_key/)
+          Synapse::ServiceWatcher::EC2Watcher.new(remove_discovery_arg('aws_secret_access_key'), mock_synapse)
+        }.not_to raise_error
       end
       it 'complains if server_port_override is missing' do
         expect {
