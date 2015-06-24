@@ -63,10 +63,11 @@ class Synapse::ServiceWatcher
           if set_backends(discover_instances)
             log.info "synapse: ec2tag watcher backends have changed."
           end
-          sleep_until_next_check(start)
         rescue Exception => e
           log.warn "synapse: error in ec2tag watcher thread: #{e.inspect}"
           log.warn e.backtrace
+        ensure
+          sleep_until_next_check(start)
         end
       end
 
