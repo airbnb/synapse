@@ -59,7 +59,7 @@ module Synapse
         node = @zk.get("#{@discovery['path']}/#{id}")
 
         begin
-          host, port, name = deserialize_service_instance(node.first)
+          host, port, name, weight = deserialize_service_instance(node.first)
         rescue StandardError => e
           log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
         else
@@ -70,7 +70,7 @@ module Synapse
           numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
 
           log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
-          new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id}
+          new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id, 'weight' => weight }
         end
       end
 
@@ -168,8 +168,9 @@ module Synapse
       host = decoded['host'] || (raise ValueError, 'instance json data does not have host key')
       port = decoded['port'] || (raise ValueError, 'instance json data does not have port key')
       name = decoded['name'] || nil
+      weight = decoded['weight'] || nil
 
-      return host, port, name
+      return host, port, name, weight
     end
   end
 end
