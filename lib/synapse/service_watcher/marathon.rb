@@ -6,12 +6,7 @@ module Synapse
   class MarathonWatcher < BaseWatcher
     def start
       @check_interval = @discovery['check_interval'] || 10.0
-
-      @marathon_api = URI.join(@discovery['marathon_api_url'], "/v2/apps/#{@discovery['application_name']}/tasks")
-      @connection = Net::HTTP.new(@marathon_api.host, @marathon_api.port)
-      @connection.open_timeout = 5
-      @connection.start
-
+      @connection = nil
       @watcher = Thread.new { watch }
     end
 
@@ -34,12 +29,31 @@ module Synapse
       end
     end
 
+    def attempt_marathon_connection
+      @marathon_api = URI.join(@discovery['marathon_api_url'], "/v2/apps/#{@discovery['application_name']}/tasks")
+
+      begin
+        @connection = Net::HTTP.new(@marathon_api.host, @marathon_api.port)
+        @connection.open_timeout = 5
+        @connection.start
+      rescue => ex
+        @connection = nil
+        log.error "synapse: could not connect to marathon at #{@marathon_api}: #{ex}"
+
+        raise ex
+      end
+    end
+
     def watch
       until @should_exit
         retry_count = 0
         start = Time.now
 
         begin
+          if @connection.nil?
+            attempt_marathon_connection
+          end
+
           req = Net::HTTP::Get.new(@marathon_api.request_uri)
           req['Accept'] = 'application/json'
           response = @connection.request(req)

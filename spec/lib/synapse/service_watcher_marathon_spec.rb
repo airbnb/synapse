@@ -43,6 +43,18 @@ describe Synapse::MarathonWatcher do
   end
 
   describe '#watch' do
+    context 'when synapse cannot connect to marathon' do
+      before do
+        allow(Net::HTTP).to receive(:new).
+          with(marathon_host, marathon_port.to_i).
+          and_raise(Errno::ECONNREFUSED)
+      end
+
+      it 'does not crash' do
+        expect { subject.start }.not_to raise_error
+      end
+    end
+
     it 'requests the proper API endpoint one time' do
       subject.start
       expect(a_request(:get, marathon_request_uri)).to have_been_made.times(1)
@@ -114,7 +126,7 @@ describe Synapse::MarathonWatcher do
       context 'when marathon returns invalid response' do
         let(:marathon_response) { [] }
         it 'does not blow up' do
-          expect(subject.start).to_not raise_error
+          expect { subject.start }.to_not raise_error
         end
       end
 
