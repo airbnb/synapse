@@ -80,6 +80,7 @@ module Synapse
     # sets up zookeeper callbacks if the data at the discovery path changes
     def watch
       return if @zk.nil?
+      log.debug "synapse: setting watch at #{@discovery['path']}"
 
       @watcher.unsubscribe unless @watcher.nil?
       @watcher = @zk.register(@discovery['path'], &watcher_callback)
@@ -89,6 +90,7 @@ module Synapse
         log.error "synapse: zookeeper watcher path #{@discovery['path']} does not exist!"
         raise RuntimeError.new('could not set a ZK watch on a node that should exist')
       end
+      log.debug "synapse: set watch at #{@discovery['path']}"
     end
 
     # handles the event that a watched path has changed in zookeeper
@@ -134,7 +136,7 @@ module Synapse
       @@zk_pool_lock.synchronize {
         unless @@zk_pool.has_key?(@zk_hosts)
           log.info "synapse: creating pooled connection to #{@zk_hosts}"
-          @@zk_pool[@zk_hosts] = ZK.new(@zk_hosts, :timeout => 5)
+          @@zk_pool[@zk_hosts] = ZK.new(@zk_hosts, :timeout => 5, :thread => :per_callback)
           @@zk_pool_count[@zk_hosts] = 1
           log.info "synapse: successfully created zk connection to #{@zk_hosts}"
         else

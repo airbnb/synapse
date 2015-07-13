@@ -530,6 +530,10 @@ module Synapse
       @opts = opts
       @name = 'haproxy'
 
+      @opts['do_writes'] = true unless @opts.key?('do_writes')
+      @opts['do_socket'] = true unless @opts.key?('do_socket')
+      @opts['do_reloads'] = true unless @opts.key?('do_reloads')
+
       # how to restart haproxy
       @restart_interval = @opts.fetch('restart_interval', 2).to_i
       @restart_jitter = @opts.fetch('restart_jitter', 0).to_f
