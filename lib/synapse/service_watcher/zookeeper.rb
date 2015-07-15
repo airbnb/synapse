@@ -111,17 +111,19 @@ module Synapse
         @watcher = nil
       ensure
         @@zk_pool_lock.synchronize {
-          @@zk_pool_count[@zk_hosts] -= 1
-          # Last thread to use the connection closes it
-          if @@zk_pool_count[@zk_hosts] == 0
-            log.info "synapse: closing zk connection to #{@zk_hosts}"
-            begin
-              @zk.close! unless @zk.nil?
-              @zk = nil
-            ensure
-              @@zk_pool.delete(@zk_hosts)
+          if @@zk_pool.has_key?(@zk_hosts)
+            @@zk_pool_count[@zk_hosts] -= 1
+            # Last thread to use the connection closes it
+            if @@zk_pool_count[@zk_hosts] == 0
+              log.info "synapse: closing zk connection to #{@zk_hosts}"
+              begin
+                @zk.close! unless @zk.nil?
+              ensure
+                @@zk_pool.delete(@zk_hosts)
+              end
             end
           end
+          @zk = nil
         }
       end
 
