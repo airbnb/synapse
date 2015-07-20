@@ -662,7 +662,7 @@ module Synapse
       stanza = [
         "\nbackend #{watcher.name}",
         config.map {|c| "\t#{c}"},
-        watcher.backends.shuffle.map {|backend|
+        watcher.backends.sort_by { |backend| backend['host'] + backend['port'].to_s }.map {|backend|
           backend_name = construct_name(backend)
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
           b = "#{b} cookie #{backend_name}" unless config.include?('mode tcp')
