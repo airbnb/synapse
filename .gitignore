@@ -21,3 +21,4 @@ tmp
 vendor/
 
 synapse.jar
+.ruby-version
