@@ -62,7 +62,7 @@ GEM
     slyphon-zookeeper_jar (3.3.5-java)
     spoon (0.0.4)
       ffi
-    zk (1.9.4)
+    zk (1.9.5)
       logging (~> 1.8.2)
       zookeeper (~> 1.4.0)
     zookeeper (1.4.10)

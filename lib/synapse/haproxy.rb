@@ -1,10 +1,12 @@
+require 'fileutils'
+require 'json'
 require 'synapse/log'
 require 'socket'
 
 module Synapse
   class Haproxy
     include Logging
-    attr_reader :opts
+    attr_reader :opts, :name
 
     # these come from the documentation for haproxy 1.5
     # http://haproxy.1wt.eu/download/1.5/doc/configuration.txt
@@ -43,6 +45,7 @@ module Synapse
         "option abortonclose",
         "option accept-invalid-http-response",
         "option allbackups",
+        "option allredisp",
         "option checkcache",
         "option forceclose",
         "option forwardfor",
@@ -173,6 +176,7 @@ module Synapse
         "option accept-invalid-http-request",
         "option accept-invalid-http-response",
         "option allbackups",
+        "option allredisp",
         "option checkcache",
         "option clitcpka",
         "option contstats",
@@ -386,6 +390,7 @@ module Synapse
         "option accept-invalid-http-request",
         "option accept-invalid-http-response",
         "option allbackups",
+        "option allredisp",
         "option checkcache",
         "option clitcpka",
         "option contstats",
@@ -523,20 +528,53 @@ module Synapse
       end
 
       @opts = opts
+      @name = 'haproxy'
+
+      @opts['do_writes'] = true unless @opts.key?('do_writes')
+      @opts['do_socket'] = true unless @opts.key?('do_socket')
+      @opts['do_reloads'] = true unless @opts.key?('do_reloads')
 
       # how to restart haproxy
-      @restart_interval = 2
+      @restart_interval = @opts.fetch('restart_interval', 2).to_i
+      @restart_jitter = @opts.fetch('restart_jitter', 0).to_f
       @restart_required = true
-      @last_restart = Time.new(0)
+
+      # virtual clock bookkeeping for controlling how often haproxy restarts
+      @time = 0
+      @next_restart = @time
 
       # a place to store the parsed haproxy config from each watcher
       @watcher_configs = {}
+
+      @state_file_path = @opts['state_file_path']
+      @state_file_ttl = @opts.fetch('state_file_ttl', 60 * 60 * 24).to_i
+      @seen = {}
+
+      unless @state_file_path.nil?
+        begin
+          @seen = JSON.load(File.read(@state_file_path))
+        rescue StandardError => e
+          # It's ok if the state file doesn't exist
+        end
+      end
+    end
+
+    def tick(watchers)
+      if @time % 60 == 0 && !@state_file_path.nil?
+        update_state_file(watchers)
+      end
+
+      @time += 1
+
+      # We potentially have to restart if the restart was rate limited
+      # in the original call to update_config
+      restart if @opts['do_reloads'] && @restart_required
     end
 
     def update_config(watchers)
       # if we support updating backends, try that whenever possible
       if @opts['do_socket']
-        update_backends(watchers) unless @restart_required
+        update_backends(watchers)
       else
         @restart_required = true
       end
@@ -655,18 +693,33 @@ module Synapse
     end
 
     def generate_backend_stanza(watcher, config)
+      backends = {}
+
+      # The ordering here is important.  First we add all the backends in the
+      # disabled state...
+      @seen.fetch(watcher.name, []).each do |backend_name, backend|
+        backends[backend_name] = backend.merge('enabled' => false)
+      end
+
+      # ... and then we overwite any backends that the watchers know about,
+      # setting the enabled state.
+      watcher.backends.each do |backend|
+        backend_name = construct_name(backend)
+        backends[backend_name] = backend.merge('enabled' => true)
+      end
+
       if watcher.backends.empty?
-        log.warn "synapse: no backends found for watcher #{watcher.name}"
+        log.debug "synapse: no backends found for watcher #{watcher.name}"
       end
 
       stanza = [
         "\nbackend #{watcher.name}",
         config.map {|c| "\t#{c}"},
-        watcher.backends.shuffle.map {|backend|
-          backend_name = construct_name(backend)
+        backends.map {|backend_name, backend|
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
           b = "#{b} cookie #{backend_name}" unless config.include?('mode tcp')
           b = "#{b} #{watcher.haproxy['server_options']}"
+          b = "#{b} disabled" unless backend['enabled']
           b }
       ]
     end
@@ -704,27 +757,26 @@ module Synapse
         next if watcher.backends.empty?
 
         unless cur_backends.include? watcher.name
-          log.debug "synapse: restart required because we added new section #{watcher.name}"
+          log.info "synapse: restart required because we added new section #{watcher.name}"
           @restart_required = true
-          return
+          next
         end
 
         watcher.backends.each do |backend|
           backend_name = construct_name(backend)
-          unless cur_backends[watcher.name].include? backend_name
-            log.debug "synapse: restart required because we have a new backend #{watcher.name}/#{backend_name}"
+          if cur_backends[watcher.name].include? backend_name
+            enabled_backends[watcher.name] << backend_name
+          else
+            log.info "synapse: restart required because we have a new backend #{watcher.name}/#{backend_name}"
             @restart_required = true
-            return
           end
-
-          enabled_backends[watcher.name] << backend_name
         end
       end
 
       # actually enable the enabled backends, and disable the disabled ones
       cur_backends.each do |section, backends|
         backends.each do |backend|
-          if enabled_backends[section].include? backend
+          if enabled_backends.fetch(section, []).include? backend
             command = "enable server #{section}/#{backend}\n"
           else
             command = "disable server #{section}/#{backend}\n"
@@ -738,12 +790,10 @@ module Synapse
           rescue StandardError => e
             log.warn "synapse: unknown error writing to socket"
             @restart_required = true
-            return
           else
             unless output == "\n"
               log.warn "synapse: socket command #{command} failed: #{output}"
               @restart_required = true
-              return
             end
           end
         end
@@ -769,18 +819,24 @@ module Synapse
       end
     end
 
-    # restarts haproxy
+    # restarts haproxy if the time is right
     def restart
-      # sleep if we restarted too recently
-      delay = (@last_restart - Time.now) + @restart_interval
-      sleep(delay) if delay > 0
+      if @time < @next_restart
+        log.info "synapse: at time #{@time} waiting until #{@next_restart} to restart"
+        return
+      end
+
+      @next_restart = @time + @restart_interval
+      @next_restart += rand(@restart_jitter * @restart_interval + 1)
 
       # do the actual restart
       res = `#{opts['reload_command']}`.chomp
-      raise "failed to reload haproxy via #{opts['reload_command']}: #{res}" unless $?.success?
+      unless $?.success?
+        log.error "failed to reload haproxy via #{opts['reload_command']}: #{res}"
+        return
+      end
       log.info "synapse: restarted haproxy"
 
-      @last_restart = Time.now()
       @restart_required = false
     end
 
@@ -792,6 +848,44 @@ module Synapse
       end
 
       return name
+    end
+
+    def update_state_file(watchers)
+      log.info "synapse: writing state file"
+
+      timestamp = Time.now.to_i
+
+      # Remove stale backends
+      @seen.each do |watcher_name, backends|
+        backends.each do |backend_name, backend|
+          ts = backend.fetch('timestamp', 0)
+          delta = (timestamp - ts).abs
+          if delta > @state_file_ttl
+            log.info "synapse: expiring #{backend_name} with age #{delta}"
+            backends.delete(backend_name)
+          end
+        end
+      end
+
+      # Remove any services which no longer have any backends
+      @seen = @seen.reject{|watcher_name, backends| backends.keys.length == 0}
+
+      # Add backends from watchers
+      watchers.each do |watcher|
+        unless @seen.key?(watcher.name)
+          @seen[watcher.name] = {}
+        end
+
+        watcher.backends.each do |backend|
+          backend_name = construct_name(backend)
+          @seen[watcher.name][backend_name] = backend.merge('timestamp' => timestamp)
+        end
+      end
+
+      # Atomically write new state file
+      tmp_state_file_path = @state_file_path + ".tmp"
+      File.write(tmp_state_file_path, JSON.pretty_generate(@seen))
+      FileUtils.mv(tmp_state_file_path, @state_file_path)
     end
   end
 end

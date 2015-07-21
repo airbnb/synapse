@@ -198,6 +198,10 @@ If you do not list any default servers, no proxy will be created.  The
 `default_servers` will also be used in addition to discovered servers if the
 `keep_default_servers` option is set.
 
+If you do not list any `default_servers`, and all backends for a service
+disappear then the previous known backends will be used.  Disable this behavior
+by unsetting `use_previous_backends`.
+
 #### The `haproxy` Section ####
 
 This section is its own hash, which should contain the following keys:
@@ -218,6 +222,7 @@ The `haproxy` section of the config file has the following options:
 * `config_file_path`: where Synapse will write the HAProxy config file
 * `do_writes`: whether or not the config file will be written (default to `true`)
 * `do_reloads`: whether or not Synapse will reload HAProxy (default to `true`)
+* `do_socket`: whether or not Synapse will use the HAProxy socket commands to prevent reloads (default to `true`)
 * `global`: options listed here will be written into the `global` section of the HAProxy config
 * `defaults`: options listed here will be written into the `defaults` section of the HAProxy config
 * `extra_sections`: additional, manually-configured `frontend`, `backend`, or `listen` stanzas
@@ -335,5 +340,5 @@ end
 3. Implement the `start` and `validate_discovery_opts` methods
 4. Implement whatever additional methods your discovery requires
 
-When your watcher detects a list of new backends, they should be written to `@backends`.
-You should then call `@synapse.configure` to force synapse to update the HAProxy config.
+When your watcher detects a list of new backends, you should call `set_backends` to
+store the new backends and update the HAProxy config.
