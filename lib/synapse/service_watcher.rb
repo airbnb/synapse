@@ -1,4 +1,5 @@
 require "synapse/service_watcher/base"
+require "synapse/service_watcher/aws_ecs"
 require "synapse/service_watcher/zookeeper"
 require "synapse/service_watcher/ec2tag"
 require "synapse/service_watcher/dns"
@@ -9,6 +10,7 @@ module Synapse
   class ServiceWatcher
 
     @watchers = {
+      'aws_ecs' => AwsEcsWatcher,
       'base' => BaseWatcher,
       'zookeeper' => ZookeeperWatcher,
       'ec2tag' => EC2Watcher,
