@@ -101,7 +101,8 @@ module Synapse
 
     def set_backends(new_backends)
       # Aggregate and deduplicate all potential backend service instances.
-      new_backends = (new_backends + (@keep_default_servers ? @default_servers : [])).uniq {|b|
+      new_backends = (new_backends + @default_servers) if @keep_default_servers
+      new_backends = new_backends.uniq {|b|
         [b['host'], b['port'], b.fetch('name', '')]
       }
 

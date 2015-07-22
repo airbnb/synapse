@@ -202,6 +202,15 @@ If you do not list any `default_servers`, and all backends for a service
 disappear then the previous known backends will be used.  Disable this behavior
 by unsetting `use_previous_backends`.
 
+#### The `file_output` Section ####
+
+This section controls whether or not synapse will write out service state
+to the filesystem in json format. This can be used for services that want to
+use discovery information but not go through HAProxy.
+
+* `output_directory`: the path to a directory on disk that service registrations
+should be written to.
+
 #### The `haproxy` Section ####
 
 This section is its own hash, which should contain the following keys:
@@ -228,6 +237,9 @@ The `haproxy` section of the config file has the following options:
 * `extra_sections`: additional, manually-configured `frontend`, `backend`, or `listen` stanzas
 * `bind_address`: force HAProxy to listen on this address (default is localhost)
 * `shared_frontend`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
+
+* `restart_interval` (default: 2): number of seconds to wait between restarting haproxy/
+* `restart_jitter` (default: 0.0): percentage, expressed as a float, of jitter to multiply the `restart_interval` by when determining the next restart time. Use this to help prevent healthcheck storms when HAProxy restarts.
 
 Note that a non-default `bind_address` can be dangerous.
 If you configure an `address:port` combination that is already in use on the system, haproxy will fail to start.

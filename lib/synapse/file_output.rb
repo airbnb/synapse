@@ -8,8 +8,6 @@ module Synapse
     attr_reader :opts, :name
 
     def initialize(opts)
-      super()
-
       unless opts.has_key?("output_directory")
         raise ArgumentError, "flat file generation requires an output_directory key"
       end
