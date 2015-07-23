@@ -198,6 +198,19 @@ If you do not list any default servers, no proxy will be created.  The
 `default_servers` will also be used in addition to discovered servers if the
 `keep_default_servers` option is set.
 
+If you do not list any `default_servers`, and all backends for a service
+disappear then the previous known backends will be used.  Disable this behavior
+by unsetting `use_previous_backends`.
+
+#### The `file_output` Section ####
+
+This section controls whether or not synapse will write out service state
+to the filesystem in json format. This can be used for services that want to
+use discovery information but not go through HAProxy.
+
+* `output_directory`: the path to a directory on disk that service registrations
+should be written to.
+
 #### The `haproxy` Section ####
 
 This section is its own hash, which should contain the following keys:
@@ -218,11 +231,20 @@ The `haproxy` section of the config file has the following options:
 * `config_file_path`: where Synapse will write the HAProxy config file
 * `do_writes`: whether or not the config file will be written (default to `true`)
 * `do_reloads`: whether or not Synapse will reload HAProxy (default to `true`)
+* `do_socket`: whether or not Synapse will use the HAProxy socket commands to prevent reloads (default to `true`)
 * `global`: options listed here will be written into the `global` section of the HAProxy config
 * `defaults`: options listed here will be written into the `defaults` section of the HAProxy config
 * `extra_sections`: additional, manually-configured `frontend`, `backend`, or `listen` stanzas
 * `bind_address`: force HAProxy to listen on this address (default is localhost)
 * `shared_frontend`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
+* `restart_interval`: number of seconds to wait between restarts of haproxy (default: 2)
+* `restart_jitter`: percentage, expressed as a float, of jitter to multiply the `restart_interval` by when determining the next
+  restart time. Use this to help prevent healthcheck storms when HAProxy restarts. (default: 0.0)
+* `state_file_path`: full path on disk (e.g. /tmp/synapse/state.json) for caching haproxy state between reloads.
+  If provided, synapse will store recently seen backends at this location and can "remember" backends across both synapse and
+  HAProxy restarts. Any backends that are "down" in the reporter but listed in the cache will be put into HAProxy disabled (default: nil)
+* `state_file_ttl`: the number of seconds that backends should be kept in the state file cache.
+  This only applies if `state_file_path` is provided (default: 86400)
 
 Note that a non-default `bind_address` can be dangerous.
 If you configure an `address:port` combination that is already in use on the system, haproxy will fail to start.
@@ -335,5 +357,5 @@ end
 3. Implement the `start` and `validate_discovery_opts` methods
 4. Implement whatever additional methods your discovery requires
 
-When your watcher detects a list of new backends, they should be written to `@backends`.
-You should then call `@synapse.configure` to force synapse to update the HAProxy config.
+When your watcher detects a list of new backends, you should call `set_backends` to
+store the new backends and update the HAProxy config.

@@ -1,3 +1,4 @@
+require 'set'
 require 'synapse/log'
 
 module Synapse
@@ -41,6 +42,10 @@ module Synapse
       @backends = @default_servers
 
       @keep_default_servers = opts['keep_default_servers'] || false
+
+      # If there are no default servers and a watcher reports no backends, then
+      # use the previous backends that we already know about.
+      @use_previous_backends = opts.fetch('use_previous_backends', true)
 
       # set a flag used to tell the watchers to exit
       # this is not used in every watcher
@@ -95,13 +100,46 @@ module Synapse
     end
 
     def set_backends(new_backends)
-      if @keep_default_servers
-        @backends = @default_servers + new_backends
+      # Aggregate and deduplicate all potential backend service instances.
+      new_backends = (new_backends + @default_servers) if @keep_default_servers
+      new_backends = new_backends.uniq {|b|
+        [b['host'], b['port'], b.fetch('name', '')]
+      }
+
+      if new_backends.to_set == @backends.to_set
+        return false
+      end
+
+      if new_backends.empty?
+        if @default_servers.empty?
+          if @use_previous_backends
+            # Discard this update
+            log.warn "synapse: no backends for service #{@name} and no default" \
+              " servers for service #{@name}; using previous backends: #{@backends.inspect}"
+            return false
+          else
+            log.warn "synapse: no backends for service #{@name}, no default" \
+              " servers for service #{@name} and 'use_previous_backends' is disabled;" \
+              " dropping all backends"
+            @backends.clear
+          end
+        else
+          log.warn "synapse: no backends for service #{@name};" \
+            " using default servers: #{@default_servers.inspect}"
+          @backends = @default_servers
+        end
       else
+        log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
         @backends = new_backends
       end
+
+      reconfigure!
+
+      return true
     end
 
+    # Subclasses should not invoke this directly; it's only exposed so that it
+    # can be overridden in subclasses.
     def reconfigure!
       @synapse.reconfigure!
     end
