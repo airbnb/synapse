@@ -19,6 +19,7 @@ tmp
 .vagrant
 .*sw?
 vendor/
+/.idea
 
 synapse.jar
 .ruby-version

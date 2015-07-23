@@ -71,6 +71,21 @@ module Synapse
       @config_updated = true
     end
 
+    def append_service_watcher(service_name, service_config)
+      watcher = ServiceWatcher.create(service_name, service_config, self)
+      @service_watchers << watcher
+      watcher.start
+    end
+    
+    def remove_watcher_by_name(service_name)      
+      @service_watchers.each do |watcher|
+        if watcher.name == service_name
+          watcher.stop
+          @service_watchers.delete(watcher)
+        end
+      end
+    end
+    
     private
     def create_service_watchers(services={})
       service_watchers =[]
