@@ -40,6 +40,9 @@ module Synapse
       end
 
       if old_backends == new_backends
+        # Prevent modifying the file unless something has actually changed
+        # This way clients can set watches on this file and update their
+        # internal state only when the smartstack state has actually changed
         return false
       else
         # Atomically write new sevice configuration file
