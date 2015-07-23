@@ -114,12 +114,13 @@ module Synapse
         if @default_servers.empty?
           if @use_previous_backends
             # Discard this update
-            log.warn "synapse: no default servers for service #{@name};" \
-              "  using previous backends: #{@backends.inspect}"
+            log.warn "synapse: no backends for service #{@name} and no default" \
+              " servers for service #{@name}; using previous backends: #{@backends.inspect}"
             return false
           else
-            log.warn "synapse: no default servers for service #{@name} and" \
-              " 'use_previous_backends' is disabled; dropping all backends"
+            log.warn "synapse: no backends for service #{@name}, no default" \
+              " servers for service #{@name} and 'use_previous_backends' is disabled;" \
+              " dropping all backends"
             @backends.clear
           end
         else

@@ -27,6 +27,8 @@ module Synapse
     end
 
     def ping?
+      # @zk being nil implies no session *or* a lost session, do not remove
+      # the check on @zk being truthy
       @zk && @zk.connected?
     end
 
