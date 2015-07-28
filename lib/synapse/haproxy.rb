@@ -533,6 +533,7 @@ module Synapse
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
       @opts['do_reloads'] = true unless @opts.key?('do_reloads')
+      @opts['ignore_weights'] = true if @opts.key?('ignore_weights') and @opts['ignore_weights']
 
       # how to restart haproxy
       @restart_interval = @opts.fetch('restart_interval', 2).to_i
@@ -719,6 +720,7 @@ module Synapse
           backend = backends[backend_name]
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
           b = "#{b} cookie #{backend_name}" unless config.include?('mode tcp')
+          b = "#{b} weight #{backend['weight']}" if backend['weight'] && backend['weight'].is_a?(Fixnum) and backend['weight'] > 0 and !@opts['ignore_weights']
           b = "#{b} #{watcher.haproxy['server_options']}"
           b = "#{b} disabled" unless backend['enabled']
           b }
