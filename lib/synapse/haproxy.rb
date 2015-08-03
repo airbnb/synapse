@@ -720,7 +720,10 @@ module Synapse
           backend = backends[backend_name]
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
           b = "#{b} cookie #{backend_name}" unless config.include?('mode tcp')
-          b = "#{b} weight #{backend['weight']}" if backend['weight'] && backend['weight'].is_a?(Fixnum) and backend['weight'] > 0 and !@opts['ignore_weights']
+          if !@opts['ignore_weights'] && backend.has_key?('weight')
+              weight = backend['weight'].to_i
+              b = "#{b} weight #{weight}"
+          end
           b = "#{b} #{watcher.haproxy['server_options']}"
           b = "#{b} disabled" unless backend['enabled']
           b }
