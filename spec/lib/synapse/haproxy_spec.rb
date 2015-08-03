@@ -37,9 +37,21 @@ describe Synapse::Haproxy do
     expect(subject.generate_backend_stanza(createmockwatcher([{ 'weight' => 1, 'host' => 'somehost', 'port' => '5555'}]), mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 weight 1 check inter 2000 rise 3 fall 2"]])
   end
 
-  it 'generates backend stanza without bad weight' do
+  it 'generates backend stanza with bad weight = 0' do
     mockConfig = []
-    expect(subject.generate_backend_stanza(createmockwatcher([{ 'weight' => 'hi', 'host' => 'somehost', 'port' => '5555'}]), mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2"]])
+    expect(subject.generate_backend_stanza(createmockwatcher([{ 'weight' => 'hi', 'host' => 'somehost', 'port' => '5555'}]), mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 weight 0 check inter 2000 rise 3 fall 2"]])
   end
+
+  it 'generates backend stanza with nil weight = 0' do
+    mockConfig = []
+    expect(subject.generate_backend_stanza(createmockwatcher([{ 'weight' => nil, 'host' => 'somehost', 'port' => '5555'}]), mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 weight 0 check inter 2000 rise 3 fall 2"]])
+  end
+
+  it 'generates backend stanza without weight' do
+    mockConfig = []
+    expect(subject.generate_backend_stanza(createmockwatcher([{ 'host' => 'somehost', 'port' => '5555'}]), mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2"]])
+  end
+
+
 
 end
