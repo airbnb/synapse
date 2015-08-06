@@ -1,12 +1,12 @@
 require 'spec_helper'
 
-class Synapse::BaseWatcher
+class Synapse::ServiceWatcher::BaseWatcher
   attr_reader :should_exit, :default_servers
 end
 
-describe Synapse::BaseWatcher do
+describe Synapse::ServiceWatcher::BaseWatcher do
   let(:mocksynapse) { double() }
-  subject { Synapse::BaseWatcher.new(args, mocksynapse) }
+  subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse) }
   let(:testargs) { { 'name' => 'foo', 'discovery' => { 'method' => 'base' }, 'haproxy' => {} }}
 
   def remove_arg(name)

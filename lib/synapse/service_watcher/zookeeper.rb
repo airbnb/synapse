@@ -3,7 +3,7 @@ require "synapse/service_watcher/base"
 require 'thread'
 require 'zk'
 
-module Synapse
+class Synapse::ServiceWatcher
   class ZookeeperWatcher < BaseWatcher
     NUMBERS_RE = /^\d+$/
 

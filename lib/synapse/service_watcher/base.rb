@@ -1,9 +1,9 @@
-require 'set'
 require 'synapse/log'
+require 'set'
 
-module Synapse
+class Synapse::ServiceWatcher
   class BaseWatcher
-    include Logging
+    include Synapse::Logging
 
     LEADER_WARN_INTERVAL = 30
 

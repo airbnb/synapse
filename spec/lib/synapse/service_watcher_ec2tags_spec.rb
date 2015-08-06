@@ -1,7 +1,8 @@
 require 'spec_helper'
+require 'synapse/service_watcher/ec2tag'
 require 'logging'
 
-class Synapse::EC2Watcher
+class Synapse::ServiceWatcher::Ec2tagWatcher
   attr_reader   :synapse
   attr_accessor :default_servers, :ec2
 end
@@ -28,9 +29,9 @@ class FakeAWSInstance
   end
 end
 
-describe Synapse::EC2Watcher do
+describe Synapse::ServiceWatcher::Ec2tagWatcher do
   let(:mock_synapse) { double }
-  subject { Synapse::EC2Watcher.new(basic_config, mock_synapse) }
+  subject { Synapse::ServiceWatcher::Ec2tagWatcher.new(basic_config, mock_synapse) }
 
   let(:basic_config) do
     { 'name' => 'ec2tagtest',
@@ -88,22 +89,22 @@ describe Synapse::EC2Watcher do
     context 'when missing arguments' do
       it 'complains if aws_region is missing' do
         expect {
-          Synapse::EC2Watcher.new(remove_discovery_arg('aws_region'), mock_synapse)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_region'), mock_synapse)
         }.to raise_error(ArgumentError, /Missing aws_region/)
       end
       it 'complains if aws_access_key_id is missing' do
         expect {
-          Synapse::EC2Watcher.new(remove_discovery_arg('aws_access_key_id'), mock_synapse)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_access_key_id'), mock_synapse)
         }.to raise_error(ArgumentError, /Missing aws_access_key_id/)
       end
       it 'complains if aws_secret_access_key is missing' do
         expect {
-          Synapse::EC2Watcher.new(remove_discovery_arg('aws_secret_access_key'), mock_synapse)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_secret_access_key'), mock_synapse)
         }.to raise_error(ArgumentError, /Missing aws_secret_access_key/)
       end
       it 'complains if server_port_override is missing' do
         expect {
-          Synapse::EC2Watcher.new(remove_haproxy_arg('server_port_override'), mock_synapse)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_haproxy_arg('server_port_override'), mock_synapse)
         }.to raise_error(ArgumentError, /Missing server_port_override/)
       end
     end
@@ -111,7 +112,7 @@ describe Synapse::EC2Watcher do
     context 'invalid data' do
       it 'complains if the haproxy server_port_override is not a number' do
           expect {
-            Synapse::EC2Watcher.new(munge_haproxy_arg('server_port_override', '80deadbeef'), mock_synapse)
+            Synapse::ServiceWatcher::Ec2tagWatcher.new(munge_haproxy_arg('server_port_override', '80deadbeef'), mock_synapse)
           }.to raise_error(ArgumentError, /Invalid server_port_override/)
       end
     end

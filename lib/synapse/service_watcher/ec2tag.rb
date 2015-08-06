@@ -1,8 +1,8 @@
 require 'synapse/service_watcher/base'
 require 'aws-sdk'
 
-module Synapse
-  class EC2Watcher < BaseWatcher
+class Synapse::ServiceWatcher
+  class Ec2tagWatcher < BaseWatcher
 
     attr_reader :check_interval
 

@@ -1,13 +1,14 @@
 require 'spec_helper'
+require 'synapse/service_watcher/docker'
 
-class Synapse::DockerWatcher
+class Synapse::ServiceWatcher::DockerWatcher
   attr_reader :check_interval, :watcher, :synapse
   attr_accessor :default_servers
 end
 
-describe Synapse::DockerWatcher do
+describe Synapse::ServiceWatcher::DockerWatcher do
   let(:mocksynapse) { double() }
-  subject { Synapse::DockerWatcher.new(testargs, mocksynapse) }
+  subject { Synapse::ServiceWatcher::DockerWatcher.new(testargs, mocksynapse) }
   let(:testargs) { { 'name' => 'foo', 'discovery' => { 'method' => 'docker', 'servers' => [{'host' => 'server1.local', 'name' => 'mainserver'}], 'image_name' => 'mycool/image', 'container_port' => 6379 }, 'haproxy' => {} }}
   before(:each) do
     allow(subject.log).to receive(:warn)

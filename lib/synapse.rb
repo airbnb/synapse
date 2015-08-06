@@ -1,18 +1,18 @@
-require "synapse/version"
-require "synapse/service_watcher/base"
-require "synapse/haproxy"
-require "synapse/file_output"
-require "synapse/service_watcher"
-require "synapse/log"
-
 require 'logger'
 require 'json'
 
-include Synapse
+require "synapse/version"
+require "synapse/log"
+require "synapse/haproxy"
+require "synapse/file_output"
+require "synapse/service_watcher"
+
 
 module Synapse
   class Synapse
+
     include Logging
+
     def initialize(opts={})
       # create the service watchers for all our services
       raise "specify a list of services to connect in the config" unless opts.has_key?('services')

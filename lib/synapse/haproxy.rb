@@ -1,6 +1,5 @@
 require 'fileutils'
 require 'json'
-require 'synapse/log'
 require 'socket'
 
 module Synapse
