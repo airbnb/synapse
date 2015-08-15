@@ -103,27 +103,30 @@ And then execute:
 Or install it yourself as:
 
     $ gem install synapse
-    
 
 Don't forget to install HAProxy prior to installing Synapse.
 
 ## Configuration ##
 
 Synapse depends on a single config file in JSON format; it's usually called `synapse.conf.json`.
-The file has two main sections.
-The first is the `services` section, which lists the services you'd like to connect.
-The second is the `haproxy` section, which specifies how to configure and interact with HAProxy.
+The file has three main sections.
 
+1. [`services`](#services): lists the services you'd like to connect.
+2. [`haproxy`](#haproxy): specifies how to configure and interact with HAProxy.
+3. [`file_output`](#file) (optional): specifies where to write service state to on the filesystem.
+
+<a name="services"/>
 ### Configuring a Service ###
 
-The services are a hash, where the keys are the `name` of the service to be configured.
+The `services` section is a hash, where the keys are the `name` of the service to be configured.
 The name is just a human-readable string; it will be used in logs and notifications.
 Each value in the services hash is also a hash, and should contain the following keys:
 
-* `discovery`: how synapse will discover hosts providing this service (see below)
+* [`discovery`](#discovery): how synapse will discover hosts providing this service (see below)
 * `default_servers`: the list of default servers providing this service; synapse uses these if no others can be discovered
-* `haproxy`: how will the haproxy section for this service be configured
+* [`haproxy`](#haproxysvc): how will the haproxy section for this service be configured
 
+<a name="discovery"/>
 #### Service Discovery ####
 
 We've included a number of `watchers` which provide service discovery.
@@ -202,15 +205,7 @@ If you do not list any `default_servers`, and all backends for a service
 disappear then the previous known backends will be used.  Disable this behavior
 by unsetting `use_previous_backends`.
 
-#### The `file_output` Section ####
-
-This section controls whether or not synapse will write out service state
-to the filesystem in json format. This can be used for services that want to
-use discovery information but not go through HAProxy.
-
-* `output_directory`: the path to a directory on disk that service registrations
-should be written to.
-
+<a name="haproxysvc"/>
 #### The `haproxy` Section ####
 
 This section is its own hash, which should contain the following keys:
@@ -223,9 +218,10 @@ This section is its own hash, which should contain the following keys:
 * `listen`: these lines will be parsed and placed in the correct `frontend`/`backend` section as applicable; you can put lines which are the same for the frontend and backend here.
 * `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
 
+<a name="haproxy"/>
 ### Configuring HAProxy ###
 
-The `haproxy` section of the config file has the following options:
+The top level `haproxy` section of the config file has the following options:
 
 * `reload_command`: the command Synapse will run to reload HAProxy
 * `config_file_path`: where Synapse will write the HAProxy config file
@@ -248,6 +244,17 @@ The `haproxy` section of the config file has the following options:
 
 Note that a non-default `bind_address` can be dangerous.
 If you configure an `address:port` combination that is already in use on the system, haproxy will fail to start.
+
+<a name="file"/>
+### Configuring `file_output` ###
+
+This section controls whether or not synapse will write out service state
+to the filesystem in json format. This can be used for services that want to
+use discovery information but not go through HAProxy.
+
+* `output_directory`: the path to a directory on disk that service registrations
+should be written to.
+
 
 ### HAProxy shared HTTP Frontend ###
 
