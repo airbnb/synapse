@@ -220,6 +220,8 @@ This section is its own hash, which should contain the following keys:
 * `server_options`: the haproxy options for each `server` line of the service in HAProxy config; it may be left out.
 * `frontend`: additional lines passed to the HAProxy config in the `frontend` stanza of this service
 * `backend`: additional lines passed to the HAProxy config in the `backend` stanza of this service
+* `backend_name`: The name of the generated HAProxy backend for this service
+  (defaults to the service's key in the `services` section)
 * `listen`: these lines will be parsed and placed in the correct `frontend`/`backend` section as applicable; you can put lines which are the same for the frontend and backend here.
 * `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
 
