@@ -51,7 +51,7 @@ module Synapse
         while true do
           new_zk_hosts = fetch_hosts_from_exhibitor
           if new_zk_hosts && @zk_hosts != new_zk_hosts
-            log.info "synapse: ZooKeeper ensamble changed, stopping watcher"
+            log.info "synapse: ZooKeeper ensamble changed, going to reconnect"
             @change_in_progress = true
             stop
             @zk_hosts = new_zk_hosts
