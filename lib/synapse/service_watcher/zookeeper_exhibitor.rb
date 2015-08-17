@@ -47,6 +47,7 @@ module Synapse
     end
 
     def poll
+      return unless @exhibitor_watcher.nil?
       @exhibitor_watcher = Thread.new do
         while true do
           new_zk_hosts = fetch_hosts_from_exhibitor
@@ -56,7 +57,6 @@ module Synapse
             stop
             @zk_hosts = new_zk_hosts
             start
-            break
           end
           sleep @discovery['exhibitor_poll_interval'] || DEFAULT_EXHIBITOR_POLL_INTERVAL
         end
