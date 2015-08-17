@@ -32,7 +32,7 @@ module Synapse
       # @zk being nil implies no session *or* a lost session, do not remove
       # the check on @zk being truthy
       return true if @change_in_progress
-      @zk && @zk.connected?
+      @exhibitor_watcher.alive? && @zk && @zk.connected?
     end
 
     private
