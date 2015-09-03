@@ -186,6 +186,18 @@ be used in preference to the `AWS_` environment variables.
 * `aws_secret_access_key`: AWS secret key or set `AWS_SECRET_ACCESS_KEY` in the environment.
 * `aws_region`: AWS region (i.e. `us-east-1`) or set `AWS_REGION` in the environment.
 
+##### Marathon #####
+
+This watcher retrieves a list of [Marathon](https://github.com/mesosphere/marathon) managed tasks via
+Marathon's [HTTP API](https://github.com/mesosphere/marathon/blob/master/REST.md).
+It takes the following options:
+
+* `method`: marathon
+* `hostname`: a list of servers running Marathon as a daemon. Format is a URL.
+* `app_id`: Marathon application ID. This is case-sensitive.
+* `port_index`: which of the allocated ports to connect to. Default is 0.
+* `check_interval`: how often to poll the Marathon API on each server. Default is 15s.
+
 #### Listing Default Servers ####
 
 You may list a number of default servers providing a service.
