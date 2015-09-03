@@ -84,8 +84,7 @@ module Synapse
       return if @zk.nil?
       log.debug "synapse: setting watch at #{@discovery['path']}"
 
-      @watcher.unsubscribe unless @watcher.nil?
-      @watcher = @zk.register(@discovery['path'], &watcher_callback)
+      @watcher = @zk.register(@discovery['path'], &watcher_callback) unless @watcher
 
       # Verify that we actually set up the watcher.
       unless @zk.exists?(@discovery['path'], :watch => true)
