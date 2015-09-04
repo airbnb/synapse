@@ -89,7 +89,7 @@ module Synapse
       # Verify that we actually set up the watcher.
       unless @zk.exists?(@discovery['path'], :watch => true)
         log.error "synapse: zookeeper watcher path #{@discovery['path']} does not exist!"
-        raise RuntimeError.new('could not set a ZK watch on a node that should exist')
+        zk_cleanup
       end
       log.debug "synapse: set watch at #{@discovery['path']}"
     end
