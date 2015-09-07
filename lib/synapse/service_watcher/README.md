@@ -1,18 +1,33 @@
-Please, do not submit pull requests with new watchers, as Synapse and Nerve
-both support a plugin system for adding watchers and reporters respectively.
-
 ## Watcher Classes
 
 Watchers are the piece of Synapse that watch an external service registry
 and reflect those changes in the local HAProxy state. Watchers should look
 like:
 
-```
+```ruby
 require "synapse/service\_watcher/base"
 
 module Synapse::ServiceWatcher
   class MyWatcher < BaseWatcher
-  ...
+    def start
+      # write code which begins running service discovery
+    end
+
+    def stop
+      # write code which tears down the service discovery
+    end
+
+    def ping?
+      # write code to check in on the health of the watcher
+    end
+
+    private
+    def validate_discovery_opts
+      # here, validate any required options in @discovery
+    end
+
+    ...
+
   end
 end
 ```
@@ -50,6 +65,7 @@ stop: stop the watcher on a service registry
 
 ping?: healthcheck the watcher's connection to the service registry
 
+private
 validate_discovery_opts: check if the configuration has the right options
 ```
 

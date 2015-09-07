@@ -342,29 +342,5 @@ Non-HTTP backends such as MySQL or RabbitMQ will obviously continue to need thei
 
 ### Creating a Service Watcher ###
 
-If you'd like to create a new service watcher:
-
-1. Create a file for your watcher in `service_watcher` dir
-2. Use the following template:
-```ruby
-require 'synapse/service_watcher/base'
-
-module Synapse
-  class NewWatcher < BaseWatcher
-    def start
-      # write code which begins running service discovery
-    end
-
-    private
-    def validate_discovery_opts
-      # here, validate any required options in @discovery
-    end
-  end
-end
-```
-
-3. Implement the `start` and `validate_discovery_opts` methods
-4. Implement whatever additional methods your discovery requires
-
-When your watcher detects a list of new backends, you should call `set_backends` to
-store the new backends and update the HAProxy config.
+See the Service Watcher [README](lib/synapse/service_watcher/README.md) for
+how to add new Service Watchers.
