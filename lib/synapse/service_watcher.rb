@@ -1,22 +1,8 @@
+require "synapse/log"
 require "synapse/service_watcher/base"
-require "synapse/service_watcher/zookeeper"
-require "synapse/service_watcher/ec2tag"
-require "synapse/service_watcher/dns"
-require "synapse/service_watcher/docker"
-require "synapse/service_watcher/zookeeper_dns"
 
 module Synapse
   class ServiceWatcher
-
-    @watchers = {
-      'base' => BaseWatcher,
-      'zookeeper' => ZookeeperWatcher,
-      'ec2tag' => EC2Watcher,
-      'dns' => DnsWatcher,
-      'docker' => DockerWatcher,
-      'zookeeper_dns' => ZookeeperDnsWatcher,
-    }
-
     # the method which actually dispatches watcher creation requests
     def self.create(name, opts, synapse)
       opts['name'] = name
@@ -25,10 +11,16 @@ module Synapse
         unless opts.has_key?('discovery') && opts['discovery'].has_key?('method')
 
       discovery_method = opts['discovery']['method']
-      raise ArgumentError, "Invalid discovery method #{discovery_method}" \
-        unless @watchers.has_key?(discovery_method)
-
-      return @watchers[discovery_method].new(opts, synapse)
+      watcher = begin
+        method = discovery_method.downcase
+        require "synapse/service_watcher/#{method}"
+        # zookeeper_dns => ZookeeperDnsWatcher, ec2tag => Ec2tagWatcher, etc ...
+        method_class  = method.split('_').map{|x| x.capitalize}.join.concat('Watcher')
+        self.const_get("#{method_class}")
+      rescue Exception => e
+        raise ArgumentError, "Specified a discovery method of #{discovery_method}, which could not be found: #{e}"
+      end
+      return watcher.new(opts, synapse)
     end
   end
 end

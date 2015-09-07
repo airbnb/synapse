@@ -1,4 +1,3 @@
-require 'synapse/log'
 require 'fileutils'
 require 'tempfile'
 

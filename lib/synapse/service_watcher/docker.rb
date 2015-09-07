@@ -1,7 +1,7 @@
 require "synapse/service_watcher/base"
 require 'docker'
 
-module Synapse
+class Synapse::ServiceWatcher
   class DockerWatcher < BaseWatcher
     def start
       @check_interval = @discovery['check_interval'] || 15.0

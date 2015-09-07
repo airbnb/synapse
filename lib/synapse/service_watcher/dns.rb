@@ -3,7 +3,7 @@ require "synapse/service_watcher/base"
 require 'thread'
 require 'resolv'
 
-module Synapse
+class Synapse::ServiceWatcher
   class DnsWatcher < BaseWatcher
     def start
       @check_interval = @discovery['check_interval'] || 30.0
