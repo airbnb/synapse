@@ -45,8 +45,10 @@ class Synapse::ServiceWatcher
         raise ArgumentError, "Invalid server_port_override value"
       end
 
-      # Required, but can use well-known environment variables.
-      %w[aws_access_key_id aws_secret_access_key aws_region].each do |attr|
+      puts @discovery
+      aws_vars = %w[aws_region]
+      aws_vars += %w[aws_access_key_id aws_secret_access_key] unless @discovery['use_iam_profile']
+      aws_vars.each do |attr|
         unless (@discovery[attr] || ENV[attr.upcase])
           raise ArgumentError, "Missing #{attr} option or #{attr.upcase} environment variable"
         end

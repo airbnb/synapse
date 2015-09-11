@@ -186,6 +186,13 @@ be used in preference to the `AWS_` environment variables.
 * `aws_secret_access_key`: AWS secret key or set `AWS_SECRET_ACCESS_KEY` in the environment.
 * `aws_region`: AWS region (i.e. `us-east-1`) or set `AWS_REGION` in the environment.
 
+When launching an EC2 instance with an [IAM role and instance profile](http://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html), the aws-sdk will
+make API requests without having credentials supplied explicitly. If `use_iam_profile = true`
+is specified as an option, the `aws_access_key_id` and `aws_secret_access_key` options
+can be omitted.
+
+* `use_iam_profile`: If true, the IAM instance profile is used for credentials.
+
 #### Listing Default Servers ####
 
 You may list a number of default servers providing a service.
