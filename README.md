@@ -219,6 +219,7 @@ This section is its own hash, which should contain the following keys:
   (defaults to the service's key in the `services` section)
 * `listen`: these lines will be parsed and placed in the correct `frontend`/`backend` section as applicable; you can put lines which are the same for the frontend and backend here.
 * `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
+* `ignore_weights`: optional: stops haproxy backend 'weight' options being generated, even if the Nerve registrations contain this information. This will cause all backend servers to be treated equally by haproxy. This defaults to off (and so weights *will* be used by default).
 
 <a name="haproxy"/>
 ### Configuring HAProxy ###
