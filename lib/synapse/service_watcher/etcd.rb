@@ -9,14 +9,14 @@ module Synapse
     def start
       @etcd_hosts = @discovery['hosts'].shuffle
 
-      log.info "synapse: starting etcd watcher #{@name} @ host: #{@discovery['host']}, path: #{@discovery['path']}"
+      log.info "synapse: starting etcd watcher #{@name} @ hosts: #{@discovery['hosts']}, path: #{@discovery['path']}"
       @should_exit = false
 
       @etcd_hosts.each do |h|
         host, port = h.split(':')
         port = port || 4003
         @etcd = ::Etcd.client(:host => host, :port => port)
-        
+
         connected =
           begin
             @etcd.leader
@@ -52,10 +52,8 @@ module Synapse
     def validate_discovery_opts
       raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
         unless @discovery['method'] == 'etcd'
-      raise ArgumentError, "missing or invalid etcd host for service #{@name}" \
-        unless @discovery['host']
-      raise ArgumentError, "missing or invalid etcd port for service #{@name}" \
-        unless @discovery['port']
+      raise ArgumentError, "missing or invalid etcd hosts for service #{@name}" \
+        unless @discovery['hosts']
       raise ArgumentError, "invalid etcd path for service #{@name}" \
         unless @discovery['path']
     end
@@ -152,7 +150,7 @@ module Synapse
       end
     end
 
-    # decode the data at a zookeeper endpoint
+    # decode the data at an etcd endpoint
     def deserialize_service_instance(data)
       log.debug "synapse: deserializing process data"
       decoded = JSON.parse(data)
