@@ -97,7 +97,8 @@ install synapse with:
 
 ```bash
 $ mkdir -p /opt/smartstack/synapse
-$ gem install synapse --install-dir /opt/smartstack/synapse --no-document
+# If you are on Ruby 2.X use --no-document instead of --no-ri --no-rdoc
+$ gem install synapse --install-dir /opt/smartstack/synapse --no-ri --no-rdoc
 ```
 
 This will download synapse and its dependencies into /opt/smartstack/synapse. You
