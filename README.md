@@ -92,7 +92,8 @@ HAProxy will be transparently reloaded, and your application will keep running w
 
 ## Installation
 
-To download and run the synapse binary, first install a version of ruby.
+To download and run the synapse binary, first install a version of ruby. Then,
+install synapse with:
 
 ```bash
 $ mkdir -p /opt/smartstack/synapse
