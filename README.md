@@ -92,19 +92,26 @@ HAProxy will be transparently reloaded, and your application will keep running w
 
 ## Installation
 
-Add this line to your application's Gemfile:
+To download and run the synapse binary, first install a version of ruby.
 
-    gem 'synapse'
+```bash
+$ mkdir -p /opt/smartstack/synapse
+$ gem install synapse --install-dir /opt/smartstack/synapse --no-document
+```
 
-And then execute:
+This will download synapse and its dependencies into /opt/smartstack/synapse. You
+might wish to omit the `--install-dir` flag to use your system's default gem
+path, however this will require you to run `gem install synapse` with root
+permissions.
 
-    $ bundle
+You can now run the synapse binary like:
 
-Or install it yourself as:
+```bash
+export GEM_PATH=/opt/smartstack/synapse
+/opt/smartstack/synapse/bin/synapse --help
+```
 
-    $ gem install synapse
-
-Don't forget to install HAProxy prior to installing Synapse.
+Don't forget to install HAProxy too.
 
 ## Configuration ##
 
