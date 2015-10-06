@@ -704,6 +704,16 @@ module Synapse
       # setting the enabled state.
       watcher.backends.each do |backend|
         backend_name = construct_name(backend)
+        # If we have information in the state file that allows us to detect
+        # server option changes, use that to potentially force a restart
+        if backends.has_key?(backend_name)
+          old_backend = backends[backend_name]
+          if (old_backend.fetch('haproxy_server_options', "") !=
+              backend.fetch('haproxy_server_options', ""))
+            log.info "synapse: restart required because haproxy_server_options changed for #{backend_name}"
+            @restart_required = true
+          end
+        end
         backends[backend_name] = backend.merge('enabled' => true)
       end
 
@@ -718,7 +728,8 @@ module Synapse
           backend = backends[backend_name]
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
           b = "#{b} cookie #{backend_name}" unless config.include?('mode tcp')
-          b = "#{b} #{watcher.haproxy['server_options']}"
+          b = "#{b} #{watcher.haproxy['server_options']}" if watcher.haproxy['server_options']
+          b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options']
           b = "#{b} disabled" unless backend['enabled']
           b }
       ]
