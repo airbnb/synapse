@@ -15,7 +15,7 @@ In an environment like Amazon's EC2, all of the available workarounds are subopt
 
 * Round-robin DNS: Slow to converge, and doesn't work when applications cache DNS lookups (which is frequent)
 * Elastic IPs: slow to converge, limited in number, public-facing-only, which makes them less useful for internal services
-* ELB: Again, public-facing only, and only useful for HTTP
+* ELB: ultimately uses DNS (see above), can't tune load balancing, have to launch a new one for every service * region, autoscaling doesn't happen fast enough
 
 One solution to this problem is a discovery service, like [Apache Zookeeper](http://zookeeper.apache.org/).
 However, Zookeeper and similar services have their own problems:
