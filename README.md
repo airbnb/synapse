@@ -195,6 +195,16 @@ be used in preference to the `AWS_` environment variables.
 * `aws_secret_access_key`: AWS secret key or set `AWS_SECRET_ACCESS_KEY` in the environment.
 * `aws_region`: AWS region (i.e. `us-east-1`) or set `AWS_REGION` in the environment.
 
+##### etcd #####
+
+This watcher retrieves a list from etcd, similarly to the zookeeper watcher
+
+It takes the following options:
+
+* `method`: etcd
+* `hosts`: A list of etcd hosts to connect to, in the format "host" or "host:port"
+* `path`: The path to create in etcd where ephemeral nodes will be created for each available service server
+
 #### Listing Default Servers ####
 
 You may list a number of default servers providing a service.

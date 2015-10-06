@@ -3,6 +3,7 @@ require "synapse/service_watcher/base"
 
 module Synapse
   class ServiceWatcher
+
     # the method which actually dispatches watcher creation requests
     def self.create(name, opts, synapse)
       opts['name'] = name
@@ -24,3 +25,4 @@ module Synapse
     end
   end
 end
+
