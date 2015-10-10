@@ -11,7 +11,7 @@ what service registrations Synapse understands.
 ```ruby
 require "synapse/service_watcher/base"
 
-module Synapse::ServiceWatcher
+class Synapse::ServiceWatcher
   class MyWatcher < BaseWatcher
     def start
       # write code which begins running service discovery
