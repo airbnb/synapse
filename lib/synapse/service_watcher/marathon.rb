@@ -30,7 +30,10 @@ class Synapse::ServiceWatcher
     end
 
     def attempt_marathon_connection
-      @marathon_api = URI.join(@discovery['marathon_api_url'], "/v2/apps/#{@discovery['application_name']}/tasks")
+      marathon_api_path = @discovery.fetch('marathon_api_path', '/v2/apps/%{app}/tasks')
+      marathon_api_path = marathon_api_path % { app: @discovery['application_name'] }
+
+      @marathon_api = URI.join(@discovery['marathon_api_url'], marathon_api_path)
 
       begin
         @connection = Net::HTTP.new(@marathon_api.host, @marathon_api.port)

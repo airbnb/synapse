@@ -61,6 +61,21 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
       expect(a_request(:get, marathon_request_uri)).to have_been_made.times(1)
     end
 
+    context 'when the API path (marathon_api_path) is customized' do
+      let(:config) do
+        super().tap do |c|
+          c['discovery']['marathon_api_path'] = '/v3/tasks/%{app}'
+        end
+      end
+
+      let(:marathon_request_uri) { "#{marathon_host}:#{marathon_port}/v3/tasks/#{app_name}" }
+
+      it 'calls the customized path' do
+        subject.start
+        expect(a_request(:get, marathon_request_uri)).to have_been_made.times(1)
+      end
+    end
+
     context 'with tasks returned from marathon' do
       let(:marathon_response) do
         {
