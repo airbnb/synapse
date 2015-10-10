@@ -129,17 +129,6 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
         end
       end
 
-      it 'calls #reconfigure!' do
-        expect(subject).to receive(:reconfigure!).at_least(:once)
-        subject.start
-      end
-
-      it 'does not call reconfigure! if the backends change' do
-        subject.instance_variable_set(:@backends, [expected_backend_hash])
-        expect(subject).to receive(:reconfigure!).never
-        subject.start
-      end
-
       context 'when marathon returns invalid response' do
         let(:marathon_response) { [] }
         it 'does not blow up' do

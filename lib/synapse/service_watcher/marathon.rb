@@ -70,19 +70,7 @@ class Synapse::ServiceWatcher
             }
           end.sort_by { |task| task['name'] }
 
-          if backends.empty?
-            log.warn "synapse: no backends discovered for #{@discovery['application_name']}"
-          else
-            previous_backends = @backends
-            set_backends(backends)
-            new_backends = @backends
-
-            unless previous_backends == new_backends
-              log.info "synapse: found #{backends.length} backends for #{@discovery['application_name']}"
-
-              reconfigure!
-            end
-          end
+          set_backends(backends)
         rescue EOFError
           # If the persistent HTTP connection is severed, we can automatically
           # retry
