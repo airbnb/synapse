@@ -204,7 +204,8 @@ It takes the following options:
 
 * `marathon_api_url`: Address of the marathon API (e.g. `http://marathon-master:8080`)
 * `application_name`: Name of the application in Marathon
-* `check_interval`: How often to request the list of tasks from Marathon
+* `check_interval`: How often to request the list of tasks from Marathon (default: 10 seconds)
+* `port_index`: Index of the backend port in the task's "ports" array. (default: 0)
 
 #### Listing Default Servers ####
 

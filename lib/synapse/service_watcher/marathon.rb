@@ -62,13 +62,23 @@ class Synapse::ServiceWatcher
           response = @connection.request(req)
 
           tasks = JSON.parse(response.body).fetch('tasks', [])
+          port_index = @discovery['port_index'] || 0
           backends = tasks.keep_if { |task| task['startedAt'] }.map do |task|
             {
               'name' => task['host'],
               'host' => task['host'],
-              'port' => task['ports'].first,
+              'port' => task['ports'][port_index],
             }
           end.sort_by { |task| task['name'] }
+
+          invalid_backends = backends.find_all { |b| b['port'].nil? }
+          if invalid_backends.any?
+            backends = backends - invalid_backends
+
+            invalid_backends.each do |backend|
+              log.error "synapse: port index #{port_index} not found in task's port array!"
+            end
+          end
 
           set_backends(backends)
         rescue EOFError

@@ -106,6 +106,36 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
         subject.start
       end
 
+      context 'with a custom port_index' do
+        let(:config) do
+          super().tap do |c|
+            c['discovery']['port_index'] = 1
+          end
+        end
+
+        let(:expected_backend_hash) do
+          {
+            'name' => 'agouti.local', 'host' => 'agouti.local', 'port' => 31337
+          }
+        end
+
+        it 'adds the task as a backend' do
+          expect(subject).to receive(:set_backends).with([expected_backend_hash])
+          subject.start
+        end
+
+        context 'when that port_index does not exist' do
+          let(:config) do
+            super().tap { |c| c['discovery']['port_index'] = 999 }
+          end
+
+          it 'does not include the backend' do
+            expect(subject).to receive(:set_backends).with([])
+            subject.start
+          end
+        end
+      end
+
       context 'with a task that has not started yet' do
         let(:marathon_response) do
           super().tap do |resp|
