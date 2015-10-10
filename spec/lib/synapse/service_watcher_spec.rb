@@ -59,6 +59,11 @@ describe Synapse::ServiceWatcher do
       'hosts' => 'localhost:2181',
       'path' => '/smartstack',
     }}
+    let (:marathon_config) {{
+      'method' => 'marathon',
+      'marathon_api_url' => 'localhost:12345',
+      'application_name' => 'foobar',
+    }}
 
     it 'creates zookeeper correctly' do
       expect {
@@ -83,6 +88,11 @@ describe Synapse::ServiceWatcher do
     it 'creates zookeeper_dns correctly' do
       expect {
         subject.create('test', replace_discovery(zookeeper_dns_config), mock_synapse)
+      }.not_to raise_error
+    end
+    it 'creates marathon correctly' do
+      expect {
+        subject.create('test', replace_discovery(marathon_config), mock_synapse)
       }.not_to raise_error
     end
   end
