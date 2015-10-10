@@ -195,6 +195,18 @@ be used in preference to the `AWS_` environment variables.
 * `aws_secret_access_key`: AWS secret key or set `AWS_SECRET_ACCESS_KEY` in the environment.
 * `aws_region`: AWS region (i.e. `us-east-1`) or set `AWS_REGION` in the environment.
 
+##### Marathon #####
+
+This watcher polls the Marathon API and retrieves a list of instances for a
+given application.
+
+It takes the following options:
+
+* `marathon_api_url`: Address of the marathon API (e.g. `http://marathon-master:8080`)
+* `application_name`: Name of the application in Marathon
+* `check_interval`: How often to request the list of tasks from Marathon (default: 10 seconds)
+* `port_index`: Index of the backend port in the task's "ports" array. (default: 0)
+
 #### Listing Default Servers ####
 
 You may list a number of default servers providing a service.
