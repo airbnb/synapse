@@ -1,5 +1,6 @@
 require 'synapse/service_watcher/base'
 require 'json'
+require 'net/http'
 require 'resolv'
 
 class Synapse::ServiceWatcher
