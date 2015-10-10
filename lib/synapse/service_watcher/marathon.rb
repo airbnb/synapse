@@ -1,8 +1,8 @@
-require "synapse/service_watcher/base"
+require 'synapse/service_watcher/base'
 require 'json'
 require 'resolv'
 
-module Synapse
+class Synapse::ServiceWatcher
   class MarathonWatcher < BaseWatcher
     def start
       @check_interval = @discovery['check_interval'] || 10.0

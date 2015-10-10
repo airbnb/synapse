@@ -1,6 +1,7 @@
 require 'spec_helper'
+require 'synapse/service_watcher/marathon'
 
-describe Synapse::MarathonWatcher do
+describe Synapse::ServiceWatcher::MarathonWatcher do
   let(:mocksynapse) { double() }
   let(:marathon_host) { '127.0.0.1' }
   let(:marathon_port) { '8080' }
@@ -21,7 +22,7 @@ describe Synapse::MarathonWatcher do
   end
   let(:marathon_response) { { 'tasks' => [] } }
 
-  subject { Synapse::MarathonWatcher.new(config, mocksynapse) }
+  subject { described_class.new(config, mocksynapse) }
 
   before do
     allow(subject.log).to receive(:warn)
@@ -38,7 +39,7 @@ describe Synapse::MarathonWatcher do
 
   context 'with a valid argument hash' do
     it 'instantiates' do
-      expect(subject).to be_a(Synapse::MarathonWatcher)
+      expect(subject).to be_a(Synapse::ServiceWatcher::MarathonWatcher)
     end
   end
 
