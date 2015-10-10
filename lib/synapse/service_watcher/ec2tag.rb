@@ -1,8 +1,8 @@
 require 'synapse/service_watcher/base'
 require 'aws-sdk'
 
-module Synapse
-  class EC2Watcher < BaseWatcher
+class Synapse::ServiceWatcher
+  class Ec2tagWatcher < BaseWatcher
 
     attr_reader :check_interval
 
@@ -41,37 +41,33 @@ module Synapse
           "Missing server_port_override for service #{@name} - which port are backends listening on?"
       end
 
-      unless @haproxy['server_port_override'].match(/^\d+$/)
+      unless @haproxy['server_port_override'].to_s.match(/^\d+$/)
         raise ArgumentError, "Invalid server_port_override value"
       end
 
-      # Required, but can use well-known environment variables.
-      %w[aws_access_key_id aws_secret_access_key aws_region].each do |attr|
-        unless (@discovery[attr] || ENV[attr.upcase])
-          raise ArgumentError, "Missing #{attr} option or #{attr.upcase} environment variable"
-        end
+      # aws region is optional in the SDK, aws will use a default value if not provided
+      unless @discovery['aws_region'] || ENV['AWS_REGION']
+        log.info "aws region is missing, will use default"
+      end
+      # access key id & secret are optional, might be using IAM instance profile for credentials
+      unless ((@discovery['aws_access_key_id'] || ENV['aws_access_key_id']) \
+              && (@discovery['aws_secret_access_key'] || ENV['aws_secret_access_key'] ))
+        log.info "aws access key id & secret not set in config or env variables for service #{name}, will attempt to use IAM instance profile"
       end
     end
 
     def watch
-      last_backends = []
       until @should_exit
         begin
           start = Time.now
-          current_backends = discover_instances
-
-          if last_backends != current_backends
+          if set_backends(discover_instances)
             log.info "synapse: ec2tag watcher backends have changed."
-            last_backends = current_backends
-            configure_backends(current_backends)
-          else
-            log.info "synapse: ec2tag watcher backends are unchanged."
           end
-
-          sleep_until_next_check(start)
         rescue Exception => e
           log.warn "synapse: error in ec2tag watcher thread: #{e.inspect}"
           log.warn e.backtrace
+        ensure
+          sleep_until_next_check(start)
         end
       end
 
@@ -110,23 +106,6 @@ module Synapse
         .tagged(tag_name)
         .tagged_values(tag_value)
         .select { |i| i.status == :running }
-    end
-
-    def configure_backends(new_backends)
-      if new_backends.empty?
-        if @default_servers.empty?
-          log.warn "synapse: no backends and no default servers for service #{@name};" \
-            " using previous backends: #{@backends.inspect}"
-        else
-          log.warn "synapse: no backends for service #{@name};" \
-            " using default servers: #{@default_servers.inspect}"
-          @backends = @default_servers
-        end
-      else
-        log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
-        @backends = new_backends
-      end
-      @synapse.reconfigure!
     end
   end
 end

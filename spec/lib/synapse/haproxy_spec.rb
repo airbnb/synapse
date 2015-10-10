@@ -14,6 +14,15 @@ describe Synapse::Haproxy do
     mockWatcher
   end
 
+  let(:mockwatcher_with_server_options) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_service')
+    backends = [{ 'host' => 'somehost', 'port' => '5555', 'haproxy_server_options' => 'backup'}]
+    allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2"})
+    mockWatcher
+  end
+
   it 'updating the config' do
     expect(subject).to receive(:generate_config)
     subject.update_config([mockwatcher])
@@ -29,4 +38,8 @@ describe Synapse::Haproxy do
     expect(subject.generate_backend_stanza(mockwatcher, mockConfig)).to eql(["\nbackend example_service", ["\tmode tcp"], ["\tserver somehost:5555 somehost:5555 check inter 2000 rise 3 fall 2"]])
   end
 
+  it 'respects haproxy_server_options' do
+    mockConfig = []
+    expect(subject.generate_backend_stanza(mockwatcher_with_server_options, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2 backup"]])
+  end
 end

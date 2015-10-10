@@ -3,7 +3,7 @@ require "synapse/service_watcher/base"
 require 'thread'
 require 'resolv'
 
-module Synapse
+class Synapse::ServiceWatcher
   class DnsWatcher < BaseWatcher
     def start
       @check_interval = @discovery['check_interval'] || 30.0
@@ -89,21 +89,7 @@ module Synapse
         end
       end
 
-      if new_backends.empty?
-        if @default_servers.empty?
-          log.warn "synapse: no backends and no default servers for service #{@name};" \
-            " using previous backends: #{@backends.inspect}"
-        else
-          log.warn "synapse: no backends for service #{@name};" \
-            " using default servers: #{@default_servers.inspect}"
-          @backends = @default_servers
-        end
-      else
-        log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
-        set_backends(new_backends)
-      end
-
-      reconfigure!
+      set_backends(new_backends)
     end
   end
 end

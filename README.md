@@ -15,7 +15,7 @@ In an environment like Amazon's EC2, all of the available workarounds are subopt
 
 * Round-robin DNS: Slow to converge, and doesn't work when applications cache DNS lookups (which is frequent)
 * Elastic IPs: slow to converge, limited in number, public-facing-only, which makes them less useful for internal services
-* ELB: Again, public-facing only, and only useful for HTTP
+* ELB: ultimately uses DNS (see above), can't tune load balancing, have to launch a new one for every service * region, autoscaling doesn't happen fast enough
 
 One solution to this problem is a discovery service, like [Apache Zookeeper](http://zookeeper.apache.org/).
 However, Zookeeper and similar services have their own problems:
@@ -92,38 +92,50 @@ HAProxy will be transparently reloaded, and your application will keep running w
 
 ## Installation
 
-Add this line to your application's Gemfile:
+To download and run the synapse binary, first install a version of ruby. Then,
+install synapse with:
 
-    gem 'synapse'
+```bash
+$ mkdir -p /opt/smartstack/synapse
+# If you are on Ruby 2.X use --no-document instead of --no-ri --no-rdoc
+$ gem install synapse --install-dir /opt/smartstack/synapse --no-ri --no-rdoc
+```
 
-And then execute:
+This will download synapse and its dependencies into /opt/smartstack/synapse. You
+might wish to omit the `--install-dir` flag to use your system's default gem
+path, however this will require you to run `gem install synapse` with root
+permissions.
 
-    $ bundle
+You can now run the synapse binary like:
 
-Or install it yourself as:
+```bash
+export GEM_PATH=/opt/smartstack/synapse
+/opt/smartstack/synapse/bin/synapse --help
+```
 
-    $ gem install synapse
-    
-
-Don't forget to install HAProxy prior to installing Synapse.
+Don't forget to install HAProxy too.
 
 ## Configuration ##
 
 Synapse depends on a single config file in JSON format; it's usually called `synapse.conf.json`.
-The file has two main sections.
-The first is the `services` section, which lists the services you'd like to connect.
-The second is the `haproxy` section, which specifies how to configure and interact with HAProxy.
+The file has three main sections.
 
+1. [`services`](#services): lists the services you'd like to connect.
+2. [`haproxy`](#haproxy): specifies how to configure and interact with HAProxy.
+3. [`file_output`](#file) (optional): specifies where to write service state to on the filesystem.
+
+<a name="services"/>
 ### Configuring a Service ###
 
-The services are a hash, where the keys are the `name` of the service to be configured.
+The `services` section is a hash, where the keys are the `name` of the service to be configured.
 The name is just a human-readable string; it will be used in logs and notifications.
 Each value in the services hash is also a hash, and should contain the following keys:
 
-* `discovery`: how synapse will discover hosts providing this service (see below)
+* [`discovery`](#discovery): how synapse will discover hosts providing this service (see below)
 * `default_servers`: the list of default servers providing this service; synapse uses these if no others can be discovered
-* `haproxy`: how will the haproxy section for this service be configured
+* [`haproxy`](#haproxysvc): how will the haproxy section for this service be configured
 
+<a name="discovery"/>
 #### Service Discovery ####
 
 We've included a number of `watchers` which provide service discovery.
@@ -209,6 +221,11 @@ If you do not list any default servers, no proxy will be created.  The
 `default_servers` will also be used in addition to discovered servers if the
 `keep_default_servers` option is set.
 
+If you do not list any `default_servers`, and all backends for a service
+disappear then the previous known backends will be used.  Disable this behavior
+by unsetting `use_previous_backends`.
+
+<a name="haproxysvc"/>
 #### The `haproxy` Section ####
 
 This section is its own hash, which should contain the following keys:
@@ -218,30 +235,53 @@ This section is its own hash, which should contain the following keys:
 * `server_options`: the haproxy options for each `server` line of the service in HAProxy config; it may be left out.
 * `frontend`: additional lines passed to the HAProxy config in the `frontend` stanza of this service
 * `backend`: additional lines passed to the HAProxy config in the `backend` stanza of this service
+* `backend_name`: The name of the generated HAProxy backend for this service
+  (defaults to the service's key in the `services` section)
 * `listen`: these lines will be parsed and placed in the correct `frontend`/`backend` section as applicable; you can put lines which are the same for the frontend and backend here.
 * `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
 
+<a name="haproxy"/>
 ### Configuring HAProxy ###
 
-The `haproxy` section of the config file has the following options:
+The top level `haproxy` section of the config file has the following options:
 
 * `reload_command`: the command Synapse will run to reload HAProxy
 * `config_file_path`: where Synapse will write the HAProxy config file
 * `do_writes`: whether or not the config file will be written (default to `true`)
 * `do_reloads`: whether or not Synapse will reload HAProxy (default to `true`)
+* `do_socket`: whether or not Synapse will use the HAProxy socket commands to prevent reloads (default to `true`)
 * `global`: options listed here will be written into the `global` section of the HAProxy config
 * `defaults`: options listed here will be written into the `defaults` section of the HAProxy config
 * `extra_sections`: additional, manually-configured `frontend`, `backend`, or `listen` stanzas
 * `bind_address`: force HAProxy to listen on this address (default is localhost)
-* `shared_fronted`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
+* `shared_frontend`: (OPTIONAL) additional lines passed to the HAProxy config used to configure a shared HTTP frontend (see below)
+* `restart_interval`: number of seconds to wait between restarts of haproxy (default: 2)
+* `restart_jitter`: percentage, expressed as a float, of jitter to multiply the `restart_interval` by when determining the next
+  restart time. Use this to help prevent healthcheck storms when HAProxy restarts. (default: 0.0)
+* `state_file_path`: full path on disk (e.g. /tmp/synapse/state.json) for caching haproxy state between reloads.
+  If provided, synapse will store recently seen backends at this location and can "remember" backends across both synapse and
+  HAProxy restarts. Any backends that are "down" in the reporter but listed in the cache will be put into HAProxy disabled (default: nil)
+* `state_file_ttl`: the number of seconds that backends should be kept in the state file cache.
+  This only applies if `state_file_path` is provided (default: 86400)
 
 Note that a non-default `bind_address` can be dangerous.
 If you configure an `address:port` combination that is already in use on the system, haproxy will fail to start.
 
+<a name="file"/>
+### Configuring `file_output` ###
+
+This section controls whether or not synapse will write out service state
+to the filesystem in json format. This can be used for services that want to
+use discovery information but not go through HAProxy.
+
+* `output_directory`: the path to a directory on disk that service registrations
+should be written to.
+
+
 ### HAProxy shared HTTP Frontend ###
 
 For HTTP-only services, it is not always necessary or desirable to dedicate a TCP port per service, since HAProxy can route traffic based on host headers.
-To support this, the optional `shared_fronted` section can be added to both the `haproxy` section and each indvidual service definition.
+To support this, the optional `shared_frontend` section can be added to both the `haproxy` section and each indvidual service definition.
 Synapse will concatenate them all into a single frontend section in the generated haproxy.cfg file.
 Note that synapse does not assemble the routing ACLs for you; you have to do that yourself based on your needs.
 This is probably most useful in combination with the `service_conf_dir` directive in a case where the individual service config files are being distributed by a configuration manager such as puppet or chef, or bundled into service packages.
@@ -249,7 +289,8 @@ For example:
 
 ```yaml
  haproxy:
-  shared_frontend: "bind 127.0.0.1:8081"
+  shared_frontend:
+   - "bind 127.0.0.1:8081"
   reload_command: "service haproxy reload"
   config_file_path: "/etc/haproxy/haproxy.cfg"
   socket_file_path: "/var/run/haproxy.sock"
@@ -268,7 +309,8 @@ For example:
    discovery: 
     method: "zookeeper"
     path:  "/nerve/services/service1"
-    hosts: "0.zookeeper.example.com:2181"
+    hosts:
+     - "0.zookeeper.example.com:2181"
    haproxy:
     server_options: "check inter 2s rise 3 fall 2"
     shared_frontend:
@@ -287,7 +329,8 @@ For example:
     shared_frontend:
      - "acl is_service1 hdr_dom(host) -i service2.lb.example.com"
      - "use_backend service2 if is_service2
-    backend: "mode http"
+    backend:
+     - "mode http"
 
 ```
 
@@ -322,29 +365,5 @@ Non-HTTP backends such as MySQL or RabbitMQ will obviously continue to need thei
 
 ### Creating a Service Watcher ###
 
-If you'd like to create a new service watcher:
-
-1. Create a file for your watcher in `service_watcher` dir
-2. Use the following template:
-```ruby
-require 'synapse/service_watcher/base'
-
-module Synapse
-  class NewWatcher < BaseWatcher
-    def start
-      # write code which begins running service discovery
-    end
-
-    private
-    def validate_discovery_opts
-      # here, validate any required options in @discovery
-    end
-  end
-end
-```
-
-3. Implement the `start` and `validate_discovery_opts` methods
-4. Implement whatever additional methods your discovery requires
-
-When your watcher detects a list of new backends, they should be written to `@backends`.
-You should then call `@synapse.configure` to force synapse to update the HAProxy config.
+See the Service Watcher [README](lib/synapse/service_watcher/README.md) for
+how to add new Service Watchers.

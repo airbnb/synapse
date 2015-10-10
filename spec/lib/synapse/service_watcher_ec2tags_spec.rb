@@ -1,7 +1,8 @@
 require 'spec_helper'
+require 'synapse/service_watcher/ec2tag'
 require 'logging'
 
-class Synapse::EC2Watcher
+class Synapse::ServiceWatcher::Ec2tagWatcher
   attr_reader   :synapse
   attr_accessor :default_servers, :ec2
 end
@@ -28,9 +29,9 @@ class FakeAWSInstance
   end
 end
 
-describe Synapse::EC2Watcher do
+describe Synapse::ServiceWatcher::Ec2tagWatcher do
   let(:mock_synapse) { double }
-  subject { Synapse::EC2Watcher.new(basic_config, mock_synapse) }
+  subject { Synapse::ServiceWatcher::Ec2tagWatcher.new(basic_config, mock_synapse) }
 
   let(:basic_config) do
     { 'name' => 'ec2tagtest',
@@ -86,24 +87,24 @@ describe Synapse::EC2Watcher do
     end
 
     context 'when missing arguments' do
-      it 'complains if aws_region is missing' do
+      it 'does not break if aws_region is missing' do
         expect {
-          Synapse::EC2Watcher.new(remove_discovery_arg('aws_region'), mock_synapse)
-        }.to raise_error(ArgumentError, /Missing aws_region/)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_region'), mock_synapse)
+        }.not_to raise_error
       end
-      it 'complains if aws_access_key_id is missing' do
+      it 'does not break if aws_access_key_id is missing' do
         expect {
-          Synapse::EC2Watcher.new(remove_discovery_arg('aws_access_key_id'), mock_synapse)
-        }.to raise_error(ArgumentError, /Missing aws_access_key_id/)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_access_key_id'), mock_synapse)
+        }.not_to raise_error
       end
-      it 'complains if aws_secret_access_key is missing' do
+      it 'does not break if aws_secret_access_key is missing' do
         expect {
-          Synapse::EC2Watcher.new(remove_discovery_arg('aws_secret_access_key'), mock_synapse)
-        }.to raise_error(ArgumentError, /Missing aws_secret_access_key/)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_secret_access_key'), mock_synapse)
+        }.not_to raise_error
       end
       it 'complains if server_port_override is missing' do
         expect {
-          Synapse::EC2Watcher.new(remove_haproxy_arg('server_port_override'), mock_synapse)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_haproxy_arg('server_port_override'), mock_synapse)
         }.to raise_error(ArgumentError, /Missing server_port_override/)
       end
     end
@@ -111,7 +112,7 @@ describe Synapse::EC2Watcher do
     context 'invalid data' do
       it 'complains if the haproxy server_port_override is not a number' do
           expect {
-            Synapse::EC2Watcher.new(munge_haproxy_arg('server_port_override', '80deadbeef'), mock_synapse)
+            Synapse::ServiceWatcher::Ec2tagWatcher.new(munge_haproxy_arg('server_port_override', '80deadbeef'), mock_synapse)
           }.to raise_error(ArgumentError, /Invalid server_port_override/)
       end
     end
@@ -120,6 +121,27 @@ describe Synapse::EC2Watcher do
   context "instance discovery" do
     let(:instance1) { FakeAWSInstance.new }
     let(:instance2) { FakeAWSInstance.new }
+
+    context 'watch' do
+
+      it 'discovers instances, configures backends, then sleeps' do
+        fake_backends = [1,2,3]
+        expect(subject).to receive(:discover_instances).and_return(fake_backends)
+        expect(subject).to receive(:set_backends).with(fake_backends) { subject.stop }
+        expect(subject).to receive(:sleep_until_next_check)
+        subject.send(:watch)
+      end
+
+      it 'sleeps until next check if discover_instances fails' do
+        expect(subject).to receive(:discover_instances) do
+          subject.stop
+          raise "discover failed"
+        end
+        expect(subject).to receive(:sleep_until_next_check)
+        subject.send(:watch)
+      end
+
+    end
 
     context 'using the AWS API' do
       let(:ec2_client) { double('AWS::EC2') }
@@ -135,11 +157,11 @@ describe Synapse::EC2Watcher do
         # done remotely; breaking into separate calls would result in
         # unnecessary data being retrieved.
 
-        subject.ec2.should_receive(:instances).and_return(instance_collection)
+        expect(subject.ec2).to receive(:instances).and_return(instance_collection)
 
-        instance_collection.should_receive(:tagged).with('foo').and_return(instance_collection)
-        instance_collection.should_receive(:tagged_values).with('bar').and_return(instance_collection)
-        instance_collection.should_receive(:select).and_return(instance_collection)
+        expect(instance_collection).to receive(:tagged).with('foo').and_return(instance_collection)
+        expect(instance_collection).to receive(:tagged_values).with('bar').and_return(instance_collection)
+        expect(instance_collection).to receive(:select).and_return(instance_collection)
 
         subject.send(:instances_with_tags, 'foo', 'bar')
       end
@@ -147,27 +169,29 @@ describe Synapse::EC2Watcher do
 
     context 'returned backend data structure' do
       before do
-        subject.stub(:instances_with_tags).and_return([instance1, instance2])
+        allow(subject).to receive(:instances_with_tags).and_return([instance1, instance2])
       end
 
       let(:backends) { subject.send(:discover_instances) }
 
       it 'returns an Array of backend name/host/port Hashes' do
-
-        expect { backends.all? {|b| %w[name host port].each {|k| b.has_key?(k) }} }.to be_true
+        required_keys = %w[name host port]
+        expect(
+          backends.all?{|b| required_keys.each{|k| b.has_key?(k)}}
+        ).to be_truthy
       end
 
       it 'sets the backend port to server_port_override for all backends' do
         backends = subject.send(:discover_instances)
-        expect {
+        expect(
           backends.all? { |b| b['port'] == basic_config['haproxy']['server_port_override'] }
-        }.to be_true
+        ).to be_truthy
       end
     end
 
     context 'returned instance fields' do
       before do
-        subject.stub(:instances_with_tags).and_return([instance1])
+        allow(subject).to receive(:instances_with_tags).and_return([instance1])
       end
 
       let(:backend) { subject.send(:discover_instances).pop }
@@ -179,41 +203,6 @@ describe Synapse::EC2Watcher do
       it "returns an instance's private hostname as the server name" do
         expect( backend['name'] ).to eq instance1.private_dns_name
       end
-    end
-  end
-
-  context "configure_backends tests" do
-    let(:backend1) { { 'name' => 'foo',  'host' => 'foo.backend.tld',  'port' => '123' } }
-    let(:backend2) { { 'name' => 'bar',  'host' => 'bar.backend.tld',  'port' => '456' } }
-    let(:fallback) { { 'name' => 'fall', 'host' => 'fall.backend.tld', 'port' => '789' } }
-
-    before(:each) do
-      expect(subject.synapse).to receive(:'reconfigure!').at_least(:once)
-    end
-
-    it 'runs' do
-      expect { subject.send(:configure_backends, []) }.not_to raise_error
-    end
-
-    it 'sets backends correctly' do
-      subject.send(:configure_backends, [ backend1, backend2 ])
-      expect(subject.backends).to eq([ backend1, backend2 ])
-    end
-
-    it 'resets to default backends if no instances are found' do
-      subject.default_servers = [ fallback ]
-      subject.send(:configure_backends, [ backend1 ])
-      expect(subject.backends).to eq([ backend1 ])
-      subject.send(:configure_backends, [])
-      expect(subject.backends).to eq([ fallback ])
-    end
-
-    it 'does not reset to default backends if there are no default backends' do
-      subject.default_servers = []
-      subject.send(:configure_backends, [ backend1 ])
-      expect(subject.backends).to eq([ backend1 ])
-      subject.send(:configure_backends, [])
-      expect(subject.backends).to eq([ backend1 ])
     end
   end
 end

@@ -19,7 +19,7 @@ require 'thread'
 # for messages indicating that new servers are available, the check interval
 # has passed (triggering a re-resolve), or that the watcher should shut down.
 # The DNS watcher is responsible for the actual reconfiguring of backends.
-module Synapse
+class Synapse::ServiceWatcher
   class ZookeeperDnsWatcher < BaseWatcher
 
     # Valid messages that can be passed through the internal message queue
@@ -46,7 +46,7 @@ module Synapse
       CHECK_INTERVAL_MESSAGE = CheckInterval.new
     end
 
-    class Dns < Synapse::DnsWatcher
+    class Dns < Synapse::ServiceWatcher::DnsWatcher
 
       # Overrides the discovery_servers method on the parent class
       attr_accessor :discovery_servers
@@ -106,7 +106,7 @@ module Synapse
       end
     end
 
-    class Zookeeper < Synapse::ZookeeperWatcher
+    class Zookeeper < Synapse::ServiceWatcher::ZookeeperWatcher
       def initialize(opts={}, synapse, message_queue)
         super(opts, synapse)
 
