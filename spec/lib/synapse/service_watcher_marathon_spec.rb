@@ -129,7 +129,7 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
       end
 
       it 'calls #reconfigure!' do
-        expect(subject).to receive(:reconfigure!).once
+        expect(subject).to receive(:reconfigure!).at_least(:once)
         subject.start
       end
 
@@ -157,6 +157,7 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
             # subsequently, add in our job_duration offset
             actual_time + (time_offset += job_duration)
           end
+          allow(subject).to receive(:set_backends)
         end
 
         it 'only sleeps for the difference' do

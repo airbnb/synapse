@@ -89,9 +89,10 @@ class Synapse::ServiceWatcher
           log.info "synapse: marathon HTTP API disappeared, reconnecting..."
 
           retry if (retry_count += 1) == 1
-        rescue Exception => e
+        rescue => e
           log.warn "synapse: error in watcher thread: #{e.inspect}"
           log.warn e.backtrace.join("\n")
+          @connection = nil
         ensure
           elapsed_time = Time.now - start
           sleep (@check_interval - elapsed_time) if elapsed_time < @check_interval
