@@ -7,7 +7,7 @@ class Synapse::ServiceWatcher
     def start
       @check_interval = @discovery['check_interval'] || 10.0
       @connection = nil
-      @watcher = Thread.new { watch }
+      @watcher = Thread.new { sleep splay; watch }
     end
 
     def stop
@@ -100,6 +100,10 @@ class Synapse::ServiceWatcher
 
         @should_exit = true if only_run_once? # for testability
       end
+    end
+
+    def splay
+      Random.rand(@check_interval)
     end
 
     def only_run_once?

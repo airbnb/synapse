@@ -31,6 +31,7 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
     allow(Thread).to receive(:new).and_yield
     allow(subject).to receive(:sleep)
     allow(subject).to receive(:only_run_once?).and_return(true)
+    allow(subject).to receive(:splay).and_return(0)
 
     stub_request(:get, marathon_request_uri).
       with(:headers => { 'Accept' => 'application/json' }).
