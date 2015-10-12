@@ -28,6 +28,7 @@ module Synapse
       watchers.each do |watcher|
         write_backends_to_file(watcher.name, watcher.backends)
       end
+      clean_old_watchers(watchers)
     end
 
     def write_backends_to_file(service_name, new_backends)
@@ -50,6 +51,17 @@ module Synapse
         File.open(temp_path, 'w', 0644) {|f| f.write(new_backends.to_json)}
         FileUtils.mv(temp_path, data_path)
         return true
+      end
+    end
+
+    def clean_old_watchers(current_watchers)
+      # Cleanup old services that Synapse no longer manages
+      FileUtils.cd(@opts['output_directory']) do
+        present_files = Dir.glob('*.json')
+        managed_files = current_watchers.collect {|watcher| "#{watcher.name}.json"}
+        files_to_purge = present_files.select {|svc| not managed_files.include?(svc)}
+        log.info "synapse: purging unknown service files #{files_to_purge}" if files_to_purge.length > 0
+        FileUtils.rm(files_to_purge)
       end
     end
   end

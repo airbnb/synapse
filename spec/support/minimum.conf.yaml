@@ -22,6 +22,11 @@ haproxy:
   do_reloads: false
   global:
     - global_test_option
-    
+
   defaults:
     - default_test_option
+
+
+# settings for the file output generator
+file_output:
+  output_directory: "/tmp/synapse_file_output_test"

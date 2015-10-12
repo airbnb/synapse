@@ -8,7 +8,7 @@ describe Synapse::Haproxy do
   let(:mockwatcher) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service')
-    backends = [{ 'host' => 'somehost', 'port' => '5555'}]
+    backends = [{ 'host' => 'somehost', 'port' => 5555}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
     allow(mockWatcher).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2"})
     mockWatcher
@@ -17,7 +17,7 @@ describe Synapse::Haproxy do
   let(:mockwatcher_with_server_options) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service')
-    backends = [{ 'host' => 'somehost', 'port' => '5555', 'haproxy_server_options' => 'backup'}]
+    backends = [{ 'host' => 'somehost', 'port' => 5555, 'haproxy_server_options' => 'backup'}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
     allow(mockWatcher).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2"})
     mockWatcher
