@@ -161,6 +161,9 @@ The watcher assumes that each node under `path` represents a service server.
 Synapse attempts to decode the data in each of these nodes using JSON and also using Thrift under the standard Twitter service encoding.
 We assume that the data contains a hostname and a port for service servers.
 
+You can override the path root using the `SYNAPSE_ZK_ROOT` environment variable.  For example, with `SYNAPSE_ZK_ROOT=production`, a watcher
+with the path `/services/rsyslog/services` would search for a node at `/production/services/rsyslog/services`.
+
 ##### Docker #####
 
 This watcher retrieves a list of [docker](http://www.docker.io/) containers via docker's [HTTP API](http://docs.docker.io/en/latest/reference/api/docker_remote_api/).

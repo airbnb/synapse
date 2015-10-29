@@ -12,12 +12,14 @@ class Synapse::ServiceWatcher
     @@zk_pool_lock = Mutex.new
 
     def start
+      zk_path_root = ENV.fetch('SYNAPSE_ZK_ROOT', '/');
+      @zk_path = File.join('/', zk_path_root, @discovery['path']);
       @zk_hosts = @discovery['hosts'].sort.join(',')
 
       @watcher = nil
       @zk = nil
 
-      log.info "synapse: starting ZK watcher #{@name} @ hosts: #{@zk_hosts}, path: #{@discovery['path']}"
+      log.info "synapse: starting ZK watcher #{@name} @ hosts: #{@zk_hosts}, path: #{@zk_path}"
       zk_connect
     end
 
@@ -57,13 +59,13 @@ class Synapse::ServiceWatcher
       log.info "synapse: discovering backends for service #{@name}"
 
       new_backends = []
-      @zk.children(@discovery['path'], :watch => true).each do |id|
-        node = @zk.get("#{@discovery['path']}/#{id}")
+      @zk.children(@zk_path, :watch => true).each do |id|
+        node = @zk.get("#{@zk_path}/#{id}")
 
         begin
           host, port, name, weight = deserialize_service_instance(node.first)
         rescue StandardError => e
-          log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
+          log.error "synapse: invalid data in ZK node #{id} at #{@zk_path}: #{e}"
         else
           server_port = @server_port_override ? @server_port_override : port
 
@@ -82,16 +84,16 @@ class Synapse::ServiceWatcher
     # sets up zookeeper callbacks if the data at the discovery path changes
     def watch
       return if @zk.nil?
-      log.debug "synapse: setting watch at #{@discovery['path']}"
+      log.debug "synapse: setting watch at #{@zk_path}"
 
-      @watcher = @zk.register(@discovery['path'], &watcher_callback) unless @watcher
+      @watcher = @zk.register(@zk_path, &watcher_callback) unless @watcher
 
       # Verify that we actually set up the watcher.
-      unless @zk.exists?(@discovery['path'], :watch => true)
-        log.error "synapse: zookeeper watcher path #{@discovery['path']} does not exist!"
+      unless @zk.exists?(@zk_path, :watch => true)
+        log.error "synapse: zookeeper watcher path #{@zk_path} does not exist!"
         zk_cleanup
       end
-      log.debug "synapse: set watch at #{@discovery['path']}"
+      log.debug "synapse: set watch at #{@zk_path}"
     end
 
     # handles the event that a watched path has changed in zookeeper
@@ -159,7 +161,7 @@ class Synapse::ServiceWatcher
       end
 
       # the path must exist, otherwise watch callbacks will not work
-      create(@discovery['path'])
+      create(@zk_path)
 
       # call the callback to bootstrap the process
       watcher_callback.call
