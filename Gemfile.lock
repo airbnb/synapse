@@ -71,9 +71,6 @@ GEM
       logging (~> 1.8.2)
       zookeeper (~> 1.4.0)
     zookeeper (1.4.10)
-    zookeeper (1.4.10-java)
-      slyphon-log4j (= 1.2.15)
-      slyphon-zookeeper_jar (= 3.3.5)
 
 PLATFORMS
   java
