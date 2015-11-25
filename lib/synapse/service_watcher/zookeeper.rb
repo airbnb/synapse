@@ -175,6 +175,10 @@ class Synapse::ServiceWatcher
       log.debug "synapse: deserializing process data"
       decoded = JSON.parse(data)
 
+      # supporting Apache Aurora style service discovery
+      if decoded.include? 'serviceEndpoint' and decoded.include? 'status' and decoded['status'] == 'ALIVE'
+        decoded = decoded['serviceEndpoint']
+      end
       host = decoded['host'] || (raise ValueError, 'instance json data does not have host key')
       port = decoded['port'] || (raise ValueError, 'instance json data does not have port key')
       name = decoded['name'] || nil
