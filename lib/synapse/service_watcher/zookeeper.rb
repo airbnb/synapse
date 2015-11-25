@@ -61,7 +61,8 @@ class Synapse::ServiceWatcher
         node = @zk.get("#{@discovery['path']}/#{id}")
 
         begin
-          host, port, name, weight = deserialize_service_instance(node.first)
+          # TODO: Do less munging, or refactor out this processing
+          host, port, name, weight, haproxy_server_options = deserialize_service_instance(node.first)
         rescue StandardError => e
           log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
         else
@@ -72,7 +73,11 @@ class Synapse::ServiceWatcher
           numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
 
           log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
-          new_backends << { 'name' => name, 'host' => host, 'port' => server_port, 'id' => numeric_id, 'weight' => weight }
+          new_backends << {
+            'name' => name, 'host' => host, 'port' => server_port,
+            'id' => numeric_id, 'weight' => weight,
+            'haproxy_server_options' => haproxy_server_options
+          }
         end
       end
 
@@ -174,8 +179,9 @@ class Synapse::ServiceWatcher
       port = decoded['port'] || (raise ValueError, 'instance json data does not have port key')
       name = decoded['name'] || nil
       weight = decoded['weight'] || nil
+      haproxy_server_options = decoded['haproxy_server_options'] || nil
 
-      return host, port, name, weight
+      return host, port, name, weight, haproxy_server_options
     end
   end
 end
