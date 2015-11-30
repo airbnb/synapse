@@ -74,10 +74,11 @@ class Synapse::ServiceWatcher
         cnts.each do |cnt|
           cnt['Ports'] = rewrite_container_ports cnt['Ports']
         end
-        # Discover containers that match the image/port we're interested in
+        # Discover containers that match the image/port we're interested in and have the port mapped to the host
         cnts = cnts.find_all do |cnt|
           cnt["Image"].rpartition(":").first == @discovery["image_name"] \
-            and cnt["Ports"].has_key?(@discovery["container_port"].to_s())
+            and cnt["Ports"].has_key?(@discovery["container_port"].to_s()) \
+            and cnt["Ports"][@discovery["container_port"].to_s()].length > 0
         end
         cnts.map do |cnt|
           {
