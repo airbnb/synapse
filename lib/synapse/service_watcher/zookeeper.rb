@@ -41,6 +41,21 @@ class Synapse::ServiceWatcher
         unless @discovery['hosts']
       raise ArgumentError, "invalid zookeeper path for service #{@name}" \
         unless @discovery['path']
+      if @discovery['decode']
+        raise ArgumentError, "missing or invalid decode method #{@discovery['decode']}" \
+          unless @discovery['decode']['method']
+        if @discovery['decode']['method'] == 'aurora'
+          @decode_method = lambda do |data|
+            if @discovery['decode']['port_name']
+              JSON.parse(data)['additionalEndpoints'][@discovery['decode']['port_name']]
+            else
+              JSON.parse(data)['serviceEndpoint']
+            end
+          end
+        else
+          @decode_method = JSON.parse
+        end
+      end
     end
 
     # helper method that ensures that the discovery path exists
@@ -173,12 +188,8 @@ class Synapse::ServiceWatcher
     # decode the data at a zookeeper endpoint
     def deserialize_service_instance(data)
       log.debug "synapse: deserializing process data"
-      decoded = JSON.parse(data)
+      decoded = @decode_method.call(data)
 
-      # supporting Apache Aurora style service discovery
-      if decoded.include? 'serviceEndpoint' and decoded.include? 'status' and decoded['status'] == 'ALIVE'
-        decoded = decoded['serviceEndpoint']
-      end
       host = decoded['host'] || (raise ValueError, 'instance json data does not have host key')
       port = decoded['port'] || (raise ValueError, 'instance json data does not have port key')
       name = decoded['name'] || nil
