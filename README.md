@@ -246,6 +246,7 @@ This section is its own hash, which should contain the following keys:
 
 The top level `haproxy` section of the config file has the following options:
 
+* `reload_on_change`: reload if HAProxy config has been changed (default to `false`)
 * `reload_command`: the command Synapse will run to reload HAProxy
 * `config_file_path`: where Synapse will write the HAProxy config file
 * `do_writes`: whether or not the config file will be written (default to `true`)
@@ -292,6 +293,7 @@ For example:
  haproxy:
   shared_frontend:
    - "bind 127.0.0.1:8081"
+  reload_on_change: true
   reload_command: "service haproxy reload"
   config_file_path: "/etc/haproxy/haproxy.cfg"
   socket_file_path: "/var/run/haproxy.sock"
