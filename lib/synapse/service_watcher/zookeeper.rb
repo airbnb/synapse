@@ -41,6 +41,7 @@ class Synapse::ServiceWatcher
         unless @discovery['hosts']
       raise ArgumentError, "invalid zookeeper path for service #{@name}" \
         unless @discovery['path']
+      @decode_method = JSON.parse
       if @discovery['decode']
         raise ArgumentError, "missing or invalid decode method #{@discovery['decode']}" \
           unless @discovery['decode']['method']
@@ -52,8 +53,6 @@ class Synapse::ServiceWatcher
               JSON.parse(data)['serviceEndpoint']
             end
           end
-        else
-          @decode_method = JSON.parse
         end
       end
     end
