@@ -533,14 +533,13 @@ module Synapse
       @opts['do_socket'] = true unless @opts.key?('do_socket')
       @opts['do_reloads'] = true unless @opts.key?('do_reloads')
 
-      # Reload  if config has been changed
-      @opts['reload_on_change'] = false unless @opts.key?(['reload_on_change'])
+      # Reload if config has been changed$ and show only active servers
+      @only_active_servers = @opts.fetch('only_active_servers', false)
 
       # how to restart haproxy
       @restart_interval = @opts.fetch('restart_interval', 2).to_i
       @restart_jitter = @opts.fetch('restart_jitter', 0).to_f
       @restart_required = true
-      @reload_on_change = !!@opts['reload_on_change']
 
       # virtual clock bookkeeping for controlling how often haproxy restarts
       @time = 0
@@ -769,8 +768,11 @@ module Synapse
       enabled_backends = {}
       watchers.each do |watcher|
         enabled_backends[watcher.name] = []
+
+        # Remove nil if no default servers for backend
+        watcher.backends.compact!
+
         next if watcher.backends.empty?
-        restart_on_change = false
 
         unless cur_backends.include? watcher.name
           log.info "synapse: restart required because we added new section #{watcher.name}"
@@ -778,15 +780,15 @@ module Synapse
           next
         end
 
+        if only_active_servers?(cur_backends[watcher.name], watcher.backends)
+          log.info "synapse: restart required because to show only active backend servers for #{watcher.name}"
+          @restart_required = true
+        end
+
         watcher.backends.each do |backend|
           backend_name = construct_name(backend)
           if cur_backends[watcher.name].include? backend_name
             enabled_backends[watcher.name] << backend_name
-
-            if @reload_on_change && restart_on_change
-              log.info "synapse: restart required because we have change of server status #{watcher.name}"
-              @restart_required = true
-            end
           else
             log.info "synapse: restart required because we have a new backend #{watcher.name}/#{backend_name}"
             @restart_required = true
@@ -907,6 +909,10 @@ module Synapse
       tmp_state_file_path = @state_file_path + ".tmp"
       File.write(tmp_state_file_path, JSON.pretty_generate(@seen))
       FileUtils.mv(tmp_state_file_path, @state_file_path)
+    end
+
+    def only_active_servers?(cur_backend, backend)
+      @only_active_servers && (cur_backend.sort != backend.collect { |i| construct_name(i) }.sort)
     end
   end
 end
