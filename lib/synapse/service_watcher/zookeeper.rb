@@ -66,7 +66,7 @@ class Synapse::ServiceWatcher
         rescue StandardError => e
           log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
         else
-          server_port = @server_port_override ? @server_port_override : port
+          server_port = @haproxy['server_port_override'] ? @haproxy['server_port_override'] : port
 
           # find the numberic id in the node name; used for leader elections if enabled
           numeric_id = id.split('_').last
