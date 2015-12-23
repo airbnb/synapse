@@ -166,12 +166,13 @@ The following arguments are optional:
 ###### Decoding service nodes ######
 Synapse attempts to decode the data in each of these nodes using JSON and you can control how it is decoded with the `decode` argument. If provided, the `decode` hash should contain the following:
 
-* `method` (one of ['nerve', 'aurora'], default: 'nerve'): The kind of data to expect in zookeeper
-* `port_name` (default: nil): If using the 'aurora' method, this controls which of the `additionalEndpoints` is chosen.
+* `method` (one of ['`nerve`', '`serverset`'], default: '`nerve`'): The kind of data to expect to find in zookeeper nodes
+* `endpoint_name` (default: nil): If using the `serverset` method, this controls which of the `additionalEndpoints` is chosen instead of the `serviceEndpoint` data. If not supplied the `serverset` method will use the host/port from the `serviceEndpoint` data.
 
 If the `method` is `nerve`, then we expect to find nerve registrations with a `host` and a `port`.
 
-If the `method` is `aurora` then we expect to find aurora registrations with a `serviceEndpoint` and optionally one or more `additionalEndpoints`.
+If the `method` is `serverset` then we expect to find Finagle ServerSet
+(also used by [Aurora](https://github.com/apache/aurora/blob/master/docs/user-guide.md#service-discovery)) registrations with a `serviceEndpoint` and optionally one or more `additionalEndpoints`.
 The Synapse `name` will be automatically deduced from `shard` if present.
 
 ##### Docker #####

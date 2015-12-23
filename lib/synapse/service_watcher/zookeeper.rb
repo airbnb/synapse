@@ -43,23 +43,23 @@ class Synapse::ServiceWatcher
         unless @discovery['path']
 
       # Alternative deserialization support. By default we use nerve
-      # deserialization, but we also support aurora registries
+      # deserialization, but we also support serverset registries
       @decode_method = self.method(:nerve_decode)
       if @discovery['decode']
-        valid_methods = ['nerve', 'aurora']
+        valid_methods = ['nerve', 'serverset']
         decode_method = @discovery['decode']['method']
         unless decode_method && valid_methods.include?(decode_method)
           raise ArgumentError, "missing or invalid decode method #{decode_method}"
         end
-        if decode_method == 'aurora'
-          @decode_method = self.method(:aurora_decode)
+        if decode_method == 'serverset'
+          @decode_method = self.method(:serverset_decode)
         end
       end
     end
 
     # Supported decode methods
 
-    # nerve ZK node data looks like this:
+    # Airbnb nerve ZK node data looks like this:
     #
     # {
     #   "host": "somehostname",
@@ -69,11 +69,11 @@ class Synapse::ServiceWatcher
       JSON.parse(data)
     end
 
-    # aurora ZK node data looks like this:
+    # Twitter serverset ZK node data looks like this:
     #
     # {
     #   "additionalEndpoints": {
-    #     "aurora": {
+    #     "serverset": {
     #       "host": "somehostname",
     #       "port": 31943
     #     },
@@ -93,13 +93,13 @@ class Synapse::ServiceWatcher
     #   "shard": 0,
     #   "status": "ALIVE"
     # }
-    def aurora_decode(data)
+    def serverset_decode(data)
       decoded = JSON.parse(data)
-      if @discovery['decode']['port_name']
-        port_name = @discovery['decode']['port_name']
-        raise KeyError, "json data has no additionalEndpoint called #{port_name}" \
-          unless decoded['additionalEndpoints'] && decoded['additionalEndpoints'][port_name]
-        result = decoded['additionalEndpoints'][port_name]
+      if @discovery['decode']['endpoint_name']
+        endpoint_name = @discovery['decode']['endpoint_name']
+        raise KeyError, "json data has no additionalEndpoint called #{endpoint_name}" \
+          unless decoded['additionalEndpoints'] && decoded['additionalEndpoints'][endpoint_name]
+        result = decoded['additionalEndpoints'][endpoint_name]
       else
         result = decoded['serviceEndpoint']
       end
