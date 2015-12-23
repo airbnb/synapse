@@ -41,20 +41,71 @@ class Synapse::ServiceWatcher
         unless @discovery['hosts']
       raise ArgumentError, "invalid zookeeper path for service #{@name}" \
         unless @discovery['path']
-      @decode_method = JSON.parse
+
+      # Alternative deserialization support. By default we use nerve
+      # deserialization, but we also support aurora registries
+      @decode_method = self.method(:nerve_decode)
       if @discovery['decode']
-        raise ArgumentError, "missing or invalid decode method #{@discovery['decode']}" \
-          unless @discovery['decode']['method']
-        if @discovery['decode']['method'] == 'aurora'
-          @decode_method = lambda do |data|
-            if @discovery['decode']['port_name']
-              JSON.parse(data)['additionalEndpoints'][@discovery['decode']['port_name']]
-            else
-              JSON.parse(data)['serviceEndpoint']
-            end
-          end
+        valid_methods = ['nerve', 'aurora']
+        decode_method = @discovery['decode']['method']
+        unless decode_method && valid_methods.include?(decode_method)
+          raise ArgumentError, "missing or invalid decode method #{decode_method}"
+        end
+        if decode_method == 'aurora'
+          @decode_method = self.method(:aurora_decode)
         end
       end
+    end
+
+    # Supported decode methods
+
+    # nerve ZK node data looks like this:
+    #
+    # {
+    #   "host": "somehostname",
+    #   "port": 1234,
+    # }
+    def nerve_decode(data)
+      JSON.parse(data)
+    end
+
+    # aurora ZK node data looks like this:
+    #
+    # {
+    #   "additionalEndpoints": {
+    #     "aurora": {
+    #       "host": "somehostname",
+    #       "port": 31943
+    #     },
+    #     "http": {
+    #       "host": "somehostname",
+    #       "port": 31943
+    #     },
+    #     "otherport": {
+    #       "host": "somehostname",
+    #       "port": 31944
+    #     }
+    #   },
+    #   "serviceEndpoint": {
+    #     "host": "somehostname",
+    #     "port": 31943
+    #   },
+    #   "shard": 0,
+    #   "status": "ALIVE"
+    # }
+    def aurora_decode(data)
+      decoded = JSON.parse(data)
+      if @discovery['decode']['port_name']
+        port_name = @discovery['decode']['port_name']
+        raise KeyError, "json data has no additionalEndpoint called #{port_name}" \
+          unless decoded['additionalEndpoints'] && decoded['additionalEndpoints'][port_name]
+        result = decoded['additionalEndpoints'][port_name]
+      else
+        result = decoded['serviceEndpoint']
+      end
+      result['name'] = decoded['shard'] || nil
+      result['name'] = result['name'].to_s unless result['name'].nil?
+      result
     end
 
     # helper method that ensures that the discovery path exists
@@ -189,8 +240,8 @@ class Synapse::ServiceWatcher
       log.debug "synapse: deserializing process data"
       decoded = @decode_method.call(data)
 
-      host = decoded['host'] || (raise ValueError, 'instance json data does not have host key')
-      port = decoded['port'] || (raise ValueError, 'instance json data does not have port key')
+      host = decoded['host'] || (raise KeyError, 'instance json data does not have host key')
+      port = decoded['port'] || (raise KeyError, 'instance json data does not have port key')
       name = decoded['name'] || nil
       weight = decoded['weight'] || nil
       haproxy_server_options = decoded['haproxy_server_options'] || nil
