@@ -141,25 +141,39 @@ Each value in the services hash is also a hash, and should contain the following
 We've included a number of `watchers` which provide service discovery.
 Put these into the `discovery` section of the service hash, with these options:
 
-##### Stub #####
+##### Base #####
 
-The stub watcher is useful in situations where you only want to use the servers in the `default_servers` list.
+The base watcher is useful in situations where you only want to use the servers in the `default_servers` list.
 It has only one option:
 
-* `method`: stub
+* `method`: base
 
 ##### Zookeeper #####
 
 This watcher retrieves a list of servers from zookeeper.
-It takes the following options:
+It takes the following mandatory arguments:
 
 * `method`: zookeeper
 * `path`: the zookeeper path where ephemeral nodes will be created for each available service server
 * `hosts`: the list of zookeeper servers to query
 
 The watcher assumes that each node under `path` represents a service server.
-Synapse attempts to decode the data in each of these nodes using JSON and also using Thrift under the standard Twitter service encoding.
-We assume that the data contains a hostname and a port for service servers.
+
+The following arguments are optional:
+
+* `decode`: A hash containing configuration for how to decode the data found in zookeeper.
+
+###### Decoding service nodes ######
+Synapse attempts to decode the data in each of these nodes using JSON and you can control how it is decoded with the `decode` argument. If provided, the `decode` hash should contain the following:
+
+* `method` (one of ['`nerve`', '`serverset`'], default: '`nerve`'): The kind of data to expect to find in zookeeper nodes
+* `endpoint_name` (default: nil): If using the `serverset` method, this controls which of the `additionalEndpoints` is chosen instead of the `serviceEndpoint` data. If not supplied the `serverset` method will use the host/port from the `serviceEndpoint` data.
+
+If the `method` is `nerve`, then we expect to find nerve registrations with a `host` and a `port`.
+
+If the `method` is `serverset` then we expect to find Finagle ServerSet
+(also used by [Aurora](https://github.com/apache/aurora/blob/master/docs/user-guide.md#service-discovery)) registrations with a `serviceEndpoint` and optionally one or more `additionalEndpoints`.
+The Synapse `name` will be automatically deduced from `shard` if present.
 
 ##### Docker #####
 

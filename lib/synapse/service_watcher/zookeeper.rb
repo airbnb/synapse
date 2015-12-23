@@ -41,6 +41,71 @@ class Synapse::ServiceWatcher
         unless @discovery['hosts']
       raise ArgumentError, "invalid zookeeper path for service #{@name}" \
         unless @discovery['path']
+
+      # Alternative deserialization support. By default we use nerve
+      # deserialization, but we also support serverset registries
+      @decode_method = self.method(:nerve_decode)
+      if @discovery['decode']
+        valid_methods = ['nerve', 'serverset']
+        decode_method = @discovery['decode']['method']
+        unless decode_method && valid_methods.include?(decode_method)
+          raise ArgumentError, "missing or invalid decode method #{decode_method}"
+        end
+        if decode_method == 'serverset'
+          @decode_method = self.method(:serverset_decode)
+        end
+      end
+    end
+
+    # Supported decode methods
+
+    # Airbnb nerve ZK node data looks like this:
+    #
+    # {
+    #   "host": "somehostname",
+    #   "port": 1234,
+    # }
+    def nerve_decode(data)
+      JSON.parse(data)
+    end
+
+    # Twitter serverset ZK node data looks like this:
+    #
+    # {
+    #   "additionalEndpoints": {
+    #     "serverset": {
+    #       "host": "somehostname",
+    #       "port": 31943
+    #     },
+    #     "http": {
+    #       "host": "somehostname",
+    #       "port": 31943
+    #     },
+    #     "otherport": {
+    #       "host": "somehostname",
+    #       "port": 31944
+    #     }
+    #   },
+    #   "serviceEndpoint": {
+    #     "host": "somehostname",
+    #     "port": 31943
+    #   },
+    #   "shard": 0,
+    #   "status": "ALIVE"
+    # }
+    def serverset_decode(data)
+      decoded = JSON.parse(data)
+      if @discovery['decode']['endpoint_name']
+        endpoint_name = @discovery['decode']['endpoint_name']
+        raise KeyError, "json data has no additionalEndpoint called #{endpoint_name}" \
+          unless decoded['additionalEndpoints'] && decoded['additionalEndpoints'][endpoint_name]
+        result = decoded['additionalEndpoints'][endpoint_name]
+      else
+        result = decoded['serviceEndpoint']
+      end
+      result['name'] = decoded['shard'] || nil
+      result['name'] = result['name'].to_s unless result['name'].nil?
+      result
     end
 
     # helper method that ensures that the discovery path exists
@@ -173,10 +238,10 @@ class Synapse::ServiceWatcher
     # decode the data at a zookeeper endpoint
     def deserialize_service_instance(data)
       log.debug "synapse: deserializing process data"
-      decoded = JSON.parse(data)
+      decoded = @decode_method.call(data)
 
-      host = decoded['host'] || (raise ValueError, 'instance json data does not have host key')
-      port = decoded['port'] || (raise ValueError, 'instance json data does not have port key')
+      host = decoded['host'] || (raise KeyError, 'instance json data does not have host key')
+      port = decoded['port'] || (raise KeyError, 'instance json data does not have port key')
       name = decoded['name'] || nil
       weight = decoded['weight'] || nil
       haproxy_server_options = decoded['haproxy_server_options'] || nil
