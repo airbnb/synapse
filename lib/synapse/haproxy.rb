@@ -686,7 +686,7 @@ module Synapse
       stanza = [
         "\nfrontend #{watcher.name}",
         config.map {|c| "\t#{c}"},
-        "\tbind #{@opts['bind_address'] || 'localhost'}:#{watcher.haproxy['port']}",
+        "\tbind #{ watcher.haproxy['bind_address'] || @opts['bind_address'] || 'localhost'}:#{watcher.haproxy['port']}",
         "\tdefault_backend #{watcher.haproxy.fetch('backend_name', watcher.name)}"
       ]
     end
