@@ -97,6 +97,11 @@ install synapse with:
 
 ```bash
 $ mkdir -p /opt/smartstack/synapse
+
+# If you want to install specific versions of dependencies such as an older
+# version of the aws-sdk, the docker-api, etc, gem install that here *before*
+# gem installing synapse
+
 # If you are on Ruby 2.X use --no-document instead of --no-ri --no-rdoc
 $ gem install synapse --install-dir /opt/smartstack/synapse --no-ri --no-rdoc
 ```
