@@ -180,6 +180,9 @@ If the `method` is `serverset` then we expect to find Finagle ServerSet
 (also used by [Aurora](https://github.com/apache/aurora/blob/master/docs/user-guide.md#service-discovery)) registrations with a `serviceEndpoint` and optionally one or more `additionalEndpoints`.
 The Synapse `name` will be automatically deduced from `shard` if present.
 
+You can override the path root using the `SYNAPSE_ZK_ROOT` environment variable.  For example, with `SYNAPSE_ZK_ROOT=production`, a watcher
+with the path `/services/rsyslog/services` would search for a node at `/production/services/rsyslog/services`.
+
 ##### Docker #####
 
 This watcher retrieves a list of [docker](http://www.docker.io/) containers via docker's [HTTP API](http://docs.docker.io/en/latest/reference/api/docker_remote_api/).
