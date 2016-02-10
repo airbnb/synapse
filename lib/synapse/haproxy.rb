@@ -533,6 +533,9 @@ module Synapse
       @opts['do_socket'] = true unless @opts.key?('do_socket')
       @opts['do_reloads'] = true unless @opts.key?('do_reloads')
 
+      # Reload if config has been changed$ and show only active servers
+      @only_active_servers = @opts.fetch('only_active_servers', false)
+
       # how to restart haproxy
       @restart_interval = @opts.fetch('restart_interval', 2).to_i
       @restart_jitter = @opts.fetch('restart_jitter', 0).to_f
@@ -765,12 +768,21 @@ module Synapse
       enabled_backends = {}
       watchers.each do |watcher|
         enabled_backends[watcher.name] = []
+
+        # Remove nil if no default servers for backend
+        watcher.backends.compact!
+
         next if watcher.backends.empty?
 
         unless cur_backends.include? watcher.name
           log.info "synapse: restart required because we added new section #{watcher.name}"
           @restart_required = true
           next
+        end
+
+        if only_active_servers?(cur_backends[watcher.name], watcher.backends)
+          log.info "synapse: restart required because to show only active backend servers for #{watcher.name}"
+          @restart_required = true
         end
 
         watcher.backends.each do |backend|
@@ -897,6 +909,10 @@ module Synapse
       tmp_state_file_path = @state_file_path + ".tmp"
       File.write(tmp_state_file_path, JSON.pretty_generate(@seen))
       FileUtils.mv(tmp_state_file_path, @state_file_path)
+    end
+
+    def only_active_servers?(cur_backend, backend)
+      @only_active_servers && (cur_backend.sort != backend.collect { |i| construct_name(i) }.sort)
     end
   end
 end
