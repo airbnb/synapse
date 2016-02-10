@@ -279,11 +279,16 @@ The top level `haproxy` section of the config file has the following options:
 * `restart_interval`: number of seconds to wait between restarts of haproxy (default: 2)
 * `restart_jitter`: percentage, expressed as a float, of jitter to multiply the `restart_interval` by when determining the next
   restart time. Use this to help prevent healthcheck storms when HAProxy restarts. (default: 0.0)
-* `state_file_path`: full path on disk (e.g. /tmp/synapse/state.json) for caching haproxy state between reloads.
-  If provided, synapse will store recently seen backends at this location and can "remember" backends across both synapse and
-  HAProxy restarts. Any backends that are "down" in the reporter but listed in the cache will be put into HAProxy disabled (default: nil)
-* `state_file_ttl`: the number of seconds that backends should be kept in the state file cache.
-  This only applies if `state_file_path` is provided (default: 86400)
+* `state_file_path`: full path on disk (e.g. /tmp/synapse/state.json) for
+  caching haproxy state between reloads.  If provided, synapse will store
+  recently seen backends at this location and can "remember" backends across
+  both synapse and HAProxy restarts. Any backends that are "down" in the
+  reporter but listed in the cache will be put into HAProxy disabled. Synapse
+  writes the state file every sixty seconds, so the file's age can be used to
+  monitor that Synapse is alive and making progress. (default: nil)
+* `state_file_ttl`: the number of seconds that backends should be kept in the
+  state file cache.  This only applies if `state_file_path` is provided.
+  (default: 86400)
 
 Note that a non-default `bind_address` can be dangerous.
 If you configure an `address:port` combination that is already in use on the system, haproxy will fail to start.
