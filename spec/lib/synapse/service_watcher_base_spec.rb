@@ -109,5 +109,31 @@ describe Synapse::ServiceWatcher::BaseWatcher do
         expect(subject.backends).to eq(backends + default_servers)
       end
     end
+
+    context 'with label_filter set' do
+      let(:matching_labeled_backends) { [
+        { 'name' => 'server1', 'host' => 'server1', 'port' => 1111, 'labels' => { 'az' => 'us-east-1a' } },
+        { 'name' => 'server2', 'host' => 'server2', 'port' => 2222, 'labels' => { 'az' => 'us-east-1a' } },
+      ] }
+      let(:non_matching_labeled_backends) { [
+        { 'name' => 'server3', 'host' => 'server3', 'port' => 3333, 'labels' => { 'az' => 'us-west-1c' } },
+        { 'name' => 'server4', 'host' => 'server4', 'port' => 4444, 'labels' => { 'az' => 'us-west-2a' } },
+      ] }
+      let(:non_labeled_backends) { [
+        { 'name' => 'server5', 'host' => 'server5', 'port' => 5555 },
+      ] }
+      let(:args) {
+        testargs.merge({ 'discovery' => {
+          'method' => 'base',
+          'label_filter' => { 'condition' => 'equals', 'label' => 'az', 'value' => 'us-east-1a' } }
+        })
+      }
+      it 'removes all backends that do not match the label_filter' do
+        expect(subject).to receive(:'reconfigure!').exactly(:once)
+        subject.send(:set_backends, matching_labeled_backends + non_matching_labeled_backends +
+                     non_labeled_backends)
+        expect(subject.backends).to eq(matching_labeled_backends)
+      end
+    end
   end
 end

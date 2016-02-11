@@ -127,7 +127,7 @@ class Synapse::ServiceWatcher
 
         begin
           # TODO: Do less munging, or refactor out this processing
-          host, port, name, weight, haproxy_server_options = deserialize_service_instance(node.first)
+          host, port, name, weight, haproxy_server_options, labels = deserialize_service_instance(node.first)
         rescue StandardError => e
           log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
         else
@@ -141,7 +141,8 @@ class Synapse::ServiceWatcher
           new_backends << {
             'name' => name, 'host' => host, 'port' => server_port,
             'id' => numeric_id, 'weight' => weight,
-            'haproxy_server_options' => haproxy_server_options
+            'haproxy_server_options' => haproxy_server_options,
+            'labels' => labels
           }
         end
       end
@@ -245,8 +246,9 @@ class Synapse::ServiceWatcher
       name = decoded['name'] || nil
       weight = decoded['weight'] || nil
       haproxy_server_options = decoded['haproxy_server_options'] || nil
+      labels = decoded['labels'] || nil
 
-      return host, port, name, weight, haproxy_server_options
+      return host, port, name, weight, haproxy_server_options, labels
     end
   end
 end
