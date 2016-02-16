@@ -260,6 +260,7 @@ This section is its own hash, which should contain the following keys:
   (defaults to the service's key in the `services` section)
 * `listen`: these lines will be parsed and placed in the correct `frontend`/`backend` section as applicable; you can put lines which are the same for the frontend and backend here.
 * `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
+* `cookie_hash_servernames`: optional: if true, synapse hashes backend names on cookie value assignation of your discovered backends, useful in http mode and when you want to use haproxy cookie feature but you do not want that your end users receive a Set-Cookie with your server name and ip readable in clear
 
 <a name="haproxy"/>
 ### Configuring HAProxy ###
