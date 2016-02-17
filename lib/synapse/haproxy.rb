@@ -721,10 +721,20 @@ module Synapse
         log.debug "synapse: no backends found for watcher #{watcher.name}"
       end
 
+      keys = case watcher.haproxy['backend_order']
+      when 'asc'
+        backends.keys.sort
+      when 'desc'
+        backends.keys.sort.reverse
+      when 'no_shuffle'
+        backends.keys
+      else
+        backends.keys.shuffle
+      end
       stanza = [
         "\nbackend #{watcher.haproxy.fetch('backend_name', watcher.name)}",
         config.map {|c| "\t#{c}"},
-        backends.keys.shuffle.map {|backend_name|
+        keys.map {|backend_name|
           backend = backends[backend_name]
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
           b = "#{b} cookie #{backend_name}" unless config.include?('mode tcp')

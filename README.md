@@ -259,6 +259,7 @@ This section is its own hash, which should contain the following keys:
 * `backend_name`: The name of the generated HAProxy backend for this service
   (defaults to the service's key in the `services` section)
 * `listen`: these lines will be parsed and placed in the correct `frontend`/`backend` section as applicable; you can put lines which are the same for the frontend and backend here.
+* `backend_order`: optional: how backends should be ordered in the `backend` stanza. (default is shuffling). Setting to `asc` means sorting backends in ascending alphabetical order before generating stanza. `desc` means descending alphabetical order. `no_shuffle` means no shuffling or sorting.
 * `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
 
 <a name="haproxy"/>
