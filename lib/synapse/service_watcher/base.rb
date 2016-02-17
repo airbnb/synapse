@@ -21,6 +21,7 @@ class Synapse::ServiceWatcher
 
       @name = opts['name']
       @discovery = opts['discovery']
+      @label_filter = @discovery['label_filter'] || false
 
       @leader_election = opts['leader_election'] || false
       @leader_last_warn = Time.now - LEADER_WARN_INTERVAL
@@ -86,6 +87,8 @@ class Synapse::ServiceWatcher
 
         # if leader election fails, return no backends
         return []
+      elsif @label_filter
+        return filter_backends_by_label(@backends, @label_filter)
       end
 
       return @backends
@@ -97,6 +100,17 @@ class Synapse::ServiceWatcher
         unless @discovery['method'] == 'base'
 
       log.warn "synapse: warning: a stub watcher with no default servers is pretty useless" if @default_servers.empty?
+    end
+
+    def filter_backends_by_label(backends, label_filter)
+      filtered_backends = []
+      backends.each do |backend|
+        backend_labels = backend['labels'] || {}
+        if label_filter['condition'] == 'equals' and backend_labels[label_filter['label']] == label_filter['value']
+          filtered_backends << backend
+        end
+      end
+      return filtered_backends
     end
 
     def set_backends(new_backends)
