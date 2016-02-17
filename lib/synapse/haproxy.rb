@@ -1,6 +1,7 @@
 require 'fileutils'
 require 'json'
 require 'socket'
+require 'digest/sha1'
 
 module Synapse
   class Haproxy
@@ -727,7 +728,13 @@ module Synapse
         backends.keys.shuffle.map {|backend_name|
           backend = backends[backend_name]
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
-          b = "#{b} cookie #{backend_name}" unless config.include?('mode tcp')
+          unless config.include?('mode tcp')
+            if  watcher.haproxy['cookie_hash_servernames']
+              b = "#{b} cookie " + Digest::SHA1.hexdigest(backend_name)
+            else
+              b = "#{b} cookie #{backend_name}"
+            end
+          end
           b = "#{b} #{watcher.haproxy['server_options']}" if watcher.haproxy['server_options']
           b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options']
           b = "#{b} disabled" unless backend['enabled']
