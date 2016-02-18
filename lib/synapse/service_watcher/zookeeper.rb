@@ -11,6 +11,24 @@ class Synapse::ServiceWatcher
     @@zk_pool_count = {}
     @@zk_pool_lock = Mutex.new
 
+    def initialize(opts={}, synapse)
+      super(opts, synapse)
+
+      # Alternative deserialization support. By default we use nerve
+      # deserialization, but we also support serverset registries
+      @decode_method = self.method(:nerve_decode)
+      if @discovery['decode']
+        valid_methods = ['nerve', 'serverset']
+        decode_method = @discovery['decode']['method']
+        unless decode_method && valid_methods.include?(decode_method)
+          raise ArgumentError, "missing or invalid decode method #{decode_method}"
+        end
+        if decode_method == 'serverset'
+          @decode_method = self.method(:serverset_decode)
+        end
+      end
+    end
+
     def start
       @zk_hosts = @discovery['hosts'].sort.join(',')
 
@@ -41,20 +59,6 @@ class Synapse::ServiceWatcher
         unless @discovery['hosts']
       raise ArgumentError, "invalid zookeeper path for service #{@name}" \
         unless @discovery['path']
-
-      # Alternative deserialization support. By default we use nerve
-      # deserialization, but we also support serverset registries
-      @decode_method = self.method(:nerve_decode)
-      if @discovery['decode']
-        valid_methods = ['nerve', 'serverset']
-        decode_method = @discovery['decode']['method']
-        unless decode_method && valid_methods.include?(decode_method)
-          raise ArgumentError, "missing or invalid decode method #{decode_method}"
-        end
-        if decode_method == 'serverset'
-          @decode_method = self.method(:serverset_decode)
-        end
-      end
     end
 
     # Supported decode methods
@@ -252,3 +256,4 @@ class Synapse::ServiceWatcher
     end
   end
 end
+
