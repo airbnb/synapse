@@ -117,7 +117,7 @@ class Synapse::ServiceWatcher
       # Aggregate and deduplicate all potential backend service instances.
       new_backends = (new_backends + @default_servers) if @keep_default_servers
       new_backends = new_backends.uniq {|b|
-        [b['host'], b['port'], b.fetch('name', ''), b.fetch('weight', 1)]
+        [b['host'], b['port'], b.fetch('name', '')]
       }
 
       if new_backends.to_set == @backends.to_set
