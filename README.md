@@ -273,6 +273,7 @@ This section is its own hash, which should contain the following keys:
 * `backend_order`: optional: how backends should be ordered in the `backend` stanza. (default is shuffling). Setting to `asc` means sorting backends in ascending alphabetical order before generating stanza. `desc` means descending alphabetical order. `no_shuffle` means no shuffling or sorting.
 * `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
 * `cookie_value_method`: optional: default value is `name`, it defines the way your backends receive a cookie value in http mode. If equal to `hash`, synapse hashes backend names on cookie value assignation of your discovered backends, useful when you want to use haproxy cookie feature but you do not want that your end users receive a Set-Cookie with your server name and ip readable in clear.
+* `ignore_weights`: optional: stops haproxy backend 'weight' options being generated, even if the Nerve registrations contain this information. This will cause all backend servers to be treated equally by haproxy. This defaults to true so weights will *NOT* be used by default. 
 
 <a name="haproxy"/>
 ### Configuring HAProxy ###

@@ -135,5 +135,23 @@ describe Synapse::ServiceWatcher::BaseWatcher do
         expect(subject.backends).to eq(matching_labeled_backends)
       end
     end
+
+    context 'with ignore_weights set to false' do
+      let(:backends)  { [
+        { 'name' => 'server1', 'host' => 'server1', 'port' => 1111, 'weight' => 11 },
+        { 'name' => 'server2', 'host' => 'server2', 'port' => 2222, 'weight' => 22 },
+      ] }
+      let(:non_matching_weight_backends) { [
+        { 'name' => 'server1', 'host' => 'server1', 'port' => 1111, 'weight' => 33 },
+        { 'name' => 'server2', 'host' => 'server2', 'port' => 2222, 'weight' => 22 },
+      ] }
+      it 'updates backends only when weights change' do
+        expect(subject).to receive(:'reconfigure!').exactly(:twice)
+        expect(subject.send(:set_backends, backends)).to equal(true)
+        expect(subject.backends).to eq(backends)
+        expect(subject.send(:set_backends, non_matching_weight_backends)).to equal(true)
+        expect(subject.backends).to eq(non_matching_weight_backends)
+      end
+    end
   end
 end

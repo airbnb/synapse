@@ -538,6 +538,7 @@ module Synapse
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
       @opts['do_reloads'] = true unless @opts.key?('do_reloads')
+      @opts['ignore_weights'] = true unless @opts.key?('ignore_weights')
 
       # how to restart haproxy
       @restart_interval = @opts.fetch('restart_interval', 2).to_i
@@ -746,6 +747,10 @@ module Synapse
             else
               b = "#{b} cookie #{backend_name}"
             end
+          end
+          if !@opts['ignore_weights'] && backend.has_key?('weight')
+            weight = backend['weight'].to_i
+            b = "#{b} weight #{weight}"
           end
           b = "#{b} #{watcher.haproxy['server_options']}" if watcher.haproxy['server_options']
           b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options']
