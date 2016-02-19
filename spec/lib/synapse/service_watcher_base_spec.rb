@@ -137,7 +137,7 @@ describe Synapse::ServiceWatcher::BaseWatcher do
     end
 
     context 'with ignore_weights set to false' do
-      let(:backends)  { [
+      let(:backends_with_weight)  { [
         { 'name' => 'server1', 'host' => 'server1', 'port' => 1111, 'weight' => 11 },
         { 'name' => 'server2', 'host' => 'server2', 'port' => 2222, 'weight' => 22 },
       ] }
@@ -145,12 +145,26 @@ describe Synapse::ServiceWatcher::BaseWatcher do
         { 'name' => 'server1', 'host' => 'server1', 'port' => 1111, 'weight' => 33 },
         { 'name' => 'server2', 'host' => 'server2', 'port' => 2222, 'weight' => 22 },
       ] }
+      let(:backends_with_non_matching_weight_duplicates) { [
+        { 'name' => 'server1', 'host' => 'server1', 'port' => 1111, 'weight' => 11 },
+        { 'name' => 'server1', 'host' => 'server1', 'port' => 1111, 'weight' => 33 },
+        { 'name' => 'server2', 'host' => 'server2', 'port' => 2222, 'weight' => 22 },
+      ] }
       it 'updates backends only when weights change' do
         expect(subject).to receive(:'reconfigure!').exactly(:twice)
-        expect(subject.send(:set_backends, backends)).to equal(true)
-        expect(subject.backends).to eq(backends)
+        expect(subject.send(:set_backends, backends_with_weight)).to equal(true)
+        expect(subject.backends).to eq(backends_with_weight)
         expect(subject.send(:set_backends, non_matching_weight_backends)).to equal(true)
         expect(subject.backends).to eq(non_matching_weight_backends)
+        expect(subject.send(:set_backends, non_matching_weight_backends)).to equal(false)
+        expect(subject.backends).to eq(non_matching_weight_backends)
+      end
+      it 'ignores duplicates even with non-matching weights' do
+        expect(subject).to receive(:'reconfigure!').exactly(:once)
+        expect(subject.send(:set_backends, backends_with_weight)).to equal(true)
+        expect(subject.backends).to eq(backends_with_weight)
+        expect(subject.send(:set_backends, backends_with_non_matching_weight_duplicates)).to equal(false)
+        expect(subject.backends).to eq(backends_with_weight)
       end
     end
   end

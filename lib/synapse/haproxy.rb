@@ -748,11 +748,15 @@ module Synapse
               b = "#{b} cookie #{backend_name}"
             end
           end
+          b = "#{b} #{watcher.haproxy['server_options']}" if watcher.haproxy['server_options']
           if !@opts['ignore_weights'] && backend.has_key?('weight')
+            # Check if server_options already contains weight, is so log a warning
+            if watcher.haproxy['server_options'].include? 'weight'
+              log.info "synapse: weight is defined by server_options and by nerve"
+            end
             weight = backend['weight'].to_i
             b = "#{b} weight #{weight}"
           end
-          b = "#{b} #{watcher.haproxy['server_options']}" if watcher.haproxy['server_options']
           b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options']
           b = "#{b} disabled" unless backend['enabled']
           b }
