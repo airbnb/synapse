@@ -35,7 +35,7 @@ describe Synapse::FileOutput do
   it 'manages correct files' do
     subject.update_config([mockwatcher_1, mockwatcher_2])
     FileUtils.cd(config['file_output']['output_directory']) do
-      expect(Dir.glob('*.json')).to eql(['example_service.json', 'foobar_service.json'])
+      expect(Dir.glob('*.json').sort).to eql(['example_service.json', 'foobar_service.json'])
     end
     # Should clean up after itself
     subject.update_config([mockwatcher_1])
