@@ -555,8 +555,12 @@ module Synapse
       unless @state_file_path.nil?
         begin
           @seen = JSON.load(File.read(@state_file_path))
+          # Some versions of JSON return nil on an empty file ...
+          @seen ||= {}
         rescue StandardError => e
-          # It's ok if the state file doesn't exist
+          # It's ok if the state file doesn't exist or contains invalid data
+          # The state file will be rebuilt automatically
+          @seen = {}
         end
       end
     end
