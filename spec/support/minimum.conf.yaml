@@ -22,7 +22,6 @@ haproxy:
   config_file_path: "/etc/haproxy/haproxy.cfg"
   do_writes: false
   do_reloads: false
-  ignore_weights: false
   global:
     - global_test_option
 

@@ -538,7 +538,6 @@ module Synapse
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
       @opts['do_reloads'] = true unless @opts.key?('do_reloads')
-      @opts['ignore_weights'] = true unless @opts.key?('ignore_weights')
 
       # how to restart haproxy
       @restart_interval = @opts.fetch('restart_interval', 2).to_i
@@ -749,10 +748,10 @@ module Synapse
             end
           end
           b = "#{b} #{watcher.haproxy['server_options']}" if watcher.haproxy['server_options']
-          if !@opts['ignore_weights'] && backend.has_key?('weight')
+          if backend.has_key?('weight')
             # Check if server_options already contains weight, is so log a warning
             if watcher.haproxy['server_options'].include? 'weight'
-              log.info "synapse: weight is defined by server_options and by nerve"
+              log.warn "synapse: weight is defined by server_options and by nerve"
             end
             weight = backend['weight'].to_i
             b = "#{b} weight #{weight}"
