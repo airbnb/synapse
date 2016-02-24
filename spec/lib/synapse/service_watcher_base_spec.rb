@@ -136,7 +136,7 @@ describe Synapse::ServiceWatcher::BaseWatcher do
       end
     end
 
-    context 'with ignore_weights set to false' do
+    context 'with weights defined' do
       let(:backends_with_weight)  { [
         { 'name' => 'server1', 'host' => 'server1', 'port' => 1111, 'weight' => 11 },
         { 'name' => 'server2', 'host' => 'server2', 'port' => 2222, 'weight' => 22 },
