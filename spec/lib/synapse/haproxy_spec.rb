@@ -23,6 +23,15 @@ describe Synapse::Haproxy do
     mockWatcher
   end
 
+  let(:mockwatcher_with_cookie_value_method_hash) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_service')
+    backends = [{ 'host' => 'somehost', 'port' => 5555}]
+    allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2", 'cookie_value_method' => 'hash'})
+    mockWatcher
+  end
+
   let(:mockwatcher_frontend) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service')
@@ -74,6 +83,11 @@ describe Synapse::Haproxy do
         end
       end
     end
+  end
+
+  it 'hashes backend name as cookie value' do
+    mockConfig = []
+    expect(subject.generate_backend_stanza(mockwatcher_with_cookie_value_method_hash, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie 9e736eef2f5a1d441e34ade3d2a8eb1e3abb1c92 check inter 2000 rise 3 fall 2"]])
   end
 
   it 'generates backend stanza without cookies for tcp mode' do
