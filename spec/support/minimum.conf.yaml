@@ -1,6 +1,6 @@
 # list the services to connect
 services:
-  - name: test
+  test:
     local_port: 3210
     server_options: test_option
     default_servers:
@@ -12,6 +12,9 @@ services:
         - localhost:2181
     listen:
       - test_option
+    haproxy:
+      port: 3219
+
 
 
 # settings for haproxy including the global config
