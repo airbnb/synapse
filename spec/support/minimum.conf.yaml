@@ -1,8 +1,6 @@
 # list the services to connect
 services:
   test:
-    local_port: 3210
-    server_options: test_option
     default_servers:
       - { name: default1, host: localhost, port: 8080}
     discovery:
@@ -10,12 +8,13 @@ services:
       path: /airbnb/service/logging/event_collector
       hosts:
         - localhost:2181
-    listen:
-      - test_option
     haproxy:
       port: 3219
-
-
+      bind_address: 'localhost'
+      server_options:
+        - some_haproxy_server_option
+      listen:
+        - some_haproxy_listen_option
 
 # settings for haproxy including the global config
 haproxy:
