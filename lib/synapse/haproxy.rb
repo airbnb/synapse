@@ -10,7 +10,7 @@ module Synapse
 
     # these come from the documentation for haproxy 1.5
     # http://haproxy.1wt.eu/download/1.5/doc/configuration.txt
-    @@section_fields = {
+    SECTION_FIELDS = {
       "backend" => [
         "acl",
         "appsession",
@@ -510,7 +510,7 @@ module Synapse
         "use_backend",
         "use-server"
       ]
-    }
+    }.freeze
 
     def initialize(opts)
       super()
@@ -665,7 +665,7 @@ module Synapse
         config[section].concat(
           watcher.haproxy['listen'].select {|setting|
             parsed_setting = setting.strip.gsub(/\s+/, ' ').downcase
-            @@section_fields[section].any? {|field| parsed_setting.start_with?(field)}
+            SECTION_FIELDS[section].any? {|field| parsed_setting.start_with?(field)}
           })
 
         # pick only those fields that are valid and warn about the invalid ones
@@ -678,7 +678,7 @@ module Synapse
     def validate_haproxy_stanza(stanza, stanza_type, service_name)
       return stanza.select {|setting|
         parsed_setting = setting.strip.gsub(/\s+/, ' ').downcase
-        if @@section_fields[stanza_type].any? {|field| parsed_setting.start_with?(field)}
+        if SECTION_FIELDS[stanza_type].any? {|field| parsed_setting.start_with?(field)}
           true
         else
           log.warn "synapse: service #{service_name} contains invalid #{stanza_type} setting: '#{setting}', discarding"
