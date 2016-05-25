@@ -6,7 +6,7 @@ require 'digest/sha1'
 module Synapse
   class Haproxy
     include Logging
-    attr_reader :opts, :name
+    attr_reader :opts
 
     # these come from the documentation for haproxy 1.5
     # http://haproxy.1wt.eu/download/1.5/doc/configuration.txt
@@ -531,7 +531,6 @@ module Synapse
       end
 
       @opts = opts
-      @name = 'haproxy'
 
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
@@ -564,6 +563,10 @@ module Synapse
           @seen = {}
         end
       end
+    end
+
+    def name
+      'haproxy'
     end
 
     def tick(watchers)

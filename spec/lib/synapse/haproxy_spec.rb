@@ -46,6 +46,11 @@ describe Synapse::Haproxy do
     mockWatcher
   end
 
+  describe '#name' do
+    it 'returns haproxy' do
+      expect(subject.name).to eq('haproxy')
+    end
+  end
 
   it 'updating the config' do
     expect(subject).to receive(:generate_config)
