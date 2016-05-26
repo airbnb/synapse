@@ -185,6 +185,7 @@ Synapse attempts to decode the data in each of these nodes using JSON and you ca
 * `endpoint_name` (default: nil): If using the `serverset` method, this controls which of the `additionalEndpoints` is chosen instead of the `serviceEndpoint` data. If not supplied the `serverset` method will use the host/port from the `serviceEndpoint` data.
 
 If the `method` is `nerve`, then we expect to find nerve registrations with a `host` and a `port`.
+Any additional metadata for the service node provided in the hash `labels` will be parsed. This information is used by `label_filter` configuration.
 
 If the `method` is `serverset` then we expect to find Finagle ServerSet
 (also used by [Aurora](https://github.com/apache/aurora/blob/master/docs/user-guide.md#service-discovery)) registrations with a `serviceEndpoint` and optionally one or more `additionalEndpoints`.
