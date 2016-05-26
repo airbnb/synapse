@@ -149,9 +149,19 @@ Put these into the `discovery` section of the service hash, with these options:
 ##### Base #####
 
 The base watcher is useful in situations where you only want to use the servers in the `default_servers` list.
-It has only one option:
+It has the following options:
 
 * `method`: base
+* `label_filter`: optional filter to be applied to discovered service nodes
+
+###### Filtering service nodes ######
+Synapse can be configured to only return service nodes that match a `label_filter` predicate. If provided, the `label_filter` hash should contain the following:
+
+* `label`: The label for which the filter is applied
+* `value`: The comparison value
+* `condition` (one of ['`equals`']): The type of filter condition to be applied. Only `equals` is supported at present
+
+Given a `label_filter`: `{ "label": "cluster", "value": "dev", "condition": "equals" }`, this will return only service nodes that contain the label value `{ "cluster": "dev" }`.
 
 ##### Zookeeper #####
 
