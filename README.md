@@ -149,9 +149,19 @@ Put these into the `discovery` section of the service hash, with these options:
 ##### Base #####
 
 The base watcher is useful in situations where you only want to use the servers in the `default_servers` list.
-It has only one option:
+It has the following options:
 
 * `method`: base
+* `label_filter`: optional filter to be applied to discovered service nodes
+
+###### Filtering service nodes ######
+Synapse can be configured to only return service nodes that match a `label_filter` predicate. If provided, the `label_filter` hash should contain the following:
+
+* `label`: The label for which the filter is applied
+* `value`: The comparison value
+* `condition` (one of ['`equals`']): The type of filter condition to be applied. Only `equals` is supported at present
+
+Given a `label_filter`: `{ "label": "cluster", "value": "dev", "condition": "equals" }`, this will return only service nodes that contain the label value `{ "cluster": "dev" }`.
 
 ##### Zookeeper #####
 
@@ -175,6 +185,7 @@ Synapse attempts to decode the data in each of these nodes using JSON and you ca
 * `endpoint_name` (default: nil): If using the `serverset` method, this controls which of the `additionalEndpoints` is chosen instead of the `serviceEndpoint` data. If not supplied the `serverset` method will use the host/port from the `serviceEndpoint` data.
 
 If the `method` is `nerve`, then we expect to find nerve registrations with a `host` and a `port`.
+Any additional metadata for the service node provided in the hash `labels` will be parsed. This information is used by `label_filter` configuration.
 
 If the `method` is `serverset` then we expect to find Finagle ServerSet
 (also used by [Aurora](https://github.com/apache/aurora/blob/master/docs/user-guide.md#service-discovery)) registrations with a `serviceEndpoint` and optionally one or more `additionalEndpoints`.
