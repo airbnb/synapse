@@ -9,6 +9,10 @@ require 'pry'
 require 'support/configuration'
 require 'webmock/rspec'
 
+# configure timecop
+require 'timecop'
+Timecop.safe_mode = true
+
 RSpec.configure do |config|
   config.run_all_when_everything_filtered = true
   config.filter_run :focus
