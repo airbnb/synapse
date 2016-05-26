@@ -6,11 +6,11 @@ require 'digest/sha1'
 module Synapse
   class Haproxy
     include Logging
-    attr_reader :opts, :name
+    attr_reader :opts
 
     # these come from the documentation for haproxy 1.5
     # http://haproxy.1wt.eu/download/1.5/doc/configuration.txt
-    @@section_fields = {
+    SECTION_FIELDS = {
       "backend" => [
         "acl",
         "appsession",
@@ -510,7 +510,10 @@ module Synapse
         "use_backend",
         "use-server"
       ]
-    }
+    }.freeze
+
+    DEFAULT_STATE_FILE_TTL = (60 * 60 * 24).freeze # 24 hours
+    STATE_FILE_UPDATE_INTERVAL = 60.freeze # iterations; not a unit of time
 
     def initialize(opts)
       super()
@@ -531,7 +534,6 @@ module Synapse
       end
 
       @opts = opts
-      @name = 'haproxy'
 
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
@@ -550,24 +552,15 @@ module Synapse
       @watcher_configs = {}
 
       @state_file_path = @opts['state_file_path']
-      @state_file_ttl = @opts.fetch('state_file_ttl', 60 * 60 * 24).to_i
-      @seen = {}
+      @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
+    end
 
-      unless @state_file_path.nil?
-        begin
-          @seen = JSON.load(File.read(@state_file_path))
-          # Some versions of JSON return nil on an empty file ...
-          @seen ||= {}
-        rescue StandardError => e
-          # It's ok if the state file doesn't exist or contains invalid data
-          # The state file will be rebuilt automatically
-          @seen = {}
-        end
-      end
+    def name
+      'haproxy'
     end
 
     def tick(watchers)
-      if @time % 60 == 0 && !@state_file_path.nil?
+      if (@time % STATE_FILE_UPDATE_INTERVAL) == 0
         update_state_file(watchers)
       end
 
@@ -662,7 +655,7 @@ module Synapse
         config[section].concat(
           watcher.haproxy['listen'].select {|setting|
             parsed_setting = setting.strip.gsub(/\s+/, ' ').downcase
-            @@section_fields[section].any? {|field| parsed_setting.start_with?(field)}
+            SECTION_FIELDS[section].any? {|field| parsed_setting.start_with?(field)}
           })
 
         # pick only those fields that are valid and warn about the invalid ones
@@ -675,7 +668,7 @@ module Synapse
     def validate_haproxy_stanza(stanza, stanza_type, service_name)
       return stanza.select {|setting|
         parsed_setting = setting.strip.gsub(/\s+/, ' ').downcase
-        if @@section_fields[stanza_type].any? {|field| parsed_setting.start_with?(field)}
+        if SECTION_FIELDS[stanza_type].any? {|field| parsed_setting.start_with?(field)}
           true
         else
           log.warn "synapse: service #{service_name} contains invalid #{stanza_type} setting: '#{setting}', discarding"
@@ -704,7 +697,7 @@ module Synapse
 
       # The ordering here is important.  First we add all the backends in the
       # disabled state...
-      @seen.fetch(watcher.name, []).each do |backend_name, backend|
+      seen.fetch(watcher.name, []).each do |backend_name, backend|
         backends[backend_name] = backend.merge('enabled' => false)
       end
 
@@ -887,13 +880,28 @@ module Synapse
       return name
     end
 
-    def update_state_file(watchers)
-      log.info "synapse: writing state file"
+    ######################################
+    # methods for managing the state file
+    ######################################
+    def seen
+      # if we don't support the state file, return nothing
+      return {} if @state_file_path.nil?
 
+      # if we've never needed the backends, now is the time to load them
+      @seen = read_state_file if @seen.nil?
+
+      @seen
+    end
+
+    def update_state_file(watchers)
+      # if we don't support the state file, do nothing
+      return if @state_file_path.nil?
+
+      log.info "synapse: writing state file"
       timestamp = Time.now.to_i
 
       # Remove stale backends
-      @seen.each do |watcher_name, backends|
+      seen.each do |watcher_name, backends|
         backends.each do |backend_name, backend|
           ts = backend.fetch('timestamp', 0)
           delta = (timestamp - ts).abs
@@ -905,23 +913,35 @@ module Synapse
       end
 
       # Remove any services which no longer have any backends
-      @seen = @seen.reject{|watcher_name, backends| backends.keys.length == 0}
+      seen.reject!{|watcher_name, backends| backends.keys.length == 0}
 
       # Add backends from watchers
       watchers.each do |watcher|
-        unless @seen.key?(watcher.name)
-          @seen[watcher.name] = {}
-        end
+        seen[watcher.name] ||= {}
 
         watcher.backends.each do |backend|
           backend_name = construct_name(backend)
-          @seen[watcher.name][backend_name] = backend.merge('timestamp' => timestamp)
+          seen[watcher.name][backend_name] = backend.merge('timestamp' => timestamp)
         end
       end
 
-      # Atomically write new state file
+      # write the data!
+      write_data_to_state_file(seen)
+    end
+
+    def read_state_file
+      # Some versions of JSON return nil on an empty file ...
+      JSON.load(File.read(@state_file_path)) || {}
+    rescue StandardError => e
+      # It's ok if the state file doesn't exist or contains invalid data
+      # The state file will be rebuilt automatically
+      {}
+    end
+
+    # we do this atomically so the state file is always consistent
+    def write_data_to_state_file(data)
       tmp_state_file_path = @state_file_path + ".tmp"
-      File.write(tmp_state_file_path, JSON.pretty_generate(@seen))
+      File.write(tmp_state_file_path, JSON.pretty_generate(data))
       FileUtils.mv(tmp_state_file_path, @state_file_path)
     end
   end

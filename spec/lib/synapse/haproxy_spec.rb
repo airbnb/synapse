@@ -16,7 +16,7 @@ describe Synapse::Haproxy do
 
   let(:mockwatcher_with_server_options) do
     mockWatcher = double(Synapse::ServiceWatcher)
-    allow(mockWatcher).to receive(:name).and_return('example_service')
+    allow(mockWatcher).to receive(:name).and_return('example_service2')
     backends = [{ 'host' => 'somehost', 'port' => 5555, 'haproxy_server_options' => 'backup'}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
     allow(mockWatcher).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2"})
@@ -25,7 +25,7 @@ describe Synapse::Haproxy do
 
   let(:mockwatcher_with_cookie_value_method_hash) do
     mockWatcher = double(Synapse::ServiceWatcher)
-    allow(mockWatcher).to receive(:name).and_return('example_service')
+    allow(mockWatcher).to receive(:name).and_return('example_service3')
     backends = [{ 'host' => 'somehost', 'port' => 5555}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
     allow(mockWatcher).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2", 'cookie_value_method' => 'hash'})
@@ -34,22 +34,164 @@ describe Synapse::Haproxy do
 
   let(:mockwatcher_frontend) do
     mockWatcher = double(Synapse::ServiceWatcher)
-    allow(mockWatcher).to receive(:name).and_return('example_service')
+    allow(mockWatcher).to receive(:name).and_return('example_service4')
     allow(mockWatcher).to receive(:haproxy).and_return('port' => 2200)
     mockWatcher
   end
 
   let(:mockwatcher_frontend_with_bind_address) do
     mockWatcher = double(Synapse::ServiceWatcher)
-    allow(mockWatcher).to receive(:name).and_return('example_service')
+    allow(mockWatcher).to receive(:name).and_return('example_service5')
     allow(mockWatcher).to receive(:haproxy).and_return('port' => 2200, 'bind_address' => "127.0.0.3")
     mockWatcher
   end
 
+  describe '#name' do
+    it 'returns haproxy' do
+      expect(subject.name).to eq('haproxy')
+    end
+  end
 
-  it 'updating the config' do
-    expect(subject).to receive(:generate_config)
-    subject.update_config([mockwatcher])
+  describe '#update_config' do
+    let(:watchers) { [mockwatcher_frontend, mockwatcher_frontend_with_bind_address] }
+
+    shared_context 'generate_config is stubbed out' do
+      let(:new_config) { 'this is a new config!' }
+      before { expect(subject).to receive(:generate_config).and_return(new_config) }
+    end
+
+    it 'always updates the config' do
+      expect(subject).to receive(:generate_config).with(watchers)
+      subject.update_config(watchers)
+    end
+
+    context 'when we support socket updates' do
+      include_context 'generate_config is stubbed out'
+      before do
+        config['haproxy']['do_socket'] = true
+        config['haproxy']['socket_file_path'] = 'socket_file_path'
+      end
+
+      it 'updates backends via the socket' do
+        expect(subject).to receive(:update_backends).with(watchers)
+        subject.update_config(watchers)
+      end
+    end
+
+    context 'when we do not support socket updates' do
+      include_context 'generate_config is stubbed out'
+      before { config['haproxy']['do_socket'] = false }
+
+      it 'does not update the backends' do
+        expect(subject).to_not receive(:update_backends)
+        subject.update_config(watchers)
+      end
+    end
+
+    context 'if we support config writes' do
+      include_context 'generate_config is stubbed out'
+      before { config['haproxy']['do_writes'] = true }
+
+      it 'writes the new config' do
+        expect(subject).to receive(:write_config).with(new_config)
+        subject.update_config(watchers)
+      end
+    end
+
+    context 'if we do not support config writes' do
+      include_context 'generate_config is stubbed out'
+      before { config['haproxy']['do_writes'] = false }
+
+      it 'does not write the config' do
+        expect(subject).to_not receive(:write_config)
+        subject.update_config(watchers)
+      end
+    end
+
+    context 'when we support config writes and reloads but not socket updates' do
+      include_context 'generate_config is stubbed out'
+
+      before do
+        config['haproxy']['do_writes'] = true
+        config['haproxy']['do_reloads'] = true
+        config['haproxy']['do_socket'] = false
+      end
+
+      it 'always does a reload' do
+        expect(subject).to receive(:write_config).with(new_config)
+        expect(subject).to receive(:restart)
+        subject.update_config(watchers)
+      end
+    end
+  end
+
+  describe '#tick' do
+    it 'updates the state file at regular intervals' do
+      expect(subject).to receive(:update_state_file).twice
+      (described_class::STATE_FILE_UPDATE_INTERVAL + 1).times do
+        subject.tick({})
+      end
+    end
+  end
+
+  describe '#update_state_file' do
+    let(:watchers) { [mockwatcher, mockwatcher_with_server_options] }
+    let(:state_file_ttl) { 60 } # seconds
+
+    before do
+      config['haproxy']['state_file_path'] = '/statefile'
+      config['haproxy']['state_file_ttl'] = state_file_ttl
+      allow(subject).to receive(:write_data_to_state_file)
+    end
+
+    it 'adds backends along with timestamps' do
+      subject.update_state_file(watchers)
+      data = subject.send(:seen)
+
+      watcher_names = watchers.map{ |w| w.name }
+      expect(data.keys).to contain_exactly(*watcher_names)
+
+      watchers.each do |watcher|
+        backend_names = watcher.backends.map{ |b| subject.construct_name(b) }
+        expect(data[watcher.name].keys).to contain_exactly(*backend_names)
+
+        backend_names.each do |backend_name|
+          expect(data[watcher.name][backend_name]).to include('timestamp')
+        end
+      end
+    end
+
+    context 'when the state file contains backends not in the watcher' do
+      it 'keeps them in the config' do
+        subject.update_state_file(watchers)
+
+        expect do
+          watchers.each do |watcher|
+            allow(watcher).to receive(:backends).and_return([])
+          end
+          subject.update_state_file(watchers)
+        end.to_not change { subject.send(:seen) }
+      end
+
+      context 'if those backends are stale' do
+        it 'removes those backends' do
+          subject.update_state_file(watchers)
+
+          watchers.each do |watcher|
+            allow(watcher).to receive(:backends).and_return([])
+          end
+
+          # the final +1 puts us over the expiry limit
+          Timecop.travel(Time.now + state_file_ttl + 1) do
+            subject.update_state_file(watchers)
+            data = subject.send(:seen)
+            watchers.each do |watcher|
+              expect(data[watcher.name]).to be_empty
+            end
+          end
+        end
+      end
+    end
   end
 
   it 'generates backend stanza' do
@@ -87,7 +229,7 @@ describe Synapse::Haproxy do
 
   it 'hashes backend name as cookie value' do
     mockConfig = []
-    expect(subject.generate_backend_stanza(mockwatcher_with_cookie_value_method_hash, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie 9e736eef2f5a1d441e34ade3d2a8eb1e3abb1c92 check inter 2000 rise 3 fall 2"]])
+    expect(subject.generate_backend_stanza(mockwatcher_with_cookie_value_method_hash, mockConfig)).to eql(["\nbackend example_service3", [], ["\tserver somehost:5555 somehost:5555 cookie 9e736eef2f5a1d441e34ade3d2a8eb1e3abb1c92 check inter 2000 rise 3 fall 2"]])
   end
 
   it 'generates backend stanza without cookies for tcp mode' do
@@ -97,17 +239,17 @@ describe Synapse::Haproxy do
 
   it 'respects haproxy_server_options' do
     mockConfig = []
-    expect(subject.generate_backend_stanza(mockwatcher_with_server_options, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2 backup"]])
+    expect(subject.generate_backend_stanza(mockwatcher_with_server_options, mockConfig)).to eql(["\nbackend example_service2", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2 backup"]])
   end
 
   it 'generates frontend stanza ' do
     mockConfig = []
-    expect(subject.generate_frontend_stanza(mockwatcher_frontend, mockConfig)).to eql(["\nfrontend example_service", [], "\tbind localhost:2200", "\tdefault_backend example_service"])
+    expect(subject.generate_frontend_stanza(mockwatcher_frontend, mockConfig)).to eql(["\nfrontend example_service4", [], "\tbind localhost:2200", "\tdefault_backend example_service4"])
   end
 
   it 'respects frontend bind_address ' do
     mockConfig = []
-    expect(subject.generate_frontend_stanza(mockwatcher_frontend_with_bind_address, mockConfig)).to eql(["\nfrontend example_service", [], "\tbind 127.0.0.3:2200", "\tdefault_backend example_service"])
+    expect(subject.generate_frontend_stanza(mockwatcher_frontend_with_bind_address, mockConfig)).to eql(["\nfrontend example_service5", [], "\tbind 127.0.0.3:2200", "\tdefault_backend example_service5"])
   end
 
 end
