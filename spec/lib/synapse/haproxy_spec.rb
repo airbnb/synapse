@@ -16,7 +16,7 @@ describe Synapse::Haproxy do
 
   let(:mockwatcher_with_server_options) do
     mockWatcher = double(Synapse::ServiceWatcher)
-    allow(mockWatcher).to receive(:name).and_return('example_service')
+    allow(mockWatcher).to receive(:name).and_return('example_service2')
     backends = [{ 'host' => 'somehost', 'port' => 5555, 'haproxy_server_options' => 'backup'}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
     allow(mockWatcher).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2"})
@@ -25,7 +25,7 @@ describe Synapse::Haproxy do
 
   let(:mockwatcher_with_cookie_value_method_hash) do
     mockWatcher = double(Synapse::ServiceWatcher)
-    allow(mockWatcher).to receive(:name).and_return('example_service')
+    allow(mockWatcher).to receive(:name).and_return('example_service3')
     backends = [{ 'host' => 'somehost', 'port' => 5555}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
     allow(mockWatcher).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2", 'cookie_value_method' => 'hash'})
@@ -34,14 +34,14 @@ describe Synapse::Haproxy do
 
   let(:mockwatcher_frontend) do
     mockWatcher = double(Synapse::ServiceWatcher)
-    allow(mockWatcher).to receive(:name).and_return('example_service')
+    allow(mockWatcher).to receive(:name).and_return('example_service4')
     allow(mockWatcher).to receive(:haproxy).and_return('port' => 2200)
     mockWatcher
   end
 
   let(:mockwatcher_frontend_with_bind_address) do
     mockWatcher = double(Synapse::ServiceWatcher)
-    allow(mockWatcher).to receive(:name).and_return('example_service')
+    allow(mockWatcher).to receive(:name).and_return('example_service5')
     allow(mockWatcher).to receive(:haproxy).and_return('port' => 2200, 'bind_address' => "127.0.0.3")
     mockWatcher
   end
@@ -169,7 +169,7 @@ describe Synapse::Haproxy do
 
   it 'hashes backend name as cookie value' do
     mockConfig = []
-    expect(subject.generate_backend_stanza(mockwatcher_with_cookie_value_method_hash, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie 9e736eef2f5a1d441e34ade3d2a8eb1e3abb1c92 check inter 2000 rise 3 fall 2"]])
+    expect(subject.generate_backend_stanza(mockwatcher_with_cookie_value_method_hash, mockConfig)).to eql(["\nbackend example_service3", [], ["\tserver somehost:5555 somehost:5555 cookie 9e736eef2f5a1d441e34ade3d2a8eb1e3abb1c92 check inter 2000 rise 3 fall 2"]])
   end
 
   it 'generates backend stanza without cookies for tcp mode' do
@@ -179,17 +179,17 @@ describe Synapse::Haproxy do
 
   it 'respects haproxy_server_options' do
     mockConfig = []
-    expect(subject.generate_backend_stanza(mockwatcher_with_server_options, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2 backup"]])
+    expect(subject.generate_backend_stanza(mockwatcher_with_server_options, mockConfig)).to eql(["\nbackend example_service2", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2 backup"]])
   end
 
   it 'generates frontend stanza ' do
     mockConfig = []
-    expect(subject.generate_frontend_stanza(mockwatcher_frontend, mockConfig)).to eql(["\nfrontend example_service", [], "\tbind localhost:2200", "\tdefault_backend example_service"])
+    expect(subject.generate_frontend_stanza(mockwatcher_frontend, mockConfig)).to eql(["\nfrontend example_service4", [], "\tbind localhost:2200", "\tdefault_backend example_service4"])
   end
 
   it 'respects frontend bind_address ' do
     mockConfig = []
-    expect(subject.generate_frontend_stanza(mockwatcher_frontend_with_bind_address, mockConfig)).to eql(["\nfrontend example_service", [], "\tbind 127.0.0.3:2200", "\tdefault_backend example_service"])
+    expect(subject.generate_frontend_stanza(mockwatcher_frontend_with_bind_address, mockConfig)).to eql(["\nfrontend example_service5", [], "\tbind 127.0.0.3:2200", "\tdefault_backend example_service5"])
   end
 
 end
