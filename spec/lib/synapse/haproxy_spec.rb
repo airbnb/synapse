@@ -52,9 +52,77 @@ describe Synapse::Haproxy do
     end
   end
 
-  it 'updating the config' do
-    expect(subject).to receive(:generate_config)
-    subject.update_config([mockwatcher])
+  describe '#update_config' do
+    let(:watchers) { [mockwatcher_frontend, mockwatcher_frontend_with_bind_address] }
+
+    shared_context 'generate_config is stubbed out' do
+      let(:new_config) { 'this is a new config!' }
+      before { expect(subject).to receive(:generate_config).and_return(new_config) }
+    end
+
+    it 'always updates the config' do
+      expect(subject).to receive(:generate_config).with(watchers)
+      subject.update_config(watchers)
+    end
+
+    context 'when we support socket updates' do
+      include_context 'generate_config is stubbed out'
+      before do
+        config['haproxy']['do_socket'] = true
+        config['haproxy']['socket_file_path'] = 'socket_file_path'
+      end
+
+      it 'updates backends via the socket' do
+        expect(subject).to receive(:update_backends).with(watchers)
+        subject.update_config(watchers)
+      end
+    end
+
+    context 'when we do not support socket updates' do
+      include_context 'generate_config is stubbed out'
+      before { config['haproxy']['do_socket'] = false }
+
+      it 'does not update the backends' do
+        expect(subject).to_not receive(:update_backends)
+        subject.update_config(watchers)
+      end
+    end
+
+    context 'if we support config writes' do
+      include_context 'generate_config is stubbed out'
+      before { config['haproxy']['do_writes'] = true }
+
+      it 'writes the new config' do
+        expect(subject).to receive(:write_config).with(new_config)
+        subject.update_config(watchers)
+      end
+    end
+
+    context 'if we do not support config writes' do
+      include_context 'generate_config is stubbed out'
+      before { config['haproxy']['do_writes'] = false }
+
+      it 'does not write the config' do
+        expect(subject).to_not receive(:write_config)
+        subject.update_config(watchers)
+      end
+    end
+
+    context 'when we support config writes and reloads but not socket updates' do
+      include_context 'generate_config is stubbed out'
+
+      before do
+        config['haproxy']['do_writes'] = true
+        config['haproxy']['do_reloads'] = true
+        config['haproxy']['do_socket'] = false
+      end
+
+      it 'always does a reload' do
+        expect(subject).to receive(:write_config).with(new_config)
+        expect(subject).to receive(:restart)
+        subject.update_config(watchers)
+      end
+    end
   end
 
   it 'generates backend stanza' do
