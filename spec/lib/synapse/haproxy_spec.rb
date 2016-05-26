@@ -125,6 +125,15 @@ describe Synapse::Haproxy do
     end
   end
 
+  describe '#tick' do
+    it 'updates the state file at regular intervals' do
+      expect(subject).to receive(:update_state_file).twice
+      (described_class::STATE_FILE_UPDATE_INTERVAL + 1).times do
+        subject.tick({})
+      end
+    end
+  end
+
   it 'generates backend stanza' do
     mockConfig = []
     expect(subject.generate_backend_stanza(mockwatcher, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2"]])

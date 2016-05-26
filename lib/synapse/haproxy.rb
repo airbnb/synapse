@@ -512,6 +512,8 @@ module Synapse
       ]
     }.freeze
 
+    STATE_FILE_UPDATE_INTERVAL = 60.freeze # iterations; not a unit of time
+
     def initialize(opts)
       super()
 
@@ -570,7 +572,7 @@ module Synapse
     end
 
     def tick(watchers)
-      if @time % 60 == 0 && !@state_file_path.nil?
+      if (@time % STATE_FILE_UPDATE_INTERVAL) == 0
         update_state_file(watchers)
       end
 
@@ -891,8 +893,10 @@ module Synapse
     end
 
     def update_state_file(watchers)
-      log.info "synapse: writing state file"
+      # if we don't support the state file, do nothing
+      return if @state_file_path.nil?
 
+      log.info "synapse: writing state file"
       timestamp = Time.now.to_i
 
       # Remove stale backends
