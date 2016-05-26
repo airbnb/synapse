@@ -129,11 +129,11 @@ class Synapse::ServiceWatcher
 
     def start
       dns_discovery_opts = @discovery.select do |k,_|
-        k == 'nameserver'
+        k == 'nameserver' || k == 'label_filter'
       end
 
       zookeeper_discovery_opts = @discovery.select do |k,_|
-        k == 'hosts' || k == 'path'
+        k == 'hosts' || k == 'path' || k == 'label_filter'
       end
 
       @check_interval = @discovery['check_interval'] || 30.0

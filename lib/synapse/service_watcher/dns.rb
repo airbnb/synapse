@@ -85,6 +85,7 @@ class Synapse::ServiceWatcher
             'host' => address,
             'port' => server['port'],
             'name' => server['name'],
+            'labels' => server['labels'],
           }
         end
       end
