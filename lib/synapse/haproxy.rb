@@ -512,6 +512,7 @@ module Synapse
       ]
     }.freeze
 
+    DEFAULT_STATE_FILE_TTL = (60 * 60 * 24).freeze # 24 hours
     STATE_FILE_UPDATE_INTERVAL = 60.freeze # iterations; not a unit of time
 
     def initialize(opts)
@@ -551,20 +552,7 @@ module Synapse
       @watcher_configs = {}
 
       @state_file_path = @opts['state_file_path']
-      @state_file_ttl = @opts.fetch('state_file_ttl', 60 * 60 * 24).to_i
-      @seen = {}
-
-      unless @state_file_path.nil?
-        begin
-          @seen = JSON.load(File.read(@state_file_path))
-          # Some versions of JSON return nil on an empty file ...
-          @seen ||= {}
-        rescue StandardError => e
-          # It's ok if the state file doesn't exist or contains invalid data
-          # The state file will be rebuilt automatically
-          @seen = {}
-        end
-      end
+      @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
     end
 
     def name
@@ -709,7 +697,7 @@ module Synapse
 
       # The ordering here is important.  First we add all the backends in the
       # disabled state...
-      @seen.fetch(watcher.name, []).each do |backend_name, backend|
+      seen.fetch(watcher.name, []).each do |backend_name, backend|
         backends[backend_name] = backend.merge('enabled' => false)
       end
 
@@ -892,6 +880,19 @@ module Synapse
       return name
     end
 
+    ######################################
+    # methods for managing the state file
+    ######################################
+    def seen
+      # if we don't support the state file, return nothing
+      return {} if @state_file_path.nil?
+
+      # if we've never needed the backends, now is the time to load them
+      @seen = read_state_file if @seen.nil?
+
+      @seen
+    end
+
     def update_state_file(watchers)
       # if we don't support the state file, do nothing
       return if @state_file_path.nil?
@@ -900,7 +901,7 @@ module Synapse
       timestamp = Time.now.to_i
 
       # Remove stale backends
-      @seen.each do |watcher_name, backends|
+      seen.each do |watcher_name, backends|
         backends.each do |backend_name, backend|
           ts = backend.fetch('timestamp', 0)
           delta = (timestamp - ts).abs
@@ -912,23 +913,35 @@ module Synapse
       end
 
       # Remove any services which no longer have any backends
-      @seen = @seen.reject{|watcher_name, backends| backends.keys.length == 0}
+      seen.reject!{|watcher_name, backends| backends.keys.length == 0}
 
       # Add backends from watchers
       watchers.each do |watcher|
-        unless @seen.key?(watcher.name)
-          @seen[watcher.name] = {}
-        end
+        seen[watcher.name] ||= {}
 
         watcher.backends.each do |backend|
           backend_name = construct_name(backend)
-          @seen[watcher.name][backend_name] = backend.merge('timestamp' => timestamp)
+          seen[watcher.name][backend_name] = backend.merge('timestamp' => timestamp)
         end
       end
 
-      # Atomically write new state file
+      # write the data!
+      write_data_to_state_file(seen)
+    end
+
+    def read_state_file
+      # Some versions of JSON return nil on an empty file ...
+      JSON.load(File.read(@state_file_path)) || {}
+    rescue StandardError => e
+      # It's ok if the state file doesn't exist or contains invalid data
+      # The state file will be rebuilt automatically
+      {}
+    end
+
+    # we do this atomically so the state file is always consistent
+    def write_data_to_state_file(data)
       tmp_state_file_path = @state_file_path + ".tmp"
-      File.write(tmp_state_file_path, JSON.pretty_generate(@seen))
+      File.write(tmp_state_file_path, JSON.pretty_generate(data))
       FileUtils.mv(tmp_state_file_path, @state_file_path)
     end
   end

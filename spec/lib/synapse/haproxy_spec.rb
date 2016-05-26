@@ -134,6 +134,66 @@ describe Synapse::Haproxy do
     end
   end
 
+  describe '#update_state_file' do
+    let(:watchers) { [mockwatcher, mockwatcher_with_server_options] }
+    let(:state_file_ttl) { 60 } # seconds
+
+    before do
+      config['haproxy']['state_file_path'] = '/statefile'
+      config['haproxy']['state_file_ttl'] = state_file_ttl
+      allow(subject).to receive(:write_data_to_state_file)
+    end
+
+    it 'adds backends along with timestamps' do
+      subject.update_state_file(watchers)
+      data = subject.send(:seen)
+
+      watcher_names = watchers.map{ |w| w.name }
+      expect(data.keys).to contain_exactly(*watcher_names)
+
+      watchers.each do |watcher|
+        backend_names = watcher.backends.map{ |b| subject.construct_name(b) }
+        expect(data[watcher.name].keys).to contain_exactly(*backend_names)
+
+        backend_names.each do |backend_name|
+          expect(data[watcher.name][backend_name]).to include('timestamp')
+        end
+      end
+    end
+
+    context 'when the state file contains backends not in the watcher' do
+      it 'keeps them in the config' do
+        subject.update_state_file(watchers)
+
+        expect do
+          watchers.each do |watcher|
+            allow(watcher).to receive(:backends).and_return([])
+          end
+          subject.update_state_file(watchers)
+        end.to_not change { subject.send(:seen) }
+      end
+
+      context 'if those backends are stale' do
+        it 'removes those backends' do
+          subject.update_state_file(watchers)
+
+          watchers.each do |watcher|
+            allow(watcher).to receive(:backends).and_return([])
+          end
+
+          # the final +1 puts us over the expiry limit
+          Timecop.travel(Time.now + state_file_ttl + 1) do
+            subject.update_state_file(watchers)
+            data = subject.send(:seen)
+            watchers.each do |watcher|
+              expect(data[watcher.name]).to be_empty
+            end
+          end
+        end
+      end
+    end
+  end
+
   it 'generates backend stanza' do
     mockConfig = []
     expect(subject.generate_backend_stanza(mockwatcher, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2"]])
