@@ -202,16 +202,39 @@ describe Synapse::Haproxy do
   describe 'generate backend stanza in correct order' do
     let(:multiple_backends_stanza_map) do
       {
-        'asc' => ["\nbackend example_service", [], ["\tserver somehost1:5555 somehost1:5555 cookie somehost1:5555 check inter 2000 rise 3 fall 2", "\tserver somehost2:5555 somehost2:5555 cookie somehost2:5555 check inter 2000 rise 3 fall 2", "\tserver somehost3:5555 somehost3:5555 cookie somehost3:5555 check inter 2000 rise 3 fall 2"]],
-        'desc' => ["\nbackend example_service", [], ["\tserver somehost3:5555 somehost3:5555 cookie somehost3:5555 check inter 2000 rise 3 fall 2", "\tserver somehost2:5555 somehost2:5555 cookie somehost2:5555 check inter 2000 rise 3 fall 2", "\tserver somehost1:5555 somehost1:5555 cookie somehost1:5555 check inter 2000 rise 3 fall 2"]],
-        'no_shuffle' => ["\nbackend example_service", [], ["\tserver somehost1:5555 somehost1:5555 cookie somehost1:5555 check inter 2000 rise 3 fall 2", "\tserver somehost3:5555 somehost3:5555 cookie somehost3:5555 check inter 2000 rise 3 fall 2", "\tserver somehost2:5555 somehost2:5555 cookie somehost2:5555 check inter 2000 rise 3 fall 2"]]
+        'asc' => [
+          "\nbackend example_service",
+          [],
+          ["\tserver somehost1_10.11.11.11:5555 10.11.11.11:5555 cookie somehost1_10.11.11.11:5555 check inter 2000 rise 3 fall 2",
+           "\tserver somehost2_10.10.10.10:5555 10.10.10.10:5555 cookie somehost2_10.10.10.10:5555 check inter 2000 rise 3 fall 2",
+           "\tserver somehost3_10.22.22.22:5555 10.22.22.22:5555 cookie somehost3_10.22.22.22:5555 check inter 2000 rise 3 fall 2"
+          ]
+        ],
+        'desc' => [
+          "\nbackend example_service",
+          [],
+          ["\tserver somehost3_10.22.22.22:5555 10.22.22.22:5555 cookie somehost3_10.22.22.22:5555 check inter 2000 rise 3 fall 2",
+           "\tserver somehost2_10.10.10.10:5555 10.10.10.10:5555 cookie somehost2_10.10.10.10:5555 check inter 2000 rise 3 fall 2",
+           "\tserver somehost1_10.11.11.11:5555 10.11.11.11:5555 cookie somehost1_10.11.11.11:5555 check inter 2000 rise 3 fall 2"
+          ]
+        ],
+        'no_shuffle' => [
+          "\nbackend example_service",
+          [],
+          ["\tserver somehost1_10.11.11.11:5555 10.11.11.11:5555 cookie somehost1_10.11.11.11:5555 check inter 2000 rise 3 fall 2",
+           "\tserver somehost3_10.22.22.22:5555 10.22.22.22:5555 cookie somehost3_10.22.22.22:5555 check inter 2000 rise 3 fall 2",
+           "\tserver somehost2_10.10.10.10:5555 10.10.10.10:5555 cookie somehost2_10.10.10.10:5555 check inter 2000 rise 3 fall 2"
+          ]
+        ]
       }
     end
 
     let(:mockwatcher_with_multiple_backends) do
       mockWatcher = double(Synapse::ServiceWatcher)
       allow(mockWatcher).to receive(:name).and_return('example_service')
-      backends = [{ 'host' => 'somehost1', 'port' => 5555}, {'host' => 'somehost3', 'port' => 5555}, { 'host' => 'somehost2', 'port' => 5555}]
+      backends = [{ 'host' => '10.11.11.11', 'port' => 5555, 'name' => 'somehost1'},
+                  { 'host' => '10.22.22.22',   'port' => 5555, 'name' => 'somehost3'},
+                  { 'host' => '10.10.10.10',   'port' => 5555, 'name' => 'somehost2'}]
       allow(mockWatcher).to receive(:backends).and_return(backends)
       mockWatcher
     end
