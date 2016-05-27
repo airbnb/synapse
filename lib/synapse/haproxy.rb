@@ -874,7 +874,7 @@ module Synapse
     def construct_name(backend)
       name = "#{backend['host']}:#{backend['port']}"
       if backend['name'] && !backend['name'].empty?
-        name = "#{name}_#{backend['name']}"
+        name = "#{backend['name']}_#{name}"
       end
 
       return name
