@@ -1035,9 +1035,7 @@ module Synapse
       s.write(command)
       info = s.read
     ensure
-      if s
-        s.close
-      end
+      s.close if s
     end
 
     # tries to set active backends via haproxy's stats socket
