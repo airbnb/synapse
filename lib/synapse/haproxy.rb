@@ -1030,16 +1030,24 @@ module Synapse
       ]
     end
 
+    def haproxy_exec(command)
+      s = UNIXSocket.new(@opts['socket_file_path'])
+      s.write(command)
+      s.read
+    ensure
+      s.close if s
+    end
+
     # tries to set active backends via haproxy's stats socket
     # because we can't add backends via the socket, we might still need to restart haproxy
     def update_backends(watchers)
       # first, get a list of existing servers for various backends
       begin
-        s = UNIXSocket.new(@opts['socket_file_path'])
-        s.write("show stat\n")
-        info = s.read()
+        stat_command = "show stat\n"
+        info = haproxy_exec(stat_command)
       rescue StandardError => e
-        log.warn "synapse: unhandled error reading stats socket: #{e.inspect}"
+        log.warn "synapse: restart required because socket command #{stat_command} failed "\
+                 "with error #{e.inspect}"
         @restart_required = true
         return
       end
@@ -1090,15 +1098,15 @@ module Synapse
 
           # actually write the command to the socket
           begin
-            s = UNIXSocket.new(@opts['socket_file_path'])
-            s.write(command)
-            output = s.read()
+            output = haproxy_exec(command)
           rescue StandardError => e
-            log.warn "synapse: unknown error writing to socket"
+            log.warn "synapse: restart required because socket command #{command} failed with "\
+                     "error #{e.inspect}"
             @restart_required = true
           else
             unless output == "\n"
-              log.warn "synapse: socket command #{command} failed: #{output}"
+              log.warn "synapse: restart required because socket command #{command} failed with "\
+                      "output #{output}"
               @restart_required = true
             end
           end
