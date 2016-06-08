@@ -1030,19 +1030,33 @@ module Synapse
       ]
     end
 
+    def haproxy_exec(command)
+      info = nil
+      s = UNIXSocket.new(@opts['socket_file_path'])
+      s.write(command)
+      info = s.read
+    rescue StandardError => e
+      log.warn "synapse: unhandled error reading stats socket: #{e.inspect}"
+      @restart_required = true
+      nil
+    ensure
+      unless s.nil?
+        begin
+          s.close
+        rescue StandardError => e
+          log.warn "synapse: unhandled error closing stats socket: #{e.inspect}"
+        end
+      end
+      info
+    end
+
     # tries to set active backends via haproxy's stats socket
     # because we can't add backends via the socket, we might still need to restart haproxy
     def update_backends(watchers)
       # first, get a list of existing servers for various backends
-      begin
-        s = UNIXSocket.new(@opts['socket_file_path'])
-        s.write("show stat\n")
-        info = s.read()
-      rescue StandardError => e
-        log.warn "synapse: unhandled error reading stats socket: #{e.inspect}"
-        @restart_required = true
-        return
-      end
+      info = haproxy_exec("show stat\n")
+
+      return if info.nil?
 
       # parse the stats output to get current backends
       cur_backends = {}
@@ -1089,18 +1103,10 @@ module Synapse
           end
 
           # actually write the command to the socket
-          begin
-            s = UNIXSocket.new(@opts['socket_file_path'])
-            s.write(command)
-            output = s.read()
-          rescue StandardError => e
-            log.warn "synapse: unknown error writing to socket"
+          output = haproxy_exec(command)
+          unless output == "\n"
+            log.warn "synapse: socket command #{command} failed: #{output}"
             @restart_required = true
-          else
-            unless output == "\n"
-              log.warn "synapse: socket command #{command} failed: #{output}"
-              @restart_required = true
-            end
           end
         end
       end
