@@ -1031,32 +1031,28 @@ module Synapse
     end
 
     def haproxy_exec(command)
-      info = nil
       s = UNIXSocket.new(@opts['socket_file_path'])
       s.write(command)
       info = s.read
-    rescue StandardError => e
-      log.warn "synapse: unhandled error reading stats socket: #{e.inspect}"
-      @restart_required = true
-      nil
     ensure
-      unless s.nil?
-        begin
-          s.close
-        rescue StandardError => e
-          log.warn "synapse: unhandled error closing stats socket: #{e.inspect}"
-        end
+      if s
+        s.close
       end
-      info
     end
 
     # tries to set active backends via haproxy's stats socket
     # because we can't add backends via the socket, we might still need to restart haproxy
     def update_backends(watchers)
       # first, get a list of existing servers for various backends
-      info = haproxy_exec("show stat\n")
-
-      return if info.nil?
+      begin
+        stat_command = "show stat\n"
+        info = haproxy_exec(stat_command)
+      rescue StandardError => e
+        log.warn "synapse: restart required because socket command #{stat_command} failed "\
+                 "with error #{e.inspect}"
+        @restart_required = true
+        return
+      end
 
       # parse the stats output to get current backends
       cur_backends = {}
@@ -1103,10 +1099,18 @@ module Synapse
           end
 
           # actually write the command to the socket
-          output = haproxy_exec(command)
-          unless output == "\n"
-            log.warn "synapse: socket command #{command} failed: #{output}"
+          begin
+            output = haproxy_exec(command)
+          rescue StandardError => e
+            log.warn "synapse: restart required because socket command #{command} failed with "\
+                     "error #{e.inspect}"
             @restart_required = true
+          else
+            unless output == "\n"
+              log.warn "synapse: restart required because socket command #{command} failed with "\
+                      "output #{output}"
+              @restart_required = true
+            end
           end
         end
       end
