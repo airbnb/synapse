@@ -1033,7 +1033,7 @@ module Synapse
     def haproxy_exec(command)
       s = UNIXSocket.new(@opts['socket_file_path'])
       s.write(command)
-      info = s.read
+      s.read
     ensure
       s.close if s
     end
