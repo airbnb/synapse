@@ -66,15 +66,26 @@ describe Synapse::Haproxy do
     end
 
     context 'when we support socket updates' do
-      include_context 'generate_config is stubbed out'
+      let(:socket_file_path) { 'socket_file_path' }
       before do
         config['haproxy']['do_socket'] = true
-        config['haproxy']['socket_file_path'] = 'socket_file_path'
+        config['haproxy']['socket_file_path'] = socket_file_path
       end
 
+      include_context 'generate_config is stubbed out'
+
       it 'updates backends via the socket' do
-        expect(subject).to receive(:update_backends).with(watchers)
+        expect(subject).to receive(:update_backends_at).with(socket_file_path, watchers)
         subject.update_config(watchers)
+      end
+
+      context 'when we specify multiple stats sockets' do
+        let(:socket_file_path) { ['socket_file_path1', 'socket_file_path2'] }
+
+        it 'updates all of them' do
+          expect(subject).to receive(:update_backends_at).exactly(socket_file_path.count).times
+          subject.update_config(watchers)
+        end
       end
     end
 
@@ -83,7 +94,7 @@ describe Synapse::Haproxy do
       before { config['haproxy']['do_socket'] = false }
 
       it 'does not update the backends' do
-        expect(subject).to_not receive(:update_backends)
+        expect(subject).to_not receive(:update_backends_at)
         subject.update_config(watchers)
       end
     end
