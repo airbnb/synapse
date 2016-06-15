@@ -1119,7 +1119,7 @@ module Synapse
         end
       end
 
-      log.info "synapse: reconfigured haproxy"
+      log.info "synapse: reconfigured haproxy via #{socket_file_path}"
     end
 
     # writes the config
