@@ -29,7 +29,7 @@ class Synapse::ServiceWatcher
       end
     end
 
-    def start(initial_discover=true)
+    def start(initial_discover: true)
       @zk_hosts = @discovery['hosts'].sort.join(',')
 
       @watcher = nil
