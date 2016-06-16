@@ -815,6 +815,10 @@ module Synapse
       @opts['do_socket'] = true unless @opts.key?('do_socket')
       @opts['do_reloads'] = true unless @opts.key?('do_reloads')
 
+      # socket_file_path can be a string or a list
+      # lets make a new option which is always a list (plural)
+      @opts['socket_file_paths'] = [@opts['socket_file_path']].flatten
+
       # how to restart haproxy
       @restart_interval = @opts.fetch('restart_interval', 2).to_i
       @restart_jitter = @opts.fetch('restart_jitter', 0).to_f
@@ -850,7 +854,9 @@ module Synapse
     def update_config(watchers)
       # if we support updating backends, try that whenever possible
       if @opts['do_socket']
-        update_backends(watchers)
+        @opts['socket_file_paths'].each do |socket_path|
+          update_backends_at(socket_path, watchers)
+        end
       else
         @restart_required = true
       end
@@ -1030,8 +1036,8 @@ module Synapse
       ]
     end
 
-    def haproxy_exec(command)
-      s = UNIXSocket.new(@opts['socket_file_path'])
+    def talk_to_socket(socket_file_path, command)
+      s = UNIXSocket.new(socket_file_path)
       s.write(command)
       s.read
     ensure
@@ -1040,11 +1046,11 @@ module Synapse
 
     # tries to set active backends via haproxy's stats socket
     # because we can't add backends via the socket, we might still need to restart haproxy
-    def update_backends(watchers)
+    def update_backends_at(socket_file_path, watchers)
       # first, get a list of existing servers for various backends
       begin
         stat_command = "show stat\n"
-        info = haproxy_exec(stat_command)
+        info = talk_to_socket(socket_file_path, stat_command)
       rescue StandardError => e
         log.warn "synapse: restart required because socket command #{stat_command} failed "\
                  "with error #{e.inspect}"
@@ -1098,7 +1104,7 @@ module Synapse
 
           # actually write the command to the socket
           begin
-            output = haproxy_exec(command)
+            output = talk_to_socket(socket_file_path, command)
           rescue StandardError => e
             log.warn "synapse: restart required because socket command #{command} failed with "\
                      "error #{e.inspect}"
@@ -1113,7 +1119,7 @@ module Synapse
         end
       end
 
-      log.info "synapse: reconfigured haproxy"
+      log.info "synapse: reconfigured haproxy via #{socket_file_path}"
     end
 
     # writes the config

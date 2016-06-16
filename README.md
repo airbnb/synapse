@@ -284,6 +284,7 @@ The top level `haproxy` section of the config file has the following options:
 * `do_writes`: whether or not the config file will be written (default to `true`)
 * `do_reloads`: whether or not Synapse will reload HAProxy (default to `true`)
 * `do_socket`: whether or not Synapse will use the HAProxy socket commands to prevent reloads (default to `true`)
+* `socket_file_path`: where to find the haproxy stats socket. can be a list (if using `nbproc`)
 * `global`: options listed here will be written into the `global` section of the HAProxy config
 * `defaults`: options listed here will be written into the `defaults` section of the HAProxy config
 * `extra_sections`: additional, manually-configured `frontend`, `backend`, or `listen` stanzas
@@ -332,7 +333,9 @@ For example:
    - "bind 127.0.0.1:8081"
   reload_command: "service haproxy reload"
   config_file_path: "/etc/haproxy/haproxy.cfg"
-  socket_file_path: "/var/run/haproxy.sock"
+  socket_file_path:
+    - /var/run/haproxy.sock
+    - /var/run/haproxy2.sock
   global:
    - "daemon"
    - "user    haproxy"
