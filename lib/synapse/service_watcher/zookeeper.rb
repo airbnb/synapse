@@ -29,7 +29,7 @@ class Synapse::ServiceWatcher
       end
     end
 
-    def start(initial_discover: true)
+    def start(initial_discover=true)
       @zk_hosts = @discovery['hosts'].sort.join(',')
 
       @watcher = nil
@@ -51,8 +51,7 @@ class Synapse::ServiceWatcher
     end
 
     def read_zk
-      new_backends = []
-      @zk.children(@discovery['path'], :watch => true).each do |id|
+      @zk.children(@discovery['path'], :watch => true).collect do |id|
         node = @zk.get("#{@discovery['path']}/#{id}")
 
         begin
@@ -60,6 +59,7 @@ class Synapse::ServiceWatcher
           host, port, name, weight, haproxy_server_options, labels = deserialize_service_instance(node.first)
         rescue StandardError => e
           log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
+          nil
         else
           server_port = @haproxy['server_port_override'] ? @haproxy['server_port_override'] : port
 
@@ -68,14 +68,14 @@ class Synapse::ServiceWatcher
           numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
 
           log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
-          new_backends << {
+          {
             'name' => name, 'host' => host, 'port' => server_port,
             'id' => numeric_id, 'weight' => weight,
             'haproxy_server_options' => haproxy_server_options,
             'labels' => labels
           }
         end
-      end
+      end.compact
     end
 
     private
@@ -260,4 +260,3 @@ class Synapse::ServiceWatcher
     end
   end
 end
-
