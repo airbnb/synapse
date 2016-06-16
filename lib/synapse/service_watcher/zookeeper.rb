@@ -50,7 +50,7 @@ class Synapse::ServiceWatcher
       @zk && @zk.connected?
     end
 
-    def read_zk
+    def read
       @zk.children(@discovery['path'], :watch => true).collect do |id|
         node = @zk.get("#{@discovery['path']}/#{id}")
 
@@ -152,7 +152,7 @@ class Synapse::ServiceWatcher
     # find the current backends at the discovery path
     def discover
       log.info "synapse: discovering backends for service #{@name}"
-      new_backends = read_zk
+      new_backends = read
       set_backends(new_backends)
     end
 

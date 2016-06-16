@@ -8,4 +8,4 @@ watcher = Synapse::ServiceWatcher.create('', {
   'haproxy' => {},
 }, {})
 watcher.start(initial_discover: false)
-puts JSON.pretty_generate(watcher.read_zk)
+puts JSON.pretty_generate(watcher.read)
