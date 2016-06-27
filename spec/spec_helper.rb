@@ -13,6 +13,16 @@ require 'webmock/rspec'
 require 'timecop'
 Timecop.safe_mode = true
 
+# configure factory girl
+require 'factory_girl'
+RSpec.configure do |config|
+  config.include FactoryGirl::Syntax::Methods
+  config.before(:suite) do
+    FactoryGirl.find_definitions
+  end
+end
+
+# general RSpec config
 RSpec.configure do |config|
   config.run_all_when_everything_filtered = true
   config.filter_run :focus

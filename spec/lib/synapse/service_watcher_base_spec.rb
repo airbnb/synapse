@@ -124,13 +124,12 @@ describe Synapse::ServiceWatcher::BaseWatcher do
       ] }
 
       let(:condition) { 'equals' }
+      let(:label_filters) { [{ 'condition' => condition, 'label' => 'az', 'value' => 'us-east-1a' }] }
       let(:args) do
         testargs.merge({
           'discovery' => {
             'method' => 'base',
-            'label_filters' => [
-              { 'condition' => condition, 'label' => 'az', 'value' => 'us-east-1a' },
-            ]
+            'label_filters' => label_filters,
           }
         })
       end
@@ -150,6 +149,38 @@ describe Synapse::ServiceWatcher::BaseWatcher do
           subject.send(:set_backends, matching_labeled_backends + non_matching_labeled_backends +
                        non_labeled_backends)
           expect(subject.backends).to contain_exactly(*(non_labeled_backends + non_matching_labeled_backends))
+        end
+      end
+
+      context 'with multiple conditions' do
+        let(:matching_az) { 'az1' }
+        let(:matching_region) { 'region1' }
+        let(:label_filters) do
+          [
+            { 'condition' => 'equals', 'label' => 'az', 'value' => matching_az },
+            { 'condition' => 'equals', 'label' => 'region', 'value' => matching_region },
+          ]
+        end
+
+        let(:matching_labels) { [{'az' => matching_az, 'region' => matching_region}] * 2 }
+        let(:non_matching_labels) do [
+            {},
+            {'az' => matching_az, 'region' => 'non-matching'},
+            {'az' => 'non-matching', 'region' => matching_region},
+            {'az' => 'non-matching', 'region' => 'non-matching'},
+          ] end
+
+        let(:matching_backends) do
+          matching_labels.map{ |l| FactoryGirl.build(:backend, :labels => l) }
+        end
+        let(:non_matching_backends) do
+          non_matching_labels.map{ |l| FactoryGirl.build(:backend, :labels => l) }
+        end
+
+        it 'returns only backends that match all labels' do
+          expect(subject).to receive(:'reconfigure!').exactly(:once)
+          subject.send(:set_backends, matching_backends + non_matching_backends)
+          expect(subject.backends).to contain_exactly(*matching_backends)
         end
       end
     end
