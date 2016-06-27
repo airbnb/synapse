@@ -152,16 +152,17 @@ The base watcher is useful in situations where you only want to use the servers 
 It has the following options:
 
 * `method`: base
-* `label_filter`: optional filter to be applied to discovered service nodes
+* `label_filters`: optional list of filters to be applied to discovered service nodes
 
 ###### Filtering service nodes ######
-Synapse can be configured to only return service nodes that match a `label_filter` predicate. If provided, the `label_filter` hash should contain the following:
 
-* `label`: The label for which the filter is applied
+Synapse can be configured to only return service nodes that match a `label_filters` predicate. If provided, `label_filters` should be an array of hashes which contain the following:
+
+* `label`: The name of the label for which the filter is applied
 * `value`: The comparison value
-* `condition` (one of ['`equals`']): The type of filter condition to be applied. Only `equals` is supported at present
+* `condition` (one of ['`equals`', '`not-equals`']): The type of filter condition to be applied.
 
-Given a `label_filter`: `{ "label": "cluster", "value": "dev", "condition": "equals" }`, this will return only service nodes that contain the label value `{ "cluster": "dev" }`.
+Given a `label_filters`: `[{ "label": "cluster", "value": "dev", "condition": "equals" }]`, this will return only service nodes that contain the label value `{ "cluster": "dev" }`.
 
 ##### Zookeeper #####
 

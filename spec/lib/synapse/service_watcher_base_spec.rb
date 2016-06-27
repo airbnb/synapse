@@ -122,17 +122,35 @@ describe Synapse::ServiceWatcher::BaseWatcher do
       let(:non_labeled_backends) { [
         { 'name' => 'server5', 'host' => 'server5', 'port' => 5555 },
       ] }
-      let(:args) {
-        testargs.merge({ 'discovery' => {
-          'method' => 'base',
-          'label_filter' => { 'condition' => 'equals', 'label' => 'az', 'value' => 'us-east-1a' } }
+
+      let(:condition) { 'equals' }
+      let(:args) do
+        testargs.merge({
+          'discovery' => {
+            'method' => 'base',
+            'label_filters' => [
+              { 'condition' => condition, 'label' => 'az', 'value' => 'us-east-1a' },
+            ]
+          }
         })
-      }
+      end
+
       it 'removes all backends that do not match the label_filter' do
         expect(subject).to receive(:'reconfigure!').exactly(:once)
         subject.send(:set_backends, matching_labeled_backends + non_matching_labeled_backends +
                      non_labeled_backends)
-        expect(subject.backends).to eq(matching_labeled_backends)
+        expect(subject.backends).to contain_exactly(*matching_labeled_backends)
+      end
+
+      context 'when the condition is not-equals' do
+        let(:condition) { 'not-equals' }
+
+        it 'removes all backends that DO match the label_filter' do
+          expect(subject).to receive(:'reconfigure!').exactly(:once)
+          subject.send(:set_backends, matching_labeled_backends + non_matching_labeled_backends +
+                       non_labeled_backends)
+          expect(subject.backends).to contain_exactly(*(non_labeled_backends + non_matching_labeled_backends))
+        end
       end
     end
   end
