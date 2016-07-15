@@ -1,9 +1,10 @@
 require 'spec_helper'
+require 'synapse/config_generator/haproxy'
 
 class MockWatcher; end;
 
-describe Synapse::Haproxy do
-  subject { Synapse::Haproxy.new(config['haproxy']) }
+describe Synapse::ConfigGenerator::Haproxy do
+  subject { Synapse::ConfigGenerator::Haproxy.new(config['haproxy']) }
 
   let(:mockwatcher) do
     mockWatcher = double(Synapse::ServiceWatcher)

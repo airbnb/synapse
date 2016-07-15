@@ -1,12 +1,13 @@
+require 'synapse/config_generator/base'
+
 require 'fileutils'
 require 'json'
 require 'socket'
 require 'digest/sha1'
 
-module Synapse
-  class Haproxy
-    include Logging
-    attr_reader :opts
+class Synapse::ConfigGenerator
+  class Haproxy < BaseGenerator
+    include Synapse::Logging
 
     # these come from the documentation for haproxy (1.5 and 1.6)
     # http://haproxy.1wt.eu/download/1.5/doc/configuration.txt
@@ -792,8 +793,6 @@ module Synapse
     STATE_FILE_UPDATE_INTERVAL = 60.freeze # iterations; not a unit of time
 
     def initialize(opts)
-      super()
-
       %w{global defaults reload_command}.each do |req|
         raise ArgumentError, "haproxy requires a #{req} section" if !opts.has_key?(req)
       end
@@ -810,6 +809,7 @@ module Synapse
       end
 
       @opts = opts
+      @name = 'haproxy'
 
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
@@ -833,10 +833,6 @@ module Synapse
 
       @state_file_path = @opts['state_file_path']
       @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
-    end
-
-    def name
-      'haproxy'
     end
 
     def tick(watchers)

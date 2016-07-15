@@ -1,10 +1,11 @@
+require 'synapse/config_generator/base'
+
 require 'fileutils'
 require 'tempfile'
 
-module Synapse
-  class FileOutput
-    include Logging
-    attr_reader :opts, :name
+class Synapse::ConfigGenerator
+  class FileOutput < BaseGenerator
+    include Synapse::Logging
 
     def initialize(opts)
       unless opts.has_key?("output_directory")

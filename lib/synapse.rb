@@ -1,11 +1,10 @@
 require 'logger'
 require 'json'
 
-require "synapse/version"
-require "synapse/log"
-require "synapse/haproxy"
-require "synapse/file_output"
-require "synapse/service_watcher"
+require 'synapse/version'
+require 'synapse/log'
+require 'synapse/config_generator'
+require 'synapse/service_watcher'
 
 
 module Synapse
@@ -13,22 +12,24 @@ module Synapse
 
     include Logging
 
+    def create_config_generators(opts)
+      config_generators = []
+      opts.each do |type, generator_opts|
+        # Skip the "services" top level key
+        next if type == 'services'
+        config_generators << ConfigGenerator.create(type, generator_opts)
+      end
+      config_generators
+    end
+
     def initialize(opts={})
       # create the service watchers for all our services
       raise "specify a list of services to connect in the config" unless opts.has_key?('services')
       @service_watchers = create_service_watchers(opts['services'])
 
       # create objects that need to be notified of service changes
-      @config_generators = []
-      # create the haproxy config generator, this is mandatory
-      raise "haproxy config section is missing" unless opts.has_key?('haproxy')
-      @config_generators << Haproxy.new(opts['haproxy'])
-
-      # possibly create a file manifestation for services that do not
-      # want to communicate via haproxy, e.g. cassandra
-      if opts.has_key?('file_output')
-        @config_generators << FileOutput.new(opts['file_output'])
-      end
+      @config_generators = create_config_generators(opts)
+      raise "no config generators supplied" if @config_generators.empty?
 
       # configuration is initially enabled to configure on first loop
       @config_updated = true
