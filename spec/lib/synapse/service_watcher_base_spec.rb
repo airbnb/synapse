@@ -111,28 +111,70 @@ describe Synapse::ServiceWatcher::BaseWatcher do
     end
 
     context 'with label_filter set' do
-      let(:matching_labeled_backends) { [
-        { 'name' => 'server1', 'host' => 'server1', 'port' => 1111, 'labels' => { 'az' => 'us-east-1a' } },
-        { 'name' => 'server2', 'host' => 'server2', 'port' => 2222, 'labels' => { 'az' => 'us-east-1a' } },
-      ] }
-      let(:non_matching_labeled_backends) { [
-        { 'name' => 'server3', 'host' => 'server3', 'port' => 3333, 'labels' => { 'az' => 'us-west-1c' } },
-        { 'name' => 'server4', 'host' => 'server4', 'port' => 4444, 'labels' => { 'az' => 'us-west-2a' } },
-      ] }
-      let(:non_labeled_backends) { [
-        { 'name' => 'server5', 'host' => 'server5', 'port' => 5555 },
-      ] }
-      let(:args) {
-        testargs.merge({ 'discovery' => {
-          'method' => 'base',
-          'label_filter' => { 'condition' => 'equals', 'label' => 'az', 'value' => 'us-east-1a' } }
-        })
-      }
-      it 'removes all backends that do not match the label_filter' do
+      let(:matching_az) { 'us-east-1a' }
+      let(:matching_labels) { [{'az' => matching_az}] * 2 }
+      let(:non_matching_labels) { [{'az' => 'us-east-1b'}, {'az' => 'us-west-1a'}] }
+
+      let(:matching_labeled_backends) do
+        matching_labels.map{ |l| FactoryGirl.build(:backend, :labels => l) }
+      end
+      let(:non_matching_labeled_backends) do
+        non_matching_labels.map{ |l| FactoryGirl.build(:backend, :labels => l) }
+      end
+      let(:non_labeled_backends) do
+        [FactoryGirl.build(:backend, :labels => {})]
+      end
+
+      before do
         expect(subject).to receive(:'reconfigure!').exactly(:once)
-        subject.send(:set_backends, matching_labeled_backends + non_matching_labeled_backends +
-                     non_labeled_backends)
-        expect(subject.backends).to eq(matching_labeled_backends)
+        subject.send(:set_backends,
+          matching_labeled_backends + non_matching_labeled_backends + non_labeled_backends)
+      end
+
+      let(:condition) { 'equals' }
+      let(:label_filters) { [{ 'condition' => condition, 'label' => 'az', 'value' => 'us-east-1a' }] }
+      let(:args) do
+        testargs.merge({
+          'discovery' => {
+            'method' => 'base',
+            'label_filters' => label_filters,
+          }
+        })
+      end
+
+      it 'removes all backends that do not match the label_filter' do
+        expect(subject.backends).to contain_exactly(*matching_labeled_backends)
+      end
+
+      context 'when the condition is not-equals' do
+        let(:condition) { 'not-equals' }
+
+        it 'removes all backends that DO match the label_filter' do
+          expect(subject.backends).to contain_exactly(*(non_labeled_backends + non_matching_labeled_backends))
+        end
+      end
+
+      context 'with multiple labels and conditions conditions' do
+        let(:matching_region) { 'region1' }
+        let(:matching_labels) { [{'az' => matching_az, 'region' => matching_region}] * 2 }
+        let(:non_matching_labels) do
+          [
+            {'az' => matching_az, 'region' => 'non-matching'},
+            {'az' => 'non-matching', 'region' => matching_region},
+            {'az' => 'non-matching', 'region' => 'non-matching'},
+          ]
+        end
+
+        let(:label_filters) do
+          [
+            { 'condition' => 'equals', 'label' => 'az', 'value' => matching_az },
+            { 'condition' => 'equals', 'label' => 'region', 'value' => matching_region },
+          ]
+        end
+
+        it 'returns only backends that match all labels' do
+          expect(subject.backends).to contain_exactly(*matching_labeled_backends)
+        end
       end
     end
   end

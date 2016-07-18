@@ -21,7 +21,14 @@ class Synapse::ServiceWatcher
 
       @name = opts['name']
       @discovery = opts['discovery']
-      @label_filter = @discovery['label_filter'] || false
+
+      # deprecated singular filter
+      @singular_label_filter = @discovery['label_filter']
+      unless @singular_label_filter.nil?
+        log.warn "synapse: `label_filter` parameter is deprecated; use `label_filters` -- an array"
+      end
+
+      @label_filters = [@singular_label_filter, @discovery['label_filters']].flatten.compact
 
       @leader_election = opts['leader_election'] || false
       @leader_last_warn = Time.now - LEADER_WARN_INTERVAL
@@ -73,25 +80,36 @@ class Synapse::ServiceWatcher
     end
 
     def backends
+      filtered = backends_filtered_by_labels
+
       if @leader_election
-        if @backends.all?{|b| b.key?('id') && b['id']}
-          smallest = @backends.sort_by{ |b| b['id']}.first
-          log.debug "synapse: leader election chose one of #{@backends.count} backends " \
+        failure_warning = nil
+        if filtered.empty?
+          failure_warning = "synapse: service #{@name}: leader election failed: no backends to choose from"
+        end
+
+        all_backends_have_ids = filtered.all?{|b| b.key?('id') && b['id']}
+        unless all_backends_have_ids
+          failure_warning = "synapse: service #{@name}: leader election failed; not all backends include an id"
+        end
+
+        # no problems encountered, lets do the leader election
+        if failure_warning.nil?
+          smallest = filtered.sort_by{ |b| b['id']}.first
+          log.debug "synapse: leader election chose one of #{filtered.count} backends " \
             "(#{smallest['host']}:#{smallest['port']} with id #{smallest['id']})"
 
           return [smallest]
-        elsif (Time.now - @leader_last_warn) > LEADER_WARN_INTERVAL
-          log.warn "synapse: service #{@name}: leader election failed; not all backends include an id"
-          @leader_last_warn = Time.now
-        end
 
-        # if leader election fails, return no backends
-        return []
-      elsif @label_filter
-        return filter_backends_by_label(@backends, @label_filter)
+        # we had some sort of problem, lets log about it
+        elsif (Time.now - @leader_last_warn) > LEADER_WARN_INTERVAL
+          @leader_last_warn = Time.now
+          log.warn failure_warning
+          return []
+        end
       end
 
-      return @backends
+      return filtered
     end
 
     private
@@ -102,15 +120,16 @@ class Synapse::ServiceWatcher
       log.warn "synapse: warning: a stub watcher with no default servers is pretty useless" if @default_servers.empty?
     end
 
-    def filter_backends_by_label(backends, label_filter)
-      filtered_backends = []
-      backends.each do |backend|
+    def backends_filtered_by_labels
+      filtered_backends = @backends.select do |backend|
         backend_labels = backend['labels'] || {}
-        if label_filter['condition'] == 'equals' and backend_labels[label_filter['label']] == label_filter['value']
-          filtered_backends << backend
+        @label_filters.all? do |label_filter|
+          (label_filter['condition'] == 'equals' &&
+            backend_labels[label_filter['label']] == label_filter['value']) ||
+          (label_filter['condition'] == 'not-equals' &&
+            backend_labels[label_filter['label']] != label_filter['value'])
         end
       end
-      return filtered_backends
     end
 
     def set_backends(new_backends)
