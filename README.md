@@ -134,11 +134,16 @@ The file has three main sections.
 
 The `services` section is a hash, where the keys are the `name` of the service to be configured.
 The name is just a human-readable string; it will be used in logs and notifications.
-Each value in the services hash is also a hash, and should contain the following keys:
+Each value in the services hash is also a hash, and must contain the following keys:
 
 * [`discovery`](#discovery): how synapse will discover hosts providing this service (see below)
-* `default_servers`: the list of default servers providing this service; synapse uses these if no others can be discovered
 * [`haproxy`](#haproxysvc): how will the haproxy section for this service be configured
+
+The services hash may contain the following keys:
+
+* `default_servers`: the list of default servers providing this service; synapse uses these if no others can be discovered
+<a name="backend_port_override">
+* `backend_port_override`: the port that discovered servers listen on; you should specify this if your discovery mechanism only discovers names or addresses (like the DNS watcher or the Ec2TagWatcher). If the discovery method discovers a port along with hostnames (like the zookeeper watcher) this option may be left out, but will be used in preference if given.
 
 <a name="discovery"/>
 #### Service Discovery ####
@@ -214,9 +219,9 @@ It takes the following options:
   this is case-sensitive.
 * `tag_value`: the value to match on. Case-sensitive.
 
-Additionally, you MUST supply `server_port_override` in the `haproxy`
-section of the configuration as this watcher does not know which port
-the backend service is listening on.
+Additionally, you MUST supply [`backend_port_override`](#backend_port_override)
+in the service configuration as this watcher does not know which port the
+backend service is listening on.
 
 The following options are optional, provided the well-known `AWS_`
 environment variables shown are set. If supplied, these options will
@@ -265,7 +270,7 @@ This section is its own hash, which should contain the following keys:
 * `port`: the port (on localhost) where HAProxy will listen for connections to the service. If this is omitted, only a backend stanza (and no frontend stanza) will be generated for this service; you'll need to get traffic to your service yourself via the `shared_frontend` or manual frontends in `extra_sections`
 * `bind_address`: force HAProxy to listen on this address ( default is localhost ). Setting `bind_address` on a per service basis overrides the global `bind_address` in the top level `haproxy`. Having HAProxy listen for connections on different addresses ( example: service1 listen on 127.0.0.2:443 and service2 listen on 127.0.0.3:443) allows /etc/hosts entries to point to services.
 * `bind_options`: optional: default value is an empty string, specify additional bind parameters, such as ssl accept-proxy, crt, ciphers etc.
-* `server_port_override`: the port that discovered servers listen on; you should specify this if your discovery mechanism only discovers names or addresses (like the DNS watcher). If the discovery method discovers a port along with hostnames (like the zookeeper watcher) this option may be left out, but will be used in preference if given.
+* `server_port_override`: **DEPRECATED**. Renamed [`backend_port_override`](#backend_port_override) and moved to the top level hash. This will be removed in future versions.
 * `server_options`: the haproxy options for each `server` line of the service in HAProxy config; it may be left out.
 * `frontend`: additional lines passed to the HAProxy config in the `frontend` stanza of this service
 * `backend`: additional lines passed to the HAProxy config in the `backend` stanza of this service
