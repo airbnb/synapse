@@ -143,15 +143,13 @@ class Synapse::ServiceWatcher
         rescue StandardError => e
           log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
         else
-          server_port = @haproxy['server_port_override'] ? @haproxy['server_port_override'] : port
-
           # find the numberic id in the node name; used for leader elections if enabled
           numeric_id = id.split('_').last
           numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
 
-          log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
+          log.debug "synapse: discovered backend #{name} at #{host}:#{port} for service #{@name}"
           new_backends << {
-            'name' => name, 'host' => host, 'port' => server_port,
+            'name' => name, 'host' => host, 'port' => port,
             'id' => numeric_id, 'weight' => weight,
             'haproxy_server_options' => haproxy_server_options,
             'labels' => labels

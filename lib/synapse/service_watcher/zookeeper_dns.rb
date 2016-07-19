@@ -218,7 +218,6 @@ class Synapse::ServiceWatcher
     def mk_child_watcher_opts(discovery_opts)
       {
         'name' => @name,
-        'haproxy' => @haproxy,
         'discovery' => discovery_opts,
         'default_servers' => @default_servers,
       }
