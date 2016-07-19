@@ -12,24 +12,14 @@ module Synapse
 
     include Logging
 
-    def create_config_generators(opts)
-      config_generators = []
-      opts.each do |type, generator_opts|
-        # Skip the "services" top level key
-        next if type == 'services'
-        config_generators << ConfigGenerator.create(type, generator_opts)
-      end
-      config_generators
-    end
-
     def initialize(opts={})
-      # create the service watchers for all our services
-      raise "specify a list of services to connect in the config" unless opts.has_key?('services')
-      @service_watchers = create_service_watchers(opts['services'])
-
       # create objects that need to be notified of service changes
       @config_generators = create_config_generators(opts)
       raise "no config generators supplied" if @config_generators.empty?
+
+      # create the service watchers for all our services
+      raise "specify a list of services to connect in the config" unless opts.has_key?('services')
+      @service_watchers = create_service_watchers(opts['services'], @config_generators.keys)
 
       # configuration is initially enabled to configure on first loop
       @config_updated = true
@@ -86,6 +76,10 @@ module Synapse
       @config_updated = true
     end
 
+    def available_generators
+      Hash[@config_generators.collect{|cg| [cg.name, cg]}]
+    end
+
     private
     def create_service_watchers(services={})
       service_watchers =[]
@@ -96,5 +90,16 @@ module Synapse
       return service_watchers
     end
 
+    private
+    def create_config_generators(opts={})
+      config_generators = []
+      opts.each do |type, generator_opts|
+        # Skip the "services" top level key
+        next if type == 'services'
+        config_generators << ConfigGenerator.create(type, generator_opts)
+      end
+
+      return config_generators
+    end
   end
 end

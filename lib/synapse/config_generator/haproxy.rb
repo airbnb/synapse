@@ -835,6 +835,17 @@ class Synapse::ConfigGenerator
       @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
     end
 
+    def normalize_config_generator_opts!(service_watcher_name, service_watcher_opts)
+      service_watcher_opts['server_options'] ||= ""
+      service_watcher_opts['server_port_override'] ||= nil
+      %w{backend frontend listen}.each do |sec|
+        service_watcher_opts[sec] ||= []
+      end
+      unless service_watcher_opts.include?('port')
+        log.warn "synapse: service #{service_watcher_name}: haproxy config does not include a port; only backend sections for the service will be created; you must move traffic there manually using configuration in `extra_sections`"
+      end
+    end
+
     def tick(watchers)
       if (@time % STATE_FILE_UPDATE_INTERVAL) == 0
         update_state_file(watchers)
