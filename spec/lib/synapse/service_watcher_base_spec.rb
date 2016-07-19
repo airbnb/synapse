@@ -4,8 +4,17 @@ class Synapse::ServiceWatcher::BaseWatcher
   attr_reader :should_exit, :default_servers
 end
 
+def make_mock_synapse
+  mock_synapse = instance_double(Synapse::Synapse)
+  mockgenerator = Synapse::ConfigGenerator::BaseGenerator.new()
+  allow(mock_synapse).to receive(:available_generators).and_return({
+    'haproxy' => mockgenerator
+  })
+  mock_synapse
+end
+
 describe Synapse::ServiceWatcher::BaseWatcher do
-  let(:mocksynapse) { double() }
+  let(:mocksynapse) { make_mock_synapse() }
   subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse) }
   let(:testargs) { { 'name' => 'foo', 'discovery' => { 'method' => 'base' }, 'haproxy' => {} }}
 
@@ -20,7 +29,7 @@ describe Synapse::ServiceWatcher::BaseWatcher do
     it('can at least construct') { expect { subject }.not_to raise_error }
   end
 
-  ['name', 'discovery', 'haproxy'].each do |to_remove|
+  ['name', 'discovery'].each do |to_remove|
     context "without #{to_remove} argument" do
       let(:args) { remove_arg to_remove }
       it('gots bang') { expect { subject }.to raise_error(ArgumentError, "missing required option #{to_remove}") }

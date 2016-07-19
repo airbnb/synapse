@@ -6,8 +6,17 @@ class Synapse::ServiceWatcher::DockerWatcher
   attr_accessor :default_servers
 end
 
+def make_mock_synapse
+  mock_synapse = instance_double(Synapse::Synapse)
+  mockgenerator = Synapse::ConfigGenerator::BaseGenerator.new()
+  allow(mock_synapse).to receive(:available_generators).and_return({
+    'haproxy' => mockgenerator
+  })
+  mock_synapse
+end
+
 describe Synapse::ServiceWatcher::DockerWatcher do
-  let(:mocksynapse) { double() }
+  let(:mocksynapse) { make_mock_synapse() }
   subject { Synapse::ServiceWatcher::DockerWatcher.new(testargs, mocksynapse) }
   let(:testargs) { { 'name' => 'foo', 'discovery' => { 'method' => 'docker', 'servers' => [{'host' => 'server1.local', 'name' => 'mainserver'}], 'image_name' => 'mycool/image', 'container_port' => 6379 }, 'haproxy' => {} }}
   before(:each) do
