@@ -19,7 +19,7 @@ module Synapse
 
       # create the service watchers for all our services
       raise "specify a list of services to connect in the config" unless opts.has_key?('services')
-      @service_watchers = create_service_watchers(opts['services'], @config_generators.keys)
+      @service_watchers = create_service_watchers(opts['services'])
 
       # configuration is initially enabled to configure on first loop
       @config_updated = true
