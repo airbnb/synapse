@@ -7,7 +7,7 @@ class Synapse::ServiceWatcher
 
     LEADER_WARN_INTERVAL = 30
 
-    attr_reader :name, :config_generator_config
+    attr_reader :name, :generator_config
 
     def initialize(opts={}, synapse)
       super()
@@ -33,10 +33,10 @@ class Synapse::ServiceWatcher
       @leader_election = opts['leader_election'] || false
       @leader_last_warn = Time.now - LEADER_WARN_INTERVAL
 
-      @config_generator_config = {}
+      @generator_config = {}
       @synapse.available_generators.each do |generator_name, generator|
-        @config_generator_config[generator_name] = opts[generator_name] || {}
-        generator.normalize_config_generator_opts!(@name, @config_generator_config[generator_name])
+        @generator_config[generator_name] = opts[generator_name] || {}
+        generator.normalize_config_generator_opts!(@name, @generator_config[generator_name])
       end
 
       # set initial backends to default servers, if any
@@ -55,8 +55,8 @@ class Synapse::ServiceWatcher
 
       # For backwards compatability we support server_port_override
       # This will be removed in future versions
-      if @backend_port_override.nil? && @config_generator_config['haproxy']
-        @backend_port_override = @config_generator_config['haproxy']['server_port_override']
+      if @backend_port_override.nil? && @generator_config['haproxy']
+        @backend_port_override = @generator_config['haproxy']['server_port_override']
       end
 
       # set a flag used to tell the watchers to exit
@@ -67,8 +67,8 @@ class Synapse::ServiceWatcher
     end
 
     def haproxy
-      log.warn "synapse: service watcher #{@name} accessing watcher.haproxy. This is DEPRECATED and will be removed in future iterations, use watcher.config_generator_config['haproxy'] instead."
-      @config_generator_config['haproxy']
+      log.warn "synapse: service watcher #{@name} accessing watcher.haproxy. This is DEPRECATED and will be removed in future iterations, use watcher.generator_config['haproxy'] instead."
+      @generator_config['haproxy']
     end
 
     # this should be overridden to actually start your watcher

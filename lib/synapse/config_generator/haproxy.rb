@@ -887,11 +887,14 @@ class Synapse::ConfigGenerator
         @watcher_configs[watcher.name] ||= parse_watcher_config(watcher)
         new_config << generate_frontend_stanza(watcher, @watcher_configs[watcher.name]['frontend'])
         new_config << generate_backend_stanza(watcher, @watcher_configs[watcher.name]['backend'])
-        if watcher.haproxy.include?('shared_frontend')
+        if watcher.generator_config['haproxy'].include?('shared_frontend')
           if @opts['shared_frontend'] == nil
             log.warn "synapse: service #{watcher.name} contains a shared frontend section but the base config does not! skipping."
           else
-            shared_frontend_lines << validate_haproxy_stanza(watcher.haproxy['shared_frontend'].map{|l| "\t#{l}"}, "frontend", "shared frontend section for #{watcher.name}")
+            tabbed_shared_frontend = watcher.generator_config['haproxy']['shared_frontend'].map{|l| "\t#{l}"}
+            shared_frontend_lines << validate_haproxy_stanza(
+              tabbed_shared_frontend, "frontend", "shared frontend section for #{watcher.name}"
+            )
           end
         end
       end
@@ -938,11 +941,11 @@ class Synapse::ConfigGenerator
     def parse_watcher_config(watcher)
       config = {}
       %w{frontend backend}.each do |section|
-        config[section] = watcher.haproxy[section] || []
+        config[section] = watcher.generator_config['haproxy'][section] || []
 
         # copy over the settings from the 'listen' section that pertain to section
         config[section].concat(
-          watcher.haproxy['listen'].select {|setting|
+          watcher.generator_config['haproxy']['listen'].select {|setting|
             parsed_setting = setting.strip.gsub(/\s+/, ' ').downcase
             SECTION_FIELDS[section].any? {|field| parsed_setting.start_with?(field)}
           })
@@ -968,17 +971,28 @@ class Synapse::ConfigGenerator
 
     # generates an individual stanza for a particular watcher
     def generate_frontend_stanza(watcher, config)
-      unless watcher.haproxy.has_key?("port")
+      unless watcher.generator_config['haproxy'].has_key?("port")
         log.debug "synapse: not generating frontend stanza for watcher #{watcher.name} because it has no port defined"
         return []
+      else
+        port = watcher.generator_config['haproxy']['port']
       end
 
-      bo = watcher.haproxy['bind_options']
+      bind_options = watcher.generator_config['haproxy']['bind_options']
+      bind_options = bind_options.nil? ? '' : ' ' + bind_options
+
+      bind_address = (
+        watcher.generator_config['haproxy']['bind_address'] ||
+        @opts['bind_address'] ||
+        'localhost'
+      )
+      backend_name = watcher.generator_config['haproxy'].fetch('backend_name', watcher.name)
+
       stanza = [
         "\nfrontend #{watcher.name}",
         config.map {|c| "\t#{c}"},
-        "\tbind #{ watcher.haproxy['bind_address'] || @opts['bind_address'] || 'localhost'}:#{watcher.haproxy['port']}#{ bo.nil? ? '' : ' ' + bo}",
-        "\tdefault_backend #{watcher.haproxy.fetch('backend_name', watcher.name)}"
+        "\tbind #{bind_address}:#{port}#{bind_options}",
+        "\tdefault_backend #{backend_name}"
       ]
     end
 
@@ -1012,7 +1026,8 @@ class Synapse::ConfigGenerator
         log.debug "synapse: no backends found for watcher #{watcher.name}"
       end
 
-      keys = case watcher.haproxy['backend_order']
+      watcher_haproxy = watcher.generator_config['haproxy']
+      keys = case watcher_haproxy['backend_order']
       when 'asc'
         backends.keys.sort
       when 'desc'
@@ -1024,20 +1039,20 @@ class Synapse::ConfigGenerator
       end
 
       stanza = [
-        "\nbackend #{watcher.haproxy.fetch('backend_name', watcher.name)}",
+        "\nbackend #{watcher_haproxy.fetch('backend_name', watcher.name)}",
         config.map {|c| "\t#{c}"},
         keys.map {|backend_name|
           backend = backends[backend_name]
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
           unless config.include?('mode tcp')
-            b = case watcher.haproxy['cookie_value_method']
+            b = case watcher_haproxy['cookie_value_method']
             when 'hash'
               b = "#{b} cookie #{Digest::SHA1.hexdigest(backend_name)}"
             else
               b = "#{b} cookie #{backend_name}"
             end
           end
-          b = "#{b} #{watcher.haproxy['server_options']}" if watcher.haproxy['server_options']
+          b = "#{b} #{watcher_haproxy['server_options']}" if watcher_haproxy['server_options']
           b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options']
           b = "#{b} disabled" unless backend['enabled']
           b }
