@@ -3,16 +3,16 @@ require 'synapse/config_generator/base'
 
 module Synapse
   class ConfigGenerator
-    # the method which actually dispatches generator creation requests
+    # the type which actually dispatches generator creation requests
     def self.create(type, opts)
       generator = begin
-        method = type.downcase
-        require "synapse/config_generator/#{method}"
+        type = type.downcase
+        require "synapse/config_generator/#{type}"
         # haproxy => Haproxy, file_output => FileOutput, etc ...
-        method_class  = method.split('_').map{|x| x.capitalize}.join
-        self.const_get("#{method_class}")
+        type_class  = type.split('_').map{|x| x.capitalize}.join
+        self.const_get("#{type_class}")
       rescue Exception => e
-        raise ArgumentError, "Specified a config generator of #{method}, which could not be found: #{e}"
+        raise ArgumentError, "Specified a config generator of #{type}, which could not be found: #{e}"
       end
       return generator.new(opts)
     end
