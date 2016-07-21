@@ -1,11 +1,11 @@
 ## ConfigGenerator Classes
 
-Generators are the piece of Synapse that react to changes in Generators and
-and reflect those in local state. Generators should conform to the interface
-specified by `BaseGenerator` and when your generator has received
-an update from the service registry you should call
-`set_backends(new_backends)` to trigger a sync of your generator state with local
-HAProxy state.
+Generators are the piece of Synapse that react to changes in service
+registrations and actually reflect those changes in local state.
+Generators should conform to the interface specified by `BaseGenerator` and
+when your generator has received an update synapse via `update_config` it
+should sync the watcher state with the external configuration
+(e.g. HAProxy state)
 
 ```ruby
 require "synapse/config_generator/base"
