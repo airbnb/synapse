@@ -11,7 +11,9 @@ describe Synapse::ConfigGenerator::Haproxy do
     allow(mockWatcher).to receive(:name).and_return('example_service')
     backends = [{ 'host' => 'somehost', 'port' => 5555}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
-    allow(mockWatcher).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2"})
+    allow(mockWatcher).to receive(:generator_config).and_return({
+      'haproxy' => {'server_options' => "check inter 2000 rise 3 fall 2"}
+    })
     mockWatcher
   end
 
@@ -20,7 +22,9 @@ describe Synapse::ConfigGenerator::Haproxy do
     allow(mockWatcher).to receive(:name).and_return('example_service2')
     backends = [{ 'host' => 'somehost', 'port' => 5555, 'haproxy_server_options' => 'backup'}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
-    allow(mockWatcher).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2"})
+    allow(mockWatcher).to receive(:generator_config).and_return({
+      'haproxy' => {'server_options' => "check inter 2000 rise 3 fall 2"}
+    })
     mockWatcher
   end
 
@@ -29,14 +33,18 @@ describe Synapse::ConfigGenerator::Haproxy do
     allow(mockWatcher).to receive(:name).and_return('example_service3')
     backends = [{ 'host' => 'somehost', 'port' => 5555}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
-    allow(mockWatcher).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2", 'cookie_value_method' => 'hash'})
+    allow(mockWatcher).to receive(:generator_config).and_return({
+      'haproxy' => {'server_options' => "check inter 2000 rise 3 fall 2", 'cookie_value_method' => 'hash'}
+    })
     mockWatcher
   end
 
   let(:mockwatcher_frontend) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service4')
-    allow(mockWatcher).to receive(:haproxy).and_return('port' => 2200)
+    allow(mockWatcher).to receive(:generator_config).and_return({
+      'haproxy' => {'port' => 2200}
+    })
     mockWatcher
   end
 
@@ -50,7 +58,9 @@ describe Synapse::ConfigGenerator::Haproxy do
   let(:mockwatcher_frontend_with_bind_address) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service5')
-    allow(mockWatcher).to receive(:haproxy).and_return('port' => 2200, 'bind_address' => "127.0.0.3")
+    allow(mockWatcher).to receive(:generator_config).and_return({
+      'haproxy' => {'port' => 2200, 'bind_address' => "127.0.0.3"}
+    })
     mockWatcher
   end
 
@@ -262,7 +272,12 @@ describe Synapse::ConfigGenerator::Haproxy do
       context "when #{order_option} is specified for backend_order" do
         it 'generates backend stanza in correct order' do
           mockConfig = []
-          allow(mockwatcher_with_multiple_backends).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2", 'backend_order' => order_option})
+          allow(mockwatcher_with_multiple_backends).to receive(:generator_config).and_return({
+            'haproxy' => {
+              'server_options' => "check inter 2000 rise 3 fall 2",
+              'backend_order' => order_option
+            }
+          })
           expect(subject.generate_backend_stanza(mockwatcher_with_multiple_backends, mockConfig)).to eql(multiple_backends_stanza_map[order_option])
         end
       end
