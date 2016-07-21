@@ -136,7 +136,12 @@ The `services` section is a hash, where the keys are the `name` of the service t
 The name is just a human-readable string; it will be used in logs and notifications.
 Each value in the services hash is also a hash, and must contain the following keys:
 
-* [`discovery`](#discovery): how synapse will discover hosts providing this service (see below)
+* [`discovery`](#discovery): how synapse will discover hosts providing this service (see [below](#discovery))
+
+The services hash *should* contain a section on how to configure the routing/discovery
+component you wish to use for this particular service. The only choice currently
+is `haproxy`:
+
 * [`haproxy`](#haproxysvc): how will the haproxy section for this service be configured
 
 The services hash may contain the following keys:
@@ -419,3 +424,8 @@ Non-HTTP backends such as MySQL or RabbitMQ will obviously continue to need thei
 
 See the Service Watcher [README](lib/synapse/service_watcher/README.md) for
 how to add new Service Watchers.
+
+### Creating a Config Generator ###
+
+See the Config Generator [README](lib/synapse/config_generator/README.md) for
+how to add new Config Generators
