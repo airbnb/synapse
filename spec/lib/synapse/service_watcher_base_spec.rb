@@ -4,17 +4,15 @@ class Synapse::ServiceWatcher::BaseWatcher
   attr_reader :should_exit, :default_servers
 end
 
-def make_mock_synapse
-  mock_synapse = instance_double(Synapse::Synapse)
-  mockgenerator = Synapse::ConfigGenerator::BaseGenerator.new()
-  allow(mock_synapse).to receive(:available_generators).and_return({
-    'haproxy' => mockgenerator
-  })
-  mock_synapse
-end
-
 describe Synapse::ServiceWatcher::BaseWatcher do
-  let(:mocksynapse) { make_mock_synapse() }
+  let(:mocksynapse) do
+    mock_synapse = instance_double(Synapse::Synapse)
+    mockgenerator = Synapse::ConfigGenerator::BaseGenerator.new()
+    allow(mock_synapse).to receive(:available_generators).and_return({
+      'haproxy' => mockgenerator
+    })
+    mock_synapse
+  end
   subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse) }
   let(:testargs) { { 'name' => 'foo', 'discovery' => { 'method' => 'base' }, 'haproxy' => {} }}
 

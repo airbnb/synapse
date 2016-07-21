@@ -29,18 +29,16 @@ class FakeAWSInstance
   end
 end
 
-def make_mock_synapse_with_reconfigure
-  mock_synapse = instance_double(Synapse::Synapse)
-  mockgenerator = Synapse::ConfigGenerator::BaseGenerator.new()
-  allow(mock_synapse).to receive(:available_generators).and_return({
-    'haproxy' => mockgenerator
-  })
-  allow(mock_synapse).to receive(:reconfigure!).and_return(true)
-  mock_synapse
-end
-
 describe Synapse::ServiceWatcher::Ec2tagWatcher do
-  let(:mock_synapse) { make_mock_synapse_with_reconfigure() }
+  let(:mock_synapse) do
+    mock_synapse = instance_double(Synapse::Synapse)
+    mockgenerator = Synapse::ConfigGenerator::BaseGenerator.new()
+    allow(mock_synapse).to receive(:available_generators).and_return({
+      'haproxy' => mockgenerator
+    })
+    allow(mock_synapse).to receive(:reconfigure!).and_return(true)
+    mock_synapse
+  end
   subject { Synapse::ServiceWatcher::Ec2tagWatcher.new(basic_config, mock_synapse) }
 
   let(:basic_config) do

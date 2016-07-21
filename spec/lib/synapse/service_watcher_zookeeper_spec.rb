@@ -2,17 +2,15 @@ require 'spec_helper'
 require 'synapse/service_watcher/zookeeper'
 require 'synapse/service_watcher/zookeeper_dns'
 
-def make_mock_synapse
-  mock_synapse = instance_double(Synapse::Synapse)
-  mockgenerator = Synapse::ConfigGenerator::BaseGenerator.new()
-  allow(mock_synapse).to receive(:available_generators).and_return({
-    'haproxy' => mockgenerator
-  })
-  mock_synapse
-end
-
 describe Synapse::ServiceWatcher::ZookeeperWatcher do
-  let(:mock_synapse) { make_mock_synapse() }
+  let(:mock_synapse) do
+    mock_synapse = instance_double(Synapse::Synapse)
+    mockgenerator = Synapse::ConfigGenerator::BaseGenerator.new()
+    allow(mock_synapse).to receive(:available_generators).and_return({
+      'haproxy' => mockgenerator
+    })
+    mock_synapse
+  end
   let(:config) do
     {
       'name' => 'test',
