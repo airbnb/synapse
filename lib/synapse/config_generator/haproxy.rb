@@ -9,6 +9,8 @@ class Synapse::ConfigGenerator
   class Haproxy < BaseGenerator
     include Synapse::Logging
 
+    NAME = 'haproxy'.freeze
+
     # these come from the documentation for haproxy (1.5 and 1.6)
     # http://haproxy.1wt.eu/download/1.5/doc/configuration.txt
     # http://haproxy.1wt.eu/download/1.6/doc/configuration.txt
@@ -809,7 +811,6 @@ class Synapse::ConfigGenerator
       end
 
       @opts = opts
-      @name = 'haproxy'
 
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
@@ -1173,9 +1174,9 @@ class Synapse::ConfigGenerator
       @next_restart += rand(@restart_jitter * @restart_interval + 1)
 
       # do the actual restart
-      res = `#{opts['reload_command']}`.chomp
+      res = `#{@opts['reload_command']}`.chomp
       unless $?.success?
-        log.error "failed to reload haproxy via #{opts['reload_command']}: #{res}"
+        log.error "failed to reload haproxy via #{@opts['reload_command']}: #{res}"
         return
       end
       log.info "synapse: restarted haproxy"

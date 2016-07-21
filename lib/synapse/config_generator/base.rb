@@ -3,18 +3,26 @@ require 'synapse/log'
 class Synapse::ConfigGenerator
   class BaseGenerator
     include Synapse::Logging
-    attr_reader :name, :opts
 
-    # The synapse main loop will call this every tick
-    # of the logical clock (~1s). You can use this to intiate reloads
-    # or restarts in a rate limited fashion
-    def tick
+    NAME = 'base'.freeze
+
+    # Exposes NAME as 'name' so we can remain consistent with how we refer to
+    # service_watchers' by generator.name access (instead of
+    # generator.class::NAME) even though the names of generators don't change
+    def name
+      self.class::NAME
     end
 
     # The synapse main loop will call this any time watchers change, the
     # config_generator is responsible for diffing the passed watcher state
     # against the output configuration
     def update_config(watchers)
+    end
+
+    # The synapse main loop will call this every tick
+    # of the logical clock (~1s). You can use this to intiate reloads
+    # or restarts in a rate limited fashion
+    def tick
     end
 
     # Service watchers have a subsection of their ``services`` entry that is

@@ -7,6 +7,8 @@ class Synapse::ConfigGenerator
   class FileOutput < BaseGenerator
     include Synapse::Logging
 
+    NAME = 'file_output'.freeze
+
     def initialize(opts)
       unless opts.has_key?("output_directory")
         raise ArgumentError, "flat file generation requires an output_directory key"
@@ -19,7 +21,6 @@ class Synapse::ConfigGenerator
       end
 
       @opts = opts
-      @name = 'file_output'
     end
 
     def tick(watchers)

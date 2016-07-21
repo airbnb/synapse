@@ -77,7 +77,7 @@ module Synapse
     end
 
     def available_generators
-      Hash[@config_generators.collect{|cg| [cg.name, cg]}]
+      res = Hash[@config_generators.collect{|cg| [cg.name, cg]}]
     end
 
     private
