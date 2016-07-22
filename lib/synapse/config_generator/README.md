@@ -3,9 +3,9 @@
 Generators are the piece of Synapse that react to changes in service
 registrations and actually reflect those changes in local state.
 Generators should conform to the interface specified by `BaseGenerator` and
-when your generator has received an update synapse via `update_config` it
-should sync the watcher state with the external configuration
-(e.g. HAProxy state)
+when your generator has received an update from synapse via `update_config` it
+should sync the watcher state with the external configuration (e.g. HAProxy
+state)
 
 ```ruby
 require "synapse/config_generator/base"

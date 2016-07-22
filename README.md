@@ -138,7 +138,7 @@ Each value in the services hash is also a hash, and must contain the following k
 
 * [`discovery`](#discovery): how synapse will discover hosts providing this service (see [below](#discovery))
 
-The services hash *should* contain a section on how to configure the routing/discovery
+The services hash *should* contain a section on how to configure the routing
 component you wish to use for this particular service. The only choice currently
 is `haproxy`:
 
@@ -146,10 +146,10 @@ is `haproxy`:
 
 The services hash may contain the following keys:
 
-* `default_servers` (default: \[\]): the list of default servers providing this service; synapse uses these if no others can be discovered. See [Listing Default Servers](#defaultservers).
+* `default_servers` (default: `[]`): the list of default servers providing this service; synapse uses these if no others can be discovered. See [Listing Default Servers](#defaultservers).
 * `keep_default_servers` (default: false): whether default servers should be added to discovered services
 * `use_previous_backends` (default: true): if at any time the registry drops all backends, use previous backends we already know about.
-<a name="backend_port_override">
+<a name="backend_port_override"/>
 * `backend_port_override`: the port that discovered servers listen on; you should specify this if your discovery mechanism only discovers names or addresses (like the DNS watcher or the Ec2TagWatcher). If the discovery method discovers a port along with hostnames (like the zookeeper watcher) this option may be left out, but will be used in preference if given.
 
 <a name="discovery"/>
@@ -250,7 +250,7 @@ It takes the following options:
 * `check_interval`: How often to request the list of tasks from Marathon (default: 10 seconds)
 * `port_index`: Index of the backend port in the task's "ports" array. (default: 0)
 
-<a name=defaultservers>
+<a name="defaultservers"/>
 #### Listing Default Servers ####
 
 You may list a number of default servers providing a service.
