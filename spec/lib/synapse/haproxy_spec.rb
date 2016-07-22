@@ -64,6 +64,67 @@ describe Synapse::ConfigGenerator::Haproxy do
     mockWatcher
   end
 
+  describe 'validates arguments' do
+    it 'succeeds on minimal config' do
+      conf = {
+        'global' => [],
+        'defaults' => [],
+        'do_writes' => false,
+        'do_reloads' => false,
+        'do_socket' => false
+      }
+      Synapse::ConfigGenerator::Haproxy.new(conf)
+      expect{Synapse::ConfigGenerator::Haproxy.new(conf)}.not_to raise_error
+    end
+
+    it 'validates req_pairs' do
+      req_pairs = {
+        'do_writes' => 'config_file_path',
+        'do_socket' => 'socket_file_path',
+        'do_reloads' => 'reload_command'
+      }
+      valid_conf = {
+        'global' => [],
+        'defaults' => [],
+        'do_reloads' => false,
+        'do_socket' => false,
+        'do_writes' => false
+      }
+
+      req_pairs.each do |key, value|
+        conf = valid_conf.clone
+        conf[key] = true
+        expect{Synapse::ConfigGenerator::Haproxy.new(conf)}.
+          to raise_error(ArgumentError, "the `#{value}` option is required when `#{key}` is true")
+      end
+
+    end
+
+    it 'properly defaults do_writes, do_socket, do_reloads' do
+      conf = {
+        'global' => [],
+        'defaults' => [],
+        'config_file_path' => 'test_file',
+        'socket_file_path' => 'test_socket',
+        'reload_command' => 'test_reload'
+      }
+
+      expect{Synapse::ConfigGenerator::Haproxy.new(conf)}.not_to raise_error
+      haproxy = Synapse::ConfigGenerator::Haproxy.new(conf)
+      expect(haproxy.instance_variable_get(:@opts)['do_writes']).to eql(true)
+      expect(haproxy.instance_variable_get(:@opts)['do_socket']).to eql(true)
+      expect(haproxy.instance_variable_get(:@opts)['do_reloads']).to eql(true)
+    end
+
+    it 'complains when req_pairs are not passed at all' do
+      conf = {
+        'global' => [],
+        'defaults' => [],
+      }
+      expect{Synapse::ConfigGenerator::Haproxy.new(conf)}.to raise_error(ArgumentError)
+    end
+  end
+
   describe '#name' do
     it 'returns haproxy' do
       expect(subject.name).to eq('haproxy')

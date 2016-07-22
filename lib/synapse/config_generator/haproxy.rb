@@ -795,26 +795,26 @@ class Synapse::ConfigGenerator
     STATE_FILE_UPDATE_INTERVAL = 60.freeze # iterations; not a unit of time
 
     def initialize(opts)
-      %w{global defaults reload_command}.each do |req|
+      %w{global defaults}.each do |req|
         raise ArgumentError, "haproxy requires a #{req} section" if !opts.has_key?(req)
       end
-
-      req_pairs = {
-        'do_writes' => 'config_file_path',
-        'do_socket' => 'socket_file_path',
-        'do_reloads' => 'reload_command'}
-
-      req_pairs.each do |cond, req|
-        if opts[cond]
-          raise ArgumentError, "the `#{req}` option is required when `#{cond}` is true" unless opts[req]
-        end
-      end
-
       @opts = opts
 
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
       @opts['do_reloads'] = true unless @opts.key?('do_reloads')
+
+      req_pairs = {
+        'do_writes' => 'config_file_path',
+        'do_socket' => 'socket_file_path',
+        'do_reloads' => 'reload_command'
+      }
+
+      req_pairs.each do |cond, req|
+        if @opts[cond]
+          raise ArgumentError, "the `#{req}` option is required when `#{cond}` is true" unless @opts[req]
+        end
+      end
 
       # socket_file_path can be a string or a list
       # lets make a new option which is always a list (plural)
