@@ -29,14 +29,14 @@ class Synapse::ServiceWatcher
       end
     end
 
-    def start
+    def start(initial_discover=true)
       @zk_hosts = @discovery['hosts'].sort.join(',')
 
       @watcher = nil
       @zk = nil
 
       log.info "synapse: starting ZK watcher #{@name} @ hosts: #{@zk_hosts}, path: #{@discovery['path']}"
-      zk_connect
+      zk_connect(initial_discover)
     end
 
     def stop
@@ -48,6 +48,34 @@ class Synapse::ServiceWatcher
       # @zk being nil implies no session *or* a lost session, do not remove
       # the check on @zk being truthy
       @zk && @zk.connected?
+    end
+
+    def read
+      @zk.children(@discovery['path'], :watch => true).collect do |id|
+        node = @zk.get("#{@discovery['path']}/#{id}")
+
+        begin
+          # TODO: Do less munging, or refactor out this processing
+          host, port, name, weight, haproxy_server_options, labels = deserialize_service_instance(node.first)
+        rescue StandardError => e
+          log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
+          nil
+        else
+          server_port = @haproxy['server_port_override'] ? @haproxy['server_port_override'] : port
+
+          # find the numberic id in the node name; used for leader elections if enabled
+          numeric_id = id.split('_').last
+          numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
+
+          log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
+          {
+            'name' => name, 'host' => host, 'port' => server_port,
+            'id' => numeric_id, 'weight' => weight,
+            'haproxy_server_options' => haproxy_server_options,
+            'labels' => labels
+          }
+        end
+      end.compact
     end
 
     private
@@ -124,33 +152,7 @@ class Synapse::ServiceWatcher
     # find the current backends at the discovery path
     def discover
       log.info "synapse: discovering backends for service #{@name}"
-
-      new_backends = []
-      @zk.children(@discovery['path'], :watch => true).each do |id|
-        node = @zk.get("#{@discovery['path']}/#{id}")
-
-        begin
-          # TODO: Do less munging, or refactor out this processing
-          host, port, name, weight, haproxy_server_options, labels = deserialize_service_instance(node.first)
-        rescue StandardError => e
-          log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
-        else
-          server_port = @haproxy['server_port_override'] ? @haproxy['server_port_override'] : port
-
-          # find the numberic id in the node name; used for leader elections if enabled
-          numeric_id = id.split('_').last
-          numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
-
-          log.debug "synapse: discovered backend #{name} at #{host}:#{server_port} for service #{@name}"
-          new_backends << {
-            'name' => name, 'host' => host, 'port' => server_port,
-            'id' => numeric_id, 'weight' => weight,
-            'haproxy_server_options' => haproxy_server_options,
-            'labels' => labels
-          }
-        end
-      end
-
+      new_backends = read
       set_backends(new_backends)
     end
 
@@ -206,7 +208,7 @@ class Synapse::ServiceWatcher
       log.info "synapse: zookeeper watcher cleaned up successfully"
     end
 
-    def zk_connect
+    def zk_connect(initial_discover)
       log.info "synapse: zookeeper watcher connecting to ZK at #{@zk_hosts}"
 
       # Ensure that all Zookeeper watcher re-use a single zookeeper
@@ -236,8 +238,10 @@ class Synapse::ServiceWatcher
       # the path must exist, otherwise watch callbacks will not work
       create(@discovery['path'])
 
-      # call the callback to bootstrap the process
-      watcher_callback.call
+      if initial_discover
+        # call the callback to bootstrap the process
+        watcher_callback.call
+      end
     end
 
     # decode the data at a zookeeper endpoint
@@ -256,4 +260,3 @@ class Synapse::ServiceWatcher
     end
   end
 end
-

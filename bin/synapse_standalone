@@ -1,0 +1,11 @@
+#!/usr/bin/env ruby
+require "json"
+require "synapse/service_watcher"
+
+service_data = JSON.parse(ARGV[0])
+watcher = Synapse::ServiceWatcher.create('', {
+  "discovery" => service_data,
+  'haproxy' => {},
+}, {})
+watcher.start(initial_discover: false)
+puts JSON.pretty_generate(watcher.read)
