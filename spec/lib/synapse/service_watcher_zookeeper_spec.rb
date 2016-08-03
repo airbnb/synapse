@@ -29,10 +29,41 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
   }
 
   context 'ZookeeperWatcher' do
-    let(:discovery) { { 'method' => 'zookeeper', 'hosts' => 'somehost','path' => 'some/path' } }
+    let(:discovery) { { 'method' => 'zookeeper', 'hosts' => 'somehost', 'path' => 'some/path' } }
+    let(:mock_zk) { double(ZK) }
+    let(:mock_node) do
+      node_double = double()
+      allow(node_double).to receive(:first).and_return(service_data_string)
+      node_double
+    end
+
     subject { Synapse::ServiceWatcher::ZookeeperWatcher.new(config, mock_synapse) }
     it 'decodes data correctly' do
       expect(subject.send(:deserialize_service_instance, service_data_string)).to eql(deserialized_service_data)
+    end
+
+    it 'reacts to zk push events' do
+      expect(subject).to receive(:watch)
+      expect(subject).to receive(:discover).and_call_original
+      expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).and_return(
+        ["test_child_1"]
+      )
+      expect(mock_zk).to receive(:get).with('some/path/test_child_1').and_return(mock_node)
+      subject.instance_variable_set('@zk', mock_zk)
+      expect(subject).to receive(:set_backends).with([service_data.merge({'id' => 1})])
+      subject.send(:watcher_callback).call
+    end
+
+    it 'handles zk consistency issues' do
+      expect(subject).to receive(:watch)
+      expect(subject).to receive(:discover).and_call_original
+      expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).and_return(
+        ["test_child_1"]
+      )
+      expect(mock_zk).to receive(:get).with('some/path/test_child_1').and_raise(ZK::Exceptions::NoNode)
+      subject.instance_variable_set('@zk', mock_zk)
+      expect(subject).to receive(:set_backends).with([])
+      subject.send(:watcher_callback).call
     end
   end
 

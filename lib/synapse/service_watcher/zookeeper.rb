@@ -127,7 +127,15 @@ class Synapse::ServiceWatcher
 
       new_backends = []
       @zk.children(@discovery['path'], :watch => true).each do |id|
-        node = @zk.get("#{@discovery['path']}/#{id}")
+        begin
+          node = @zk.get("#{@discovery['path']}/#{id}")
+        rescue ZK::Exceptions::NoNode => e
+          # This can happen when the registry unregisters a service node between
+          # the call to @zk.children and @zk.get(path). ZK does not guarantee
+          # a read to ``get`` of a child returned by ``children`` will succeed
+          log.error("synapse: #{@discovery['path']}/#{id} disappeared before it could be read: #{e}")
+          next
+        end
 
         begin
           # TODO: Do less munging, or refactor out this processing
