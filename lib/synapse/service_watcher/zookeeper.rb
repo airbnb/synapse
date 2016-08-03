@@ -127,7 +127,12 @@ class Synapse::ServiceWatcher
 
       new_backends = []
       @zk.children(@discovery['path'], :watch => true).each do |id|
-        node = @zk.get("#{@discovery['path']}/#{id}")
+        begin
+          node = @zk.get("#{@discovery['path']}/#{id}")
+        rescue ZK::Exceptions::NoNode => e
+          log.error("synapse: consistency issue reading #{id} at #{@discovery['path']}: #{e}")
+          next
+        end
 
         begin
           # TODO: Do less munging, or refactor out this processing
