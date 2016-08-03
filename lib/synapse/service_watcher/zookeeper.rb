@@ -130,7 +130,10 @@ class Synapse::ServiceWatcher
         begin
           node = @zk.get("#{@discovery['path']}/#{id}")
         rescue ZK::Exceptions::NoNode => e
-          log.error("synapse: consistency issue reading #{id} at #{@discovery['path']}: #{e}")
+          # This can happen when the registry unregisters a service node between
+          # the call to @zk.children and @zk.get(path). ZK does not guarantee
+          # a read to ``get`` of a child returned by ``children`` will succeed
+          log.error("synapse: #{@discovery['path']}/#{id} disappeared before it could be read: #{e}")
           next
         end
 
