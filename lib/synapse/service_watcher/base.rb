@@ -7,7 +7,7 @@ class Synapse::ServiceWatcher
 
     LEADER_WARN_INTERVAL = 30
 
-    attr_reader :name, :haproxy
+    attr_reader :name, :haproxy, :backends
 
     def initialize(opts={}, synapse)
       super()
@@ -79,40 +79,8 @@ class Synapse::ServiceWatcher
       true
     end
 
-    def backends
-      filtered = backends_filtered_by_labels
-
-      if @leader_election
-        failure_warning = nil
-        if filtered.empty?
-          failure_warning = "synapse: service #{@name}: leader election failed: no backends to choose from"
-        end
-
-        all_backends_have_ids = filtered.all?{|b| b.key?('id') && b['id']}
-        unless all_backends_have_ids
-          failure_warning = "synapse: service #{@name}: leader election failed; not all backends include an id"
-        end
-
-        # no problems encountered, lets do the leader election
-        if failure_warning.nil?
-          smallest = filtered.sort_by{ |b| b['id']}.first
-          log.debug "synapse: leader election chose one of #{filtered.count} backends " \
-            "(#{smallest['host']}:#{smallest['port']} with id #{smallest['id']})"
-
-          return [smallest]
-
-        # we had some sort of problem, lets log about it
-        elsif (Time.now - @leader_last_warn) > LEADER_WARN_INTERVAL
-          @leader_last_warn = Time.now
-          log.warn failure_warning
-          return []
-        end
-      end
-
-      return filtered
-    end
-
     private
+
     def validate_discovery_opts
       raise ArgumentError, "invalid discovery method '#{@discovery['method']}' for base watcher" \
         unless @discovery['method'] == 'base'
@@ -120,8 +88,41 @@ class Synapse::ServiceWatcher
       log.warn "synapse: warning: a stub watcher with no default servers is pretty useless" if @default_servers.empty?
     end
 
-    def backends_filtered_by_labels
-      filtered_backends = @backends.select do |backend|
+    def elect_leader(backends)
+      return backends unless @leader_election
+
+      failure_warning = nil
+      if backends.empty?
+        failure_warning = "synapse: service #{@name}: leader election failed: no backends to choose from"
+      end
+
+      all_backends_have_ids = backends.all?{|b| b.key?('id') && b['id']}
+      unless all_backends_have_ids
+        failure_warning = "synapse: service #{@name}: leader election failed; not all backends include an id"
+      end
+
+      # no problems encountered, lets do the leader election
+      if failure_warning.nil?
+        smallest = filtered.sort_by{|b| b['id']}.first
+        log.debug "synapse: leader election chose one of #{backends.count} backends " \
+          "(#{smallest['host']}:#{smallest['port']} with id #{smallest['id']})"
+
+        return [smallest]
+
+      # we had some sort of problem
+      else
+        # don't log about leader election problems too frequently
+        if (Time.now - @leader_last_warn) > LEADER_WARN_INTERVAL
+          @leader_last_warn = Time.now
+          log.warn failure_warning
+        end
+
+        return []
+      end
+    end
+
+    def filter_by_labels(backends)
+      backends.select do |backend|
         backend_labels = backend['labels'] || {}
         @label_filters.all? do |label_filter|
           (label_filter['condition'] == 'equals' &&
@@ -135,10 +136,15 @@ class Synapse::ServiceWatcher
     def set_backends(new_backends)
       # Aggregate and deduplicate all potential backend service instances.
       new_backends = (new_backends + @default_servers) if @keep_default_servers
-      new_backends = new_backends.uniq {|b|
-        [b['host'], b['port'], b.fetch('name', '')]
-      }
+      new_backends = new_backends.uniq { |b| [b['host'], b['port'], b.fetch('name', '')] }
 
+      # apply the filters
+      new_backends = filter_by_labels(new_backends)
+
+      # perform leader election
+      new_backends = elect_leader(new_backends)
+
+      # we can quit now if the set of backends hasn't changed
       if new_backends.to_set == @backends.to_set
         return false
       end
