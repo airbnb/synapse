@@ -866,9 +866,7 @@ module Synapse
 
       # if we write config files, lets do that and then possibly restart
       if @opts['do_writes']
-        unless write_config(new_config)
-          @restart_required = false
-        end
+        @restart_required = false if write_config(new_config) == false
         restart if @opts['do_reloads'] && @restart_required
       end
     end
