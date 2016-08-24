@@ -57,12 +57,7 @@ describe Synapse::Haproxy do
 
     shared_context 'generate_config is stubbed out' do
       let(:new_config) { 'this is a new config!' }
-      let(:old_config) { 'this is a old config!' }
-
-      before do 
-        allow(File).to receive(:read).and_return(old_config)        
-        expect(subject).to receive(:generate_config).and_return(new_config)
-      end
+      before { expect(subject).to receive(:generate_config).and_return(new_config) }
     end
 
     it 'always updates the config' do
