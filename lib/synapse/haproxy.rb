@@ -866,7 +866,9 @@ module Synapse
 
       # if we write config files, lets do that and then possibly restart
       if @opts['do_writes']
-        write_config(new_config)
+        unless write_config(new_config)
+          @restart_required = false
+        end
         restart if @opts['do_reloads'] && @restart_required
       end
     end
@@ -1131,7 +1133,8 @@ module Synapse
         old_config = ""
       end
 
-      if old_config == new_config
+      if old_config.split("\n")[1..-1].join == new_config.split("\n")[1..-1].join
+        log.info "synapse: new config is identical to existing haproxy config file."
         return false
       else
         File.open(@opts['config_file_path'],'w') {|f| f.write(new_config)}
