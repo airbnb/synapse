@@ -826,7 +826,7 @@ module Synapse
 
       # virtual clock bookkeeping for controlling how often haproxy restarts
       @time = 0
-      @next_restart = @time
+      @next_restart = rand(@restart_jitter * @restart_interval + 1)
 
       # a place to store the parsed haproxy config from each watcher
       @watcher_configs = {}
