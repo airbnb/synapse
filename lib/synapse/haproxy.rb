@@ -2,11 +2,14 @@ require 'fileutils'
 require 'json'
 require 'socket'
 require 'digest/sha1'
+require 'set'
 
 module Synapse
   class Haproxy
     include Logging
     attr_reader :opts
+
+    HAPROXY_CMD_BATCH_SIZE = 4
 
     # these come from the documentation for haproxy (1.5 and 1.6)
     # http://haproxy.1wt.eu/download/1.5/doc/configuration.txt
@@ -1060,20 +1063,23 @@ module Synapse
 
       # parse the stats output to get current backends
       cur_backends = {}
+      re = Regexp.new('^(.+?),(.+?),(?:.*?,){15}(.+?),')
+
       info.split("\n").each do |line|
         next if line[0] == '#'
 
-        parts = line.split(',')
-        next if ['FRONTEND', 'BACKEND'].include?(parts[1])
+        name, addr, state = re.match(line)[1..3]
 
-        cur_backends[parts[0]] ||= []
-        cur_backends[parts[0]] << parts[1]
+        next if ['FRONTEND', 'BACKEND'].include?(address)
+
+        cur_backends[name] ||= {}
+        cur_backends[name][address] = state
       end
 
       # build a list of backends that should be enabled
       enabled_backends = {}
       watchers.each do |watcher|
-        enabled_backends[watcher.name] = []
+        enabled_backends[watcher.name] = Set.new
         next if watcher.backends.empty?
 
         unless cur_backends.include? watcher.name
@@ -1093,28 +1099,36 @@ module Synapse
         end
       end
 
+      commands = []
+
       # actually enable the enabled backends, and disable the disabled ones
       cur_backends.each do |section, backends|
-        backends.each do |backend|
-          if enabled_backends.fetch(section, []).include? backend
-            command = "enable server #{section}/#{backend}\n"
+        backends.each do |backend, state|
+          if enabled_backends.fetch(section, Set.new).include? backend
+            next if state == 'UP'
+            command = "enable server #{section}/#{backend}"
           else
-            command = "disable server #{section}/#{backend}\n"
+            command = "disable server #{section}/#{backend}"
           end
+          # Batch commands so that we don't need to re-open the connection
+          # for every command.
+          commands << command
+        end
+      end
 
-          # actually write the command to the socket
-          begin
-            output = talk_to_socket(socket_file_path, command)
-          rescue StandardError => e
-            log.warn "synapse: restart required because socket command #{command} failed with "\
-                     "error #{e.inspect}"
+      commands.each_slice(HAPROXY_CMD_BATCH_SIZE) do |batch|
+        # actually write the command to the socket
+        begin
+          output = talk_to_socket(socket_file_path, batch.join(';') + "\n")
+        rescue StandardError => e
+          log.warn "synapse: restart required because socket command #{batch.join(';')} failed with "\
+                   "error #{e.inspect}"
+          @restart_required = true
+        else
+          unless output == "\n" * batch.size
+            log.warn "synapse: restart required because socket command #{batch.join(';')} failed with "\
+                     "output #{output}"
             @restart_required = true
-          else
-            unless output == "\n"
-              log.warn "synapse: restart required because socket command #{command} failed with "\
-                      "output #{output}"
-              @restart_required = true
-            end
           end
         end
       end
