@@ -45,7 +45,7 @@ module Synapse
         # internal state only when the smartstack state has actually changed
         return false
       else
-        # Atomically write new sevice configuration file
+        # Atomically write new service configuration file
         temp_path = File.join(@opts['output_directory'],
                               ".#{service_name}.json.tmp")
         File.open(temp_path, 'w', 0644) {|f| f.write(new_backends.to_json)}
