@@ -966,10 +966,11 @@ module Synapse
         return []
       end
 
+      bo = watcher.haproxy['bind_options']
       stanza = [
         "\nfrontend #{watcher.name}",
         config.map {|c| "\t#{c}"},
-        "\tbind #{ watcher.haproxy['bind_address'] || @opts['bind_address'] || 'localhost'}:#{watcher.haproxy['port']}",
+        "\tbind #{ watcher.haproxy['bind_address'] || @opts['bind_address'] || 'localhost'}:#{watcher.haproxy['port']}#{ bo.nil? ? '' : ' ' + bo}",
         "\tdefault_backend #{watcher.haproxy.fetch('backend_name', watcher.name)}"
       ]
     end

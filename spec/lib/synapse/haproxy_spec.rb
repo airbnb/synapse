@@ -39,6 +39,13 @@ describe Synapse::Haproxy do
     mockWatcher
   end
 
+  let(:mockwatcher_frontend_with_bind_options) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_service4')
+    allow(mockWatcher).to receive(:haproxy).and_return('port' => 2200, 'bind_options' => 'ssl no-sslv3 crt /path/to/cert/example.pem ciphers ECDHE-ECDSA-CHACHA20-POLY1305')
+    mockWatcher
+  end
+
   let(:mockwatcher_frontend_with_bind_address) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service5')
@@ -279,6 +286,11 @@ describe Synapse::Haproxy do
   it 'generates frontend stanza ' do
     mockConfig = []
     expect(subject.generate_frontend_stanza(mockwatcher_frontend, mockConfig)).to eql(["\nfrontend example_service4", [], "\tbind localhost:2200", "\tdefault_backend example_service4"])
+  end
+
+  it 'generates frontend stanza with bind options ' do
+    mockConfig = []
+    expect(subject.generate_frontend_stanza(mockwatcher_frontend_with_bind_options, mockConfig)).to eql(["\nfrontend example_service4", [], "\tbind localhost:2200 ssl no-sslv3 crt /path/to/cert/example.pem ciphers ECDHE-ECDSA-CHACHA20-POLY1305", "\tdefault_backend example_service4"])
   end
 
   it 'respects frontend bind_address ' do
