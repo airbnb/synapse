@@ -39,16 +39,14 @@ describe Synapse::ServiceWatcher::YarnSliderWatcher do
     stub_request(:get, yarn_request_uri).
       with(:headers => {
         'Accept'=>'application/json', 
-        'Accept-Encoding'=>'gzip;q=1.0,deflate;q=0.6,identity;q=0.3', 
-        'Content-Type'=>'application/json', 
+        'Content-Type'=>'application/json',
         'User-Agent'=>'Ruby'
       }).to_return(:body => JSON.generate(yarn_response))
 
     stub_request(:get, slider_request_uri).
       with(:headers => {
         'Accept'=>'application/json', 
-        'Accept-Encoding'=>'gzip;q=1.0,deflate;q=0.6,identity;q=0.3', 
-        'Content-Type'=>'application/json', 
+        'Content-Type'=>'application/json',
         'User-Agent'=>'Ruby'
       }).to_return(:body => JSON.generate(slider_response))
   end
