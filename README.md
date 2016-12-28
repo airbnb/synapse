@@ -398,6 +398,84 @@ frontend shared-frontend
 
 Non-HTTP backends such as MySQL or RabbitMQ will obviously continue to need their own dedicated ports.
 
+## The `do_not_generate_frontend` option
+
+The option `do_not_generate_frontend` can be set in a service's haproxy block  to prevent a frontend stanza 
+being generated automatically for that service. A backend stanza will still be generated as normal. This
+can be useful if you wish to configure multiple frontends which will route traffic to your various
+backends, without using the `shared_frontend` option detailed above.
+
+For example:
+
+```yaml
+services:
+  service1:
+    discovery:
+      method: "base"
+    haproxy:
+      server_options: "check inter 2s rise 3 fall 2"
+      port: "80"
+      "do_not_generate_frontend": true
+    backend: "mode http"
+    default_servers: [
+      { name: "server1",
+        host: "192.168.0.1",
+        port: "10081"
+      }
+    ]
+  service2:
+    discovery:
+      method: "base"
+    haproxy:
+      server_options: "check inter 2s rise 3 fall 2"
+      port: "80"
+    backend: "mode http"
+    default_servers: [
+      { name: "server2",
+        host: "192.168.0.2",
+        port: "10081"
+      }
+    ]
+haproxy:
+  global:
+    - "daemon"
+    - "user    haproxy"
+    - "group   haproxy"
+    - "maxconn 4096"
+    - "log     127.0.0.1 local2 notice"
+    - "stats   socket /var/run/haproxy.sock"
+  defaults:
+    - "log      global"
+    - "balance  roundrobin"
+  reload_command: "service haproxy reload"
+  config_file_path: "/etc/haproxy/haproxy.cfg"
+  socket_file_path: "/var/run/haproxy.sock"
+```
+
+The result is an haproxy.cfg which looks like this:
+
+```
+global
+  daemon
+  user    haproxy
+  group   haproxy
+  maxconn 4096
+  log     127.0.0.1 local2 notice
+  stats   socket /var/run/haproxy.sock
+defaults
+  log      global
+  balance  roundrobin
+
+backend service1
+  server 192.168.0.1:10081_server1 192.168.0.1:10081 cookie 192.168.0.1:10081_server1 check inter 2s rise 3 fall 2
+
+frontend service2
+  bind localhost:80
+  default_backend service2
+
+backend service2
+  server 192.168.0.2:10081_server2 192.168.0.2:10081 cookie 192.168.0.2:10081_server2 check inter 2s rise 3 fall 2
+```
 ## Contributing
 
 1. Fork it
