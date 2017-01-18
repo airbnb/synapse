@@ -18,6 +18,7 @@
       "haproxy": {
         "port": 3213,
         "server_options": "check inter 2s rise 3 fall 2",
+        "bind_options": "ssl no-sslv3 crt /path/to/cert/example.pem ciphers ECDHE-ECDSA-CHACHA20-POLY1305",
         "listen": [
           "mode http",
           "option httpchk /health",
