@@ -372,7 +372,7 @@ For example:
     server_options: "check inter 2s rise 3 fall 2"
     shared_frontend:
      - "acl is_service1 hdr_dom(host) -i service2.lb.example.com"
-     - "use_backend service2 if is_service2
+     - "use_backend service2 if is_service2"
     backend:
      - "mode http"
 
