@@ -238,6 +238,38 @@ It takes the following options:
 * `check_interval`: How often to request the list of tasks from Marathon (default: 10 seconds)
 * `port_index`: Index of the backend port in the task's "ports" array. (default: 0)
 
+##### YARN Service Registry With Apache Slider #####
+
+This watcher polls the [YARN API](https://hadoop.apache.org/docs/r2.7.2/hadoop-yarn/hadoop-yarn-site/ResourceManagerRest.html#Cluster_Applications_API) and retrieves a list of yarn [tracking urls](lib/synapse/service_watcher/README.md) 
+for a given application by tag, only in RUNNING state.
+Then it use [slier api](http://slider.incubator.apache.org/docs/slider_specs/specifying_exports.html#exporting-formatted-data-at-component-instance-level) for getting published config per container.
+Slider exports must be configured per component and match pattern `host:port`. 
+Example of slider exports response 
+```json
+{
+"description":"ComponentInstanceData",
+"updated":0,
+"entries":{
+  "container_e02_1480417404363_0011_02_000002.server_port":"dn0.dev:50009",
+  "container_e02_1480417404363_0011_02_000003.server_port":"dn0.dev:50006"
+},
+"empty":false
+}
+```
+where `server_port` is `parameter_sufix`
+YARN container_id will be used as instance identifier.
+
+Tested with YARN 2.7.2 and slider 0.91
+
+It takes the following options:
+
+* `yarn_api_url`: Address of the YARN Resource Manager API (e.g. `http://dn0.dev:8088`)
+* `application_name`: [Name of the application](https://slider.incubator.apache.org/docs/slider_specs/application_definition.html) in slider, must present in yarn application description as tag. like`name: {application_name}`
+* `yarn_apps_path`: optional YARN Resource Manager context path to apps
+* `slider_componentinstance_path`: optional slider context path that will be concat with yarn application master tracking url
+* `check_interval`: optional How often to request the list of tasks from Marathon (default: 10 seconds)
+* `parameter_sufix`: optional String that will be looking in json published by slider. (default: 0)
+
 #### Listing Default Servers ####
 
 You may list a number of default servers providing a service.
