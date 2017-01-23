@@ -997,6 +997,11 @@ module Synapse
             log.info "synapse: restart required because haproxy_server_options changed for #{backend_name}"
             @restart_required = true
           end
+          if (old_backend.fetch('weight', "") !=
+              backend.fetch('weight', ""))
+            log.info "synapse: restart required because weight changed for #{backend_name}"
+            @restart_required = true
+          end
         end
         backends[backend_name] = backend.merge('enabled' => true)
       end
@@ -1031,6 +1036,17 @@ module Synapse
             end
           end
           b = "#{b} #{watcher.haproxy['server_options']}" if watcher.haproxy['server_options']
+          if backend.has_key?('weight')
+            # Check if server_options/haproxy_server_options already contains weight, if so log a warning
+            if watcher.haproxy.fetch('server_options', '').include? 'weight'
+              log.warn "synapse: weight is defined in both server_options and nerve. nerve weight takes precedence"
+            end
+            if backend['haproxy_server_options'] and backend['haproxy_server_options'].include? 'weight'
+              log.warn "synapse: weight is defined in both haproxy_server_options and nerve. nerve weight takes precedence"
+            end
+            weight = backend['weight'].to_i
+            b = "#{b} weight #{weight}"
+          end
           b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options']
           b = "#{b} disabled" unless backend['enabled']
           b }

@@ -5,13 +5,16 @@ class MockWatcher; end;
 describe Synapse::Haproxy do
   subject { Synapse::Haproxy.new(config['haproxy']) }
 
-  let(:mockwatcher) do
+  def createmockwatcher(backends)
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service')
-    backends = [{ 'host' => 'somehost', 'port' => 5555}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
     allow(mockWatcher).to receive(:haproxy).and_return({'server_options' => "check inter 2000 rise 3 fall 2"})
     mockWatcher
+  end
+
+  let(:mockwatcher) do
+    createmockwatcher [{ 'host' => 'somehost', 'port' => '5555'}]
   end
 
   let(:mockwatcher_with_server_options) do
@@ -296,6 +299,26 @@ describe Synapse::Haproxy do
   it 'respects frontend bind_address ' do
     mockConfig = []
     expect(subject.generate_frontend_stanza(mockwatcher_frontend_with_bind_address, mockConfig)).to eql(["\nfrontend example_service5", [], "\tbind 127.0.0.3:2200", "\tdefault_backend example_service5"])
+  end
+
+  it 'generates backend stanza with weight' do
+    mockConfig = []
+    expect(subject.generate_backend_stanza(createmockwatcher([{ 'weight' => 1, 'host' => 'somehost', 'port' => '5555'}]), mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2 weight 1"]])
+  end
+
+  it 'generates backend stanza with bad weight = 0' do
+    mockConfig = []
+    expect(subject.generate_backend_stanza(createmockwatcher([{ 'weight' => 'hi', 'host' => 'somehost', 'port' => '5555'}]), mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2 weight 0"]])
+  end
+
+  it 'generates backend stanza with nil weight = 0' do
+    mockConfig = []
+    expect(subject.generate_backend_stanza(createmockwatcher([{ 'weight' => nil, 'host' => 'somehost', 'port' => '5555'}]), mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2 weight 0"]])
+  end
+
+  it 'generates backend stanza without weight' do
+    mockConfig = []
+    expect(subject.generate_backend_stanza(createmockwatcher([{ 'host' => 'somehost', 'port' => '5555'}]), mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2"]])
   end
 
 end
