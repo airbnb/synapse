@@ -62,7 +62,7 @@ describe Synapse::ServiceWatcher::DockerWatcher do
   end
 
   context "rewrite_container_ports tests" do
-    it 'doesnt break if Ports => nil' do
+    it 'doesn't break if Ports => nil' do
         subject.send(:rewrite_container_ports, nil)
     end
     it 'works for old style port mappings' do
