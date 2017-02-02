@@ -109,6 +109,19 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
       end
     end
 
+    context 'relative server_port override' do
+      it 'supports relative positive port' do
+          expect {
+            Synapse::ServiceWatcher::Ec2tagWatcher.new(munge_haproxy_arg('server_port_override', '+10'), mock_synapse)
+          }.not_to raise_error
+      end
+      it 'supports relative negative port' do
+          expect {
+            Synapse::ServiceWatcher::Ec2tagWatcher.new(munge_haproxy_arg('server_port_override', '-10'), mock_synapse)
+          }.not_to raise_error
+      end
+    end
+
     context 'invalid data' do
       it 'complains if the haproxy server_port_override is not a number' do
           expect {

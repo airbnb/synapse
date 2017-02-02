@@ -41,7 +41,7 @@ class Synapse::ServiceWatcher
           "Missing server_port_override for service #{@name} - which port are backends listening on?"
       end
 
-      unless @haproxy['server_port_override'].to_s.match(/^\d+$/)
+      unless @haproxy['server_port_override'].to_s.match(/^[-+]?\d+$/)
         raise ArgumentError, "Invalid server_port_override value"
       end
 
