@@ -51,7 +51,12 @@ describe Synapse::ConfigGenerator::Haproxy do
   let(:mockwatcher_frontend_with_bind_options) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service4')
-    allow(mockWatcher).to receive(:haproxy).and_return('port' => 2200, 'bind_options' => 'ssl no-sslv3 crt /path/to/cert/example.pem ciphers ECDHE-ECDSA-CHACHA20-POLY1305')
+    allow(mockWatcher).to receive(:generator_config).and_return({
+      'haproxy' => {
+        'port' => 2200,
+      'bind_options' => 'ssl no-sslv3 crt /path/to/cert/example.pem ciphers ECDHE-ECDSA-CHACHA20-POLY1305'
+      }
+    })
     mockWatcher
   end
 
