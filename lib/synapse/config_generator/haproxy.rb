@@ -886,6 +886,7 @@ class Synapse::ConfigGenerator
 
       watchers.each do |watcher|
         @watcher_configs[watcher.name] ||= parse_watcher_config(watcher)
+        next if watcher.generator_config['haproxy']['disabled']
         new_config << generate_frontend_stanza(watcher, @watcher_configs[watcher.name]['frontend'])
         new_config << generate_backend_stanza(watcher, @watcher_configs[watcher.name]['backend'])
         if watcher.generator_config['haproxy'].include?('shared_frontend')
@@ -1099,6 +1100,7 @@ class Synapse::ConfigGenerator
       watchers.each do |watcher|
         enabled_backends[watcher.name] = []
         next if watcher.backends.empty?
+        next if watcher.generator_config['haproxy']['disabled']
 
         unless cur_backends.include? watcher.name
           log.info "synapse: restart required because we added new section #{watcher.name}"

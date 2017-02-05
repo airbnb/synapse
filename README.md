@@ -275,6 +275,9 @@ by unsetting `use_previous_backends`.
 
 This section is its own hash, which should contain the following keys:
 
+* `disabled`: A boolean value indicating if haproxy configuration management
+for just this service instance ought be disabled. For example, if you want
+file output for a particular service but no HAProxy config. (default is ``False``)
 * `port`: the port (on localhost) where HAProxy will listen for connections to the service. If this is omitted, only a backend stanza (and no frontend stanza) will be generated for this service; you'll need to get traffic to your service yourself via the `shared_frontend` or manual frontends in `extra_sections`
 * `bind_address`: force HAProxy to listen on this address ( default is localhost ). Setting `bind_address` on a per service basis overrides the global `bind_address` in the top level `haproxy`. Having HAProxy listen for connections on different addresses ( example: service1 listen on 127.0.0.2:443 and service2 listen on 127.0.0.3:443) allows /etc/hosts entries to point to services.
 * `bind_options`: optional: default value is an empty string, specify additional bind parameters, such as ssl accept-proxy, crt, ciphers etc.
