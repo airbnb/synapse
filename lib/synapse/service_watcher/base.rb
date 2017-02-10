@@ -33,11 +33,15 @@ class Synapse::ServiceWatcher
       @leader_election = opts['leader_election'] || false
       @leader_last_warn = Time.now - LEADER_WARN_INTERVAL
 
-      @generator_config = {}
-      @synapse.available_generators.each do |generator_name, generator|
-        @generator_config[generator_name] = opts[generator_name] || {}
-        generator.normalize_config_generator_opts!(@name, @generator_config[generator_name])
-      end
+      @generator_config = Hash[
+        @synapse.available_generators.collect{ |generator_name, generator|
+          watcher_provided_opts = opts[generator_name] || {}
+          normalized_generator_opts = generator.normalize_watcher_provided_opts(
+            @name, watcher_provided_opts
+          )
+          [generator_name, normalized_generator_opts]
+        }
+      ]
 
       # set initial backends to default servers, if any
       @default_servers = opts['default_servers'] || []
@@ -59,6 +63,12 @@ class Synapse::ServiceWatcher
         @backend_port_override = @generator_config['haproxy']['server_port_override']
       end
 
+      unless @backend_port_override.nil?
+        unless @backend_port_override.to_s.match(/^\d+$/)
+          raise ArgumentError, "Invalid backend_port_override value"
+        end
+      end
+
       # set a flag used to tell the watchers to exit
       # this is not used in every watcher
       @should_exit = false
@@ -68,7 +78,7 @@ class Synapse::ServiceWatcher
 
     def haproxy
       log.warn "synapse: service watcher #{@name} accessing watcher.haproxy. This is DEPRECATED and will be removed in future iterations, use watcher.generator_config['haproxy'] instead."
-      @generator_config['haproxy']
+      generator_config['haproxy']
     end
 
     # this should be overridden to actually start your watcher

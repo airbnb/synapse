@@ -127,9 +127,9 @@ describe Synapse::ConfigGenerator::Haproxy do
 
       expect{Synapse::ConfigGenerator::Haproxy.new(conf)}.not_to raise_error
       haproxy = Synapse::ConfigGenerator::Haproxy.new(conf)
-      expect(haproxy.instance_variable_get(:@opts)['do_writes']).to eql(true)
-      expect(haproxy.instance_variable_get(:@opts)['do_socket']).to eql(true)
-      expect(haproxy.instance_variable_get(:@opts)['do_reloads']).to eql(true)
+      expect(haproxy.opts['do_writes']).to eql(true)
+      expect(haproxy.opts['do_socket']).to eql(true)
+      expect(haproxy.opts['do_reloads']).to eql(true)
     end
 
     it 'complains when req_pairs are not passed at all' do

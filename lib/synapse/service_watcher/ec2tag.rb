@@ -41,10 +41,6 @@ class Synapse::ServiceWatcher
           "Missing backend_port_override for service #{@name} - which port are backends listening on?"
       end
 
-      unless @backend_port_override.to_s.match(/^\d+$/)
-        raise ArgumentError, "Invalid backend_port_override value"
-      end
-
       # aws region is optional in the SDK, aws will use a default value if not provided
       unless @discovery['aws_region'] || ENV['AWS_REGION']
         log.info "aws region is missing, will use default"

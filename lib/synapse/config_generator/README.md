@@ -10,12 +10,20 @@ state)
 ```ruby
 require "synapse/config_generator/base"
 
-class Synapse::ServiceGenerator
+class Synapse::ConfigGenerator
   class MyGenerator < BaseGenerator
     # The generator name is used to find service specific
     # configuration in the service watchers. When supplying
     # per service config, use this as the key
     NAME = 'my_generator'.freeze
+
+    def initialize(opts = {})
+        # Process and validate any options specified in the dedicated section
+        # for this config generator, given as the `opts` hash. You may omit
+        # this method, or you can declare your own, but remember to invoke
+        # the parent initializer
+        super(opts)
+    end
 
     def update_config(watchers)
       # synapse will call this method whenever watcher state changes with the
@@ -23,18 +31,20 @@ class Synapse::ServiceGenerator
     end
 
     def tick
-      # Called every loop of the main Synapse loop regardless of watcher #
-      # changes (roughly ~1s), you can use this to rate limit how often your
+      # Called every loop of the main Synapse loop regardless of watcher
+      # changes (roughly ~1s). You can use this to rate limit how often your
       # config generator actually reconfigures external services (e.g. HAProxy
       # may need to rate limit reloads as those can be disruptive to in
       # flight connections
     end
 
-    def normalize_config_generator_opts!(service_watcher_name, service_watcher_opts)
-      # Every service section can contain configuration that changes how the
-      # config generator reacts for that particular service. Typically this
-      # is a good place to ensure you set config your generator expects every
-      # service to supply in case they don't supply it
+    def normalize_watcher_provided_opts(service_watcher_name, service_watcher_opts)
+      # Every service watcher section of the Synapse configuration can contain
+      # options that change how the config generators react for that
+      # particular service. This normalize method is a good place to ensure
+      # you set options your generator expects every service watcher config
+      # to supply, providing, for example, default values. This is also a
+      # good place to raise errors in case any options are invalid.
     end
   end
 end
@@ -59,6 +69,6 @@ function:
 type_class  = type.split('_').map{|x| x.capitalize}
 ```
 
-This has the effect of taking the method, splitting on '_', capitalizing each
+This has the effect of taking the method, splitting on `_`, capitalizing each
 part and recombining. So `file_output` becomes `FileOutput` and `haproxy`
 becomes `Haproxy`. Make sure your class name is correct.

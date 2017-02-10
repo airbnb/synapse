@@ -795,10 +795,11 @@ class Synapse::ConfigGenerator
     STATE_FILE_UPDATE_INTERVAL = 60.freeze # iterations; not a unit of time
 
     def initialize(opts)
+      super(opts)
+
       %w{global defaults}.each do |req|
         raise ArgumentError, "haproxy requires a #{req} section" if !opts.has_key?(req)
       end
-      @opts = opts
 
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
@@ -836,15 +837,19 @@ class Synapse::ConfigGenerator
       @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
     end
 
-    def normalize_config_generator_opts!(service_watcher_name, service_watcher_opts)
-      service_watcher_opts['server_options'] ||= ""
-      service_watcher_opts['server_port_override'] ||= nil
-      %w{backend frontend listen}.each do |sec|
-        service_watcher_opts[sec] ||= []
-      end
+    def normalize_watcher_provided_opts(service_watcher_name, service_watcher_opts)
+      service_watcher_opts = super(service_watcher_name, service_watcher_opts)
+      defaults = {
+        'server_options' => "",
+        'server_port_override' => nil,
+        'backend' => [],
+        'frontend' => [],
+        'listen' => [],
+      }
       unless service_watcher_opts.include?('port')
         log.warn "synapse: service #{service_watcher_name}: haproxy config does not include a port; only backend sections for the service will be created; you must move traffic there manually using configuration in `extra_sections`"
       end
+      defaults.merge(service_watcher_opts)
     end
 
     def tick(watchers)
@@ -856,13 +861,13 @@ class Synapse::ConfigGenerator
 
       # We potentially have to restart if the restart was rate limited
       # in the original call to update_config
-      restart if @opts['do_reloads'] && @restart_required
+      restart if opts['do_reloads'] && @restart_required
     end
 
     def update_config(watchers)
       # if we support updating backends, try that whenever possible
-      if @opts['do_socket']
-        @opts['socket_file_paths'].each do |socket_path|
+      if opts['do_socket']
+        opts['socket_file_paths'].each do |socket_path|
           update_backends_at(socket_path, watchers)
         end
       else
@@ -873,9 +878,9 @@ class Synapse::ConfigGenerator
       new_config = generate_config(watchers)
 
       # if we write config files, lets do that and then possibly restart
-      if @opts['do_writes']
+      if opts['do_writes']
         write_config(new_config)
-        restart if @opts['do_reloads'] && @restart_required
+        restart if opts['do_reloads'] && @restart_required
       end
     end
 
@@ -885,15 +890,16 @@ class Synapse::ConfigGenerator
       shared_frontend_lines = generate_shared_frontend
 
       watchers.each do |watcher|
+        watcher_config = watcher.generator_config[name]
         @watcher_configs[watcher.name] ||= parse_watcher_config(watcher)
-        next if watcher.generator_config['haproxy']['disabled']
+        next if watcher_config['disabled']
         new_config << generate_frontend_stanza(watcher, @watcher_configs[watcher.name]['frontend'])
         new_config << generate_backend_stanza(watcher, @watcher_configs[watcher.name]['backend'])
-        if watcher.generator_config['haproxy'].include?('shared_frontend')
-          if @opts['shared_frontend'] == nil
+        if watcher_config.include?('shared_frontend')
+          if opts['shared_frontend'] == nil
             log.warn "synapse: service #{watcher.name} contains a shared frontend section but the base config does not! skipping."
           else
-            tabbed_shared_frontend = watcher.generator_config['haproxy']['shared_frontend'].map{|l| "\t#{l}"}
+            tabbed_shared_frontend = watcher_config['shared_frontend'].map{|l| "\t#{l}"}
             shared_frontend_lines << validate_haproxy_stanza(
               tabbed_shared_frontend, "frontend", "shared frontend section for #{watcher.name}"
             )
@@ -908,10 +914,10 @@ class Synapse::ConfigGenerator
 
     # pull out the shared frontend section if any
     def generate_shared_frontend
-      return nil unless @opts.include?('shared_frontend')
+      return nil unless opts.include?('shared_frontend')
       log.debug "synapse: found a shared frontend section"
       shared_frontend_lines = ["\nfrontend shared-frontend"]
-      shared_frontend_lines << validate_haproxy_stanza(@opts['shared_frontend'].map{|l| "\t#{l}"}, "frontend", "shared frontend")
+      shared_frontend_lines << validate_haproxy_stanza(opts['shared_frontend'].map{|l| "\t#{l}"}, "frontend", "shared frontend")
       return shared_frontend_lines
     end
 
@@ -921,13 +927,13 @@ class Synapse::ConfigGenerator
 
       %w{global defaults}.each do |section|
         base_config << "#{section}"
-        @opts[section].each do |option|
+        opts[section].each do |option|
           base_config << "\t#{option}"
         end
       end
 
-      if @opts['extra_sections']
-        @opts['extra_sections'].each do |title, section|
+      if opts['extra_sections']
+        opts['extra_sections'].each do |title, section|
           base_config << "\n#{title}"
           section.each do |option|
             base_config << "\t#{option}"
@@ -942,12 +948,13 @@ class Synapse::ConfigGenerator
     # frontend and backend sections
     def parse_watcher_config(watcher)
       config = {}
+      watcher_config = watcher.generator_config[name]
       %w{frontend backend}.each do |section|
-        config[section] = watcher.generator_config['haproxy'][section] || []
+        config[section] = watcher_config[section] || []
 
         # copy over the settings from the 'listen' section that pertain to section
         config[section].concat(
-          watcher.generator_config['haproxy']['listen'].select {|setting|
+          watcher_config['listen'].select {|setting|
             parsed_setting = setting.strip.gsub(/\s+/, ' ').downcase
             SECTION_FIELDS[section].any? {|field| parsed_setting.start_with?(field)}
           })
@@ -973,22 +980,23 @@ class Synapse::ConfigGenerator
 
     # generates an individual stanza for a particular watcher
     def generate_frontend_stanza(watcher, config)
-      unless watcher.generator_config['haproxy'].has_key?("port")
+      watcher_config = watcher.generator_config[name]
+      unless watcher_config.has_key?("port")
         log.debug "synapse: not generating frontend stanza for watcher #{watcher.name} because it has no port defined"
         return []
       else
-        port = watcher.generator_config['haproxy']['port']
+        port = watcher_config['port']
       end
 
-      bind_options = watcher.generator_config['haproxy']['bind_options']
+      bind_options = watcher_config['bind_options']
       bind_options = bind_options.nil? ? '' : ' ' + bind_options
 
       bind_address = (
-        watcher.generator_config['haproxy']['bind_address'] ||
-        @opts['bind_address'] ||
+        watcher_config['bind_address'] ||
+        opts['bind_address'] ||
         'localhost'
       )
-      backend_name = watcher.generator_config['haproxy'].fetch('backend_name', watcher.name)
+      backend_name = watcher_config.fetch('backend_name', watcher.name)
 
       stanza = [
         "\nfrontend #{watcher.name}",
@@ -1028,8 +1036,8 @@ class Synapse::ConfigGenerator
         log.debug "synapse: no backends found for watcher #{watcher.name}"
       end
 
-      watcher_haproxy = watcher.generator_config['haproxy']
-      keys = case watcher_haproxy['backend_order']
+      watcher_config = watcher.generator_config[name]
+      keys = case watcher_config['backend_order']
       when 'asc'
         backends.keys.sort
       when 'desc'
@@ -1041,20 +1049,20 @@ class Synapse::ConfigGenerator
       end
 
       stanza = [
-        "\nbackend #{watcher_haproxy.fetch('backend_name', watcher.name)}",
+        "\nbackend #{watcher_config.fetch('backend_name', watcher.name)}",
         config.map {|c| "\t#{c}"},
         keys.map {|backend_name|
           backend = backends[backend_name]
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
           unless config.include?('mode tcp')
-            b = case watcher_haproxy['cookie_value_method']
+            b = case watcher_config['cookie_value_method']
             when 'hash'
               b = "#{b} cookie #{Digest::SHA1.hexdigest(backend_name)}"
             else
               b = "#{b} cookie #{backend_name}"
             end
           end
-          b = "#{b} #{watcher_haproxy['server_options']}" if watcher_haproxy['server_options']
+          b = "#{b} #{watcher_config['server_options']}" if watcher_config['server_options']
           b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options']
           b = "#{b} disabled" unless backend['enabled']
           b }
@@ -1100,7 +1108,7 @@ class Synapse::ConfigGenerator
       watchers.each do |watcher|
         enabled_backends[watcher.name] = []
         next if watcher.backends.empty?
-        next if watcher.generator_config['haproxy']['disabled']
+        next if watcher.generator_config[name]['disabled']
 
         unless cur_backends.include? watcher.name
           log.info "synapse: restart required because we added new section #{watcher.name}"
@@ -1151,16 +1159,16 @@ class Synapse::ConfigGenerator
     # writes the config
     def write_config(new_config)
       begin
-        old_config = File.read(@opts['config_file_path'])
+        old_config = File.read(opts['config_file_path'])
       rescue Errno::ENOENT => e
-        log.info "synapse: could not open haproxy config file at #{@opts['config_file_path']}"
+        log.info "synapse: could not open haproxy config file at #{opts['config_file_path']}"
         old_config = ""
       end
 
       if old_config == new_config
         return false
       else
-        File.open(@opts['config_file_path'],'w') {|f| f.write(new_config)}
+        File.open(opts['config_file_path'],'w') {|f| f.write(new_config)}
         return true
       end
     end
@@ -1176,9 +1184,9 @@ class Synapse::ConfigGenerator
       @next_restart += rand(@restart_jitter * @restart_interval + 1)
 
       # do the actual restart
-      res = `#{@opts['reload_command']}`.chomp
+      res = `#{opts['reload_command']}`.chomp
       unless $?.success?
-        log.error "failed to reload haproxy via #{@opts['reload_command']}: #{res}"
+        log.error "failed to reload haproxy via #{opts['reload_command']}: #{res}"
         return
       end
       log.info "synapse: restarted haproxy"
