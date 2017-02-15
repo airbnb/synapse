@@ -122,5 +122,13 @@ describe Synapse::ServiceWatcher::DockerWatcher do
         expect(subject.send(:containers)).to eql([{"name"=>"mainserver", "host"=>"server1.local", "port"=>"49153"}])
       end
     end
+
+    context 'finds images without tags' do
+      let(:docker_data) { [{"Ports" => "0.0.0.0:49153->6379/tcp, 0.0.0.0:49154->6390/tcp", "Image" => "mycool/image"}, {"Ports" => "0.0.0.0:49155->6379/tcp", "Image" => "wrong/image"}] }
+      it do
+        expect(Docker::Util).to receive(:parse_json).and_return(docker_data)
+        expect(subject.send(:containers)).to eql([{"name"=>"mainserver", "host"=>"server1.local", "port"=>"49153"}])
+      end
+    end
   end
 end
