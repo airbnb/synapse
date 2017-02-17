@@ -11,7 +11,7 @@ describe Synapse::ConfigGenerator::Haproxy do
     allow(mockWatcher).to receive(:name).and_return('example_service')
     backends = [{ 'host' => 'somehost', 'port' => 5555}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
-    allow(mockWatcher).to receive(:generator_config).and_return({
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
       'haproxy' => {'server_options' => "check inter 2000 rise 3 fall 2"}
     })
     mockWatcher
@@ -22,7 +22,7 @@ describe Synapse::ConfigGenerator::Haproxy do
     allow(mockWatcher).to receive(:name).and_return('example_service2')
     backends = [{ 'host' => 'somehost', 'port' => 5555, 'haproxy_server_options' => 'backup'}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
-    allow(mockWatcher).to receive(:generator_config).and_return({
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
       'haproxy' => {'server_options' => "check inter 2000 rise 3 fall 2"}
     })
     mockWatcher
@@ -33,7 +33,7 @@ describe Synapse::ConfigGenerator::Haproxy do
     allow(mockWatcher).to receive(:name).and_return('example_service3')
     backends = [{ 'host' => 'somehost', 'port' => 5555}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
-    allow(mockWatcher).to receive(:generator_config).and_return({
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
       'haproxy' => {'server_options' => "check inter 2000 rise 3 fall 2", 'cookie_value_method' => 'hash'}
     })
     mockWatcher
@@ -42,7 +42,7 @@ describe Synapse::ConfigGenerator::Haproxy do
   let(:mockwatcher_frontend) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service4')
-    allow(mockWatcher).to receive(:generator_config).and_return({
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
       'haproxy' => {'port' => 2200}
     })
     mockWatcher
@@ -51,7 +51,7 @@ describe Synapse::ConfigGenerator::Haproxy do
   let(:mockwatcher_frontend_with_bind_options) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service4')
-    allow(mockWatcher).to receive(:generator_config).and_return({
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
       'haproxy' => {
         'port' => 2200,
       'bind_options' => 'ssl no-sslv3 crt /path/to/cert/example.pem ciphers ECDHE-ECDSA-CHACHA20-POLY1305'
@@ -63,7 +63,7 @@ describe Synapse::ConfigGenerator::Haproxy do
   let(:mockwatcher_frontend_with_bind_address) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service5')
-    allow(mockWatcher).to receive(:generator_config).and_return({
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
       'haproxy' => {'port' => 2200, 'bind_address' => "127.0.0.3"}
     })
     mockWatcher
@@ -74,13 +74,13 @@ describe Synapse::ConfigGenerator::Haproxy do
     allow(mockWatcher).to receive(:name).and_return('disabled_watcher')
     backends = [{ 'host' => 'somehost', 'port' => 5555}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
-    allow(mockWatcher).to receive(:generator_config).and_return({
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
       'haproxy' => {'port' => 2200, 'disabled' => true}
     })
     mockWatcher
   end
 
-  describe 'validates arguments' do
+  describe '#initialize' do
     it 'succeeds on minimal config' do
       conf = {
         'global' => [],
@@ -163,32 +163,41 @@ describe Synapse::ConfigGenerator::Haproxy do
       subject.update_config(watchers)
     end
 
-    it 'does not cause a restart due to the socket' do
-      mock_socket_output = "example_service,somehost:5555"
-      subject.instance_variable_set(:@restart_required, false)
-      allow(subject).to receive(:talk_to_socket).with(socket_file_path, "show stat\n").and_return mock_socket_output
-      allow(subject).to receive(:generate_config).exactly(:once).and_return 'mock_config'
-      expect(subject).to receive(:talk_to_socket).exactly(:once).with(
-        socket_file_path, "enable server example_service/somehost:5555\n"
-      ).and_return "\n"
-      subject.update_config(watchers)
+    context 'when configuration via the socket succeeds' do
+      before do
+        subject.instance_variable_set(:@restart_required, false)
+        allow(subject).to receive(:generate_config).exactly(:once).and_return 'mock_config'
+      end
 
-      expect(subject.instance_variable_get(:@restart_required)).to eq false
-    end
+      it 'does not cause a restart due to the socket' do
+        mock_socket_output = "example_service,somehost:5555"
+        allow(subject).to receive(:talk_to_socket).with(socket_file_path, "show stat\n").and_return mock_socket_output
 
-    it 'disables existing servers on the socket' do
-      mock_socket_output = "example_service,somehost:5555\ndisabled_watcher,somehost:5555"
-      subject.instance_variable_set(:@restart_required, false)
-      allow(subject).to receive(:talk_to_socket).with(socket_file_path, "show stat\n").and_return mock_socket_output
-      allow(subject).to receive(:generate_config).exactly(:once).and_return 'mock_config'
-      expect(subject).to receive(:talk_to_socket).exactly(:once).with(
-        socket_file_path, "enable server example_service/somehost:5555\n"
-      ).and_return "\n"
-      expect(subject).to receive(:talk_to_socket).exactly(:once).with(
-        socket_file_path, "disable server disabled_watcher/somehost:5555\n"
-      ).and_return "\n"
-      subject.update_config(watchers)
-      expect(subject.instance_variable_get(:@restart_required)).to eq false
+        expect(subject).to receive(:talk_to_socket).exactly(:once).with(
+          socket_file_path, "enable server example_service/somehost:5555\n"
+        ).and_return "\n"
+
+        subject.update_config(watchers)
+
+        expect(subject.instance_variable_get(:@restart_required)).to eq false
+      end
+
+      it 'disables existing servers on the socket' do
+        mock_socket_output = "example_service,somehost:5555\ndisabled_watcher,somehost:5555"
+        allow(subject).to receive(:talk_to_socket).with(socket_file_path, "show stat\n").and_return mock_socket_output
+
+
+        expect(subject).to receive(:talk_to_socket).exactly(:once).with(
+          socket_file_path, "enable server example_service/somehost:5555\n"
+        ).and_return "\n"
+        expect(subject).to receive(:talk_to_socket).exactly(:once).with(
+          socket_file_path, "disable server disabled_watcher/somehost:5555\n"
+        ).and_return "\n"
+
+        subject.update_config(watchers)
+
+        expect(subject.instance_variable_get(:@restart_required)).to eq false
+      end
     end
   end
 
@@ -394,7 +403,7 @@ describe Synapse::ConfigGenerator::Haproxy do
       context "when #{order_option} is specified for backend_order" do
         it 'generates backend stanza in correct order' do
           mockConfig = []
-          allow(mockwatcher_with_multiple_backends).to receive(:generator_config).and_return({
+          allow(mockwatcher_with_multiple_backends).to receive(:config_for_generator).and_return({
             'haproxy' => {
               'server_options' => "check inter 2000 rise 3 fall 2",
               'backend_order' => order_option

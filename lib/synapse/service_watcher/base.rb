@@ -7,7 +7,7 @@ class Synapse::ServiceWatcher
 
     LEADER_WARN_INTERVAL = 30
 
-    attr_reader :name, :generator_config
+    attr_reader :name, :config_for_generator
 
     def initialize(opts={}, synapse)
       super()
@@ -33,14 +33,14 @@ class Synapse::ServiceWatcher
       @leader_election = opts['leader_election'] || false
       @leader_last_warn = Time.now - LEADER_WARN_INTERVAL
 
-      @generator_config = Hash[
-        @synapse.available_generators.collect{ |generator_name, generator|
-          watcher_provided_opts = opts[generator_name] || {}
-          normalized_generator_opts = generator.normalize_watcher_provided_opts(
-            @name, watcher_provided_opts
+      @config_for_generator = Hash[
+        @synapse.available_generators.collect do |generator_name, generator|
+          watcher_provided_config = opts[generator_name] || {}
+          normalized_generator_opts = generator.normalize_watcher_provided_config(
+            @name, watcher_provided_config
           )
           [generator_name, normalized_generator_opts]
-        }
+        end
       ]
 
       # set initial backends to default servers, if any
@@ -59,8 +59,8 @@ class Synapse::ServiceWatcher
 
       # For backwards compatability we support server_port_override
       # This will be removed in future versions
-      if @backend_port_override.nil? && @generator_config['haproxy']
-        @backend_port_override = @generator_config['haproxy']['server_port_override']
+      if @backend_port_override.nil? && @config_for_generator['haproxy']
+        @backend_port_override = @config_for_generator['haproxy']['server_port_override']
       end
 
       unless @backend_port_override.nil?
@@ -77,8 +77,8 @@ class Synapse::ServiceWatcher
     end
 
     def haproxy
-      log.warn "synapse: service watcher #{@name} accessing watcher.haproxy. This is DEPRECATED and will be removed in future iterations, use watcher.generator_config['haproxy'] instead."
-      generator_config['haproxy']
+      log.warn "synapse: service watcher #{@name} accessing watcher.haproxy. This is DEPRECATED and will be removed in future iterations, use watcher.config_for_generator['haproxy'] instead."
+      config_for_generator['haproxy']
     end
 
     # this should be overridden to actually start your watcher
@@ -155,10 +155,11 @@ class Synapse::ServiceWatcher
       # Aggregate and deduplicate all potential backend service instances.
       new_backends = (new_backends + @default_servers) if @keep_default_servers
       # Substitute backend_port_override for the provided port
-      new_backends = new_backends.collect {|b|
+      new_backends = new_backends.collect do |b|
         port = @backend_port_override ? @backend_port_override : b['port']
         b.merge({'port' => port})
-      }
+      end
+
       new_backends = new_backends.uniq {|b|
         [b['host'], b['port'], b.fetch('name', '')]
       }

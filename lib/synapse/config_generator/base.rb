@@ -36,8 +36,8 @@ class Synapse::ConfigGenerator
     # the config generator. This method will be called with each of these
     # watcher hashes, and should normalize them to what the config generator
     # needs, such as adding defaults. Return the properly populated default hash
-    def normalize_watcher_provided_opts(service_watcher_name, service_watcher_opts)
-      service_watcher_opts
+    def normalize_watcher_provided_config(service_watcher_name, service_watcher_config)
+      service_watcher_config.dup
     end
 
   end

@@ -38,7 +38,7 @@ class Synapse::ConfigGenerator
       # flight connections
     end
 
-    def normalize_watcher_provided_opts(service_watcher_name, service_watcher_opts)
+    def normalize_watcher_provided_config(service_watcher_name, service_watcher_config)
       # Every service watcher section of the Synapse configuration can contain
       # options that change how the config generators react for that
       # particular service. This normalize method is a good place to ensure

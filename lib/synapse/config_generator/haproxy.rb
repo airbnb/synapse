@@ -793,6 +793,7 @@ class Synapse::ConfigGenerator
 
     DEFAULT_STATE_FILE_TTL = (60 * 60 * 24).freeze # 24 hours
     STATE_FILE_UPDATE_INTERVAL = 60.freeze # iterations; not a unit of time
+    DEFAULT_BIND_ADDRESS = 'localhost'
 
     def initialize(opts)
       super(opts)
@@ -837,8 +838,8 @@ class Synapse::ConfigGenerator
       @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
     end
 
-    def normalize_watcher_provided_opts(service_watcher_name, service_watcher_opts)
-      service_watcher_opts = super(service_watcher_name, service_watcher_opts)
+    def normalize_watcher_provided_config(service_watcher_name, service_watcher_config)
+      service_watcher_config = super(service_watcher_name, service_watcher_config)
       defaults = {
         'server_options' => "",
         'server_port_override' => nil,
@@ -846,10 +847,10 @@ class Synapse::ConfigGenerator
         'frontend' => [],
         'listen' => [],
       }
-      unless service_watcher_opts.include?('port')
+      unless service_watcher_config.include?('port')
         log.warn "synapse: service #{service_watcher_name}: haproxy config does not include a port; only backend sections for the service will be created; you must move traffic there manually using configuration in `extra_sections`"
       end
-      defaults.merge(service_watcher_opts)
+      defaults.merge(service_watcher_config)
     end
 
     def tick(watchers)
@@ -890,7 +891,7 @@ class Synapse::ConfigGenerator
       shared_frontend_lines = generate_shared_frontend
 
       watchers.each do |watcher|
-        watcher_config = watcher.generator_config[name]
+        watcher_config = watcher.config_for_generator[name]
         @watcher_configs[watcher.name] ||= parse_watcher_config(watcher)
         next if watcher_config['disabled']
         new_config << generate_frontend_stanza(watcher, @watcher_configs[watcher.name]['frontend'])
@@ -948,7 +949,7 @@ class Synapse::ConfigGenerator
     # frontend and backend sections
     def parse_watcher_config(watcher)
       config = {}
-      watcher_config = watcher.generator_config[name]
+      watcher_config = watcher.config_for_generator[name]
       %w{frontend backend}.each do |section|
         config[section] = watcher_config[section] || []
 
@@ -980,7 +981,7 @@ class Synapse::ConfigGenerator
 
     # generates an individual stanza for a particular watcher
     def generate_frontend_stanza(watcher, config)
-      watcher_config = watcher.generator_config[name]
+      watcher_config = watcher.config_for_generator[name]
       unless watcher_config.has_key?("port")
         log.debug "synapse: not generating frontend stanza for watcher #{watcher.name} because it has no port defined"
         return []
@@ -988,20 +989,24 @@ class Synapse::ConfigGenerator
         port = watcher_config['port']
       end
 
-      bind_options = watcher_config['bind_options']
-      bind_options = bind_options.nil? ? '' : ' ' + bind_options
 
       bind_address = (
         watcher_config['bind_address'] ||
         opts['bind_address'] ||
-        'localhost'
+        DEFAULT_BIND_ADDRESS
       )
       backend_name = watcher_config.fetch('backend_name', watcher.name)
+
+      bind_line = [
+        "\tbind",
+        "#{bind_address}:#{port}",
+        watcher_config['bind_options']
+      ].compact.join(' ')
 
       stanza = [
         "\nfrontend #{watcher.name}",
         config.map {|c| "\t#{c}"},
-        "\tbind #{bind_address}:#{port}#{bind_options}",
+        bind_line,
         "\tdefault_backend #{backend_name}"
       ]
     end
@@ -1036,7 +1041,7 @@ class Synapse::ConfigGenerator
         log.debug "synapse: no backends found for watcher #{watcher.name}"
       end
 
-      watcher_config = watcher.generator_config[name]
+      watcher_config = watcher.config_for_generator[name]
       keys = case watcher_config['backend_order']
       when 'asc'
         backends.keys.sort
@@ -1108,7 +1113,7 @@ class Synapse::ConfigGenerator
       watchers.each do |watcher|
         enabled_backends[watcher.name] = []
         next if watcher.backends.empty?
-        next if watcher.generator_config[name]['disabled']
+        next if watcher.config_for_generator[name]['disabled']
 
         unless cur_backends.include? watcher.name
           log.info "synapse: restart required because we added new section #{watcher.name}"
