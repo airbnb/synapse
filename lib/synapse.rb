@@ -1,11 +1,10 @@
 require 'logger'
 require 'json'
 
-require "synapse/version"
-require "synapse/log"
-require "synapse/haproxy"
-require "synapse/file_output"
-require "synapse/service_watcher"
+require 'synapse/version'
+require 'synapse/log'
+require 'synapse/config_generator'
+require 'synapse/service_watcher'
 
 
 module Synapse
@@ -14,21 +13,13 @@ module Synapse
     include Logging
 
     def initialize(opts={})
+      # create objects that need to be notified of service changes
+      @config_generators = create_config_generators(opts)
+      raise "no config generators supplied" if @config_generators.empty?
+
       # create the service watchers for all our services
       raise "specify a list of services to connect in the config" unless opts.has_key?('services')
       @service_watchers = create_service_watchers(opts['services'])
-
-      # create objects that need to be notified of service changes
-      @config_generators = []
-      # create the haproxy config generator, this is mandatory
-      raise "haproxy config section is missing" unless opts.has_key?('haproxy')
-      @config_generators << Haproxy.new(opts['haproxy'])
-
-      # possibly create a file manifestation for services that do not
-      # want to communicate via haproxy, e.g. cassandra
-      if opts.has_key?('file_output')
-        @config_generators << FileOutput.new(opts['file_output'])
-      end
 
       # configuration is initially enabled to configure on first loop
       @config_updated = true
@@ -85,9 +76,13 @@ module Synapse
       @config_updated = true
     end
 
+    def available_generators
+      Hash[@config_generators.collect{|cg| [cg.name, cg]}]
+    end
+
     private
     def create_service_watchers(services={})
-      service_watchers =[]
+      service_watchers = []
       services.each do |service_name, service_config|
         service_watchers << ServiceWatcher.create(service_name, service_config, self)
       end
@@ -95,5 +90,16 @@ module Synapse
       return service_watchers
     end
 
+    private
+    def create_config_generators(opts={})
+      config_generators = []
+      opts.each do |type, generator_opts|
+        # Skip the "services" top level key
+        next if type == 'services'
+        config_generators << ConfigGenerator.create(type, generator_opts)
+      end
+
+      return config_generators
+    end
   end
 end

@@ -2,7 +2,14 @@ require 'spec_helper'
 require 'synapse/service_watcher'
 
 describe Synapse::ServiceWatcher do
-  let(:mock_synapse) { double }
+  let(:mock_synapse) do
+    mock_synapse = instance_double(Synapse::Synapse)
+    mockgenerator = Synapse::ConfigGenerator::BaseGenerator.new()
+    allow(mock_synapse).to receive(:available_generators).and_return({
+      'haproxy' => mockgenerator
+    })
+    mock_synapse
+  end
   subject { Synapse::ServiceWatcher }
   let(:config) do
     {

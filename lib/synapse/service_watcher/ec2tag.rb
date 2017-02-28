@@ -36,13 +36,9 @@ class Synapse::ServiceWatcher
 
       # As we're only looking up instances with hostnames/IPs, need to
       # be explicitly told which port the service we're balancing for listens on.
-      unless @haproxy['server_port_override']
+      unless @backend_port_override
         raise ArgumentError,
-          "Missing server_port_override for service #{@name} - which port are backends listening on?"
-      end
-
-      unless @haproxy['server_port_override'].to_s.match(/^\d+$/)
-        raise ArgumentError, "Invalid server_port_override value"
+          "Missing backend_port_override for service #{@name} - which port are backends listening on?"
       end
 
       # aws region is optional in the SDK, aws will use a default value if not provided
@@ -93,7 +89,6 @@ class Synapse::ServiceWatcher
           new_backends << {
             'name' => instance.private_dns_name,
             'host' => instance.private_ip_address,
-            'port' => @haproxy['server_port_override'],
           }
         end
 

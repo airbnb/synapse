@@ -2,7 +2,14 @@ require 'spec_helper'
 require 'synapse/service_watcher/marathon'
 
 describe Synapse::ServiceWatcher::MarathonWatcher do
-  let(:mocksynapse) { double() }
+  let(:mocksynapse) do
+    mock_synapse = instance_double(Synapse::Synapse)
+    mockgenerator = Synapse::ConfigGenerator::BaseGenerator.new()
+    allow(mock_synapse).to receive(:available_generators).and_return({
+      'haproxy' => mockgenerator
+    })
+    mock_synapse
+  end
   let(:marathon_host) { '127.0.0.1' }
   let(:marathon_port) { '8080' }
   let(:app_name) { 'foo' }

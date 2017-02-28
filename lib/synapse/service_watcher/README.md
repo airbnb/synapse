@@ -1,12 +1,13 @@
 ## Watcher Classes
 
 Watchers are the piece of Synapse that watch an external service registry
-and reflect those changes in the local HAProxy state. Watchers should conform
-to the interface specified by `BaseWatcher` and when your watcher has received
-an update from the service registry you should call
+and reflect those changes in the local configuration state. Watchers should
+conform to the interface specified by `BaseWatcher` and when your watcher has
+received an update from the service registry you should call
 `set_backends(new_backends)` to trigger a sync of your watcher state with local
-HAProxy state. See the [`Backend Interface`](#backend_interface) section for
-what service registrations Synapse understands.
+configuration (HAProxy, files, etc ...) state. See the
+[`Backend Interface`](#backend_interface) section for what fields in
+registrations Synapse understands.
 
 ```ruby
 require "synapse/service_watcher/base"

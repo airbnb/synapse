@@ -1,8 +1,9 @@
 require 'spec_helper'
 require 'fileutils'
+require 'synapse/config_generator/file_output'
 
-describe Synapse::FileOutput do
-  subject { Synapse::FileOutput.new(config['file_output']) }
+describe Synapse::ConfigGenerator::FileOutput do
+  subject { Synapse::ConfigGenerator::FileOutput.new(config['file_output']) }
 
   before(:example) do
     FileUtils.mkdir_p(config['file_output']['output_directory'])
