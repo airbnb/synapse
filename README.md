@@ -28,15 +28,29 @@ Synapse solves these difficulties in a simple and fault-tolerant way.
 
 ## How Synapse Works ##
 
-Synapse runs on your application servers; here at Airbnb, we just run it on every box we deploy.
-The heart of synapse is actually [HAProxy](http://haproxy.1wt.eu/), a stable and proven routing component.
+Synapse typically runs on your application servers, often every machine. At the heart of Synapse
+are proven routing components like [HAProxy](http://haproxy.1wt.eu/) or [NGINX](http://nginx.org/).
+
 For every external service that your application talks to, we assign a synapse local port on localhost.
 Synapse creates a proxy from the local port to the service, and you reconfigure your application to talk to the proxy.
 
-Synapse comes with a number of `watchers`, which are responsible for service discovery.
-The synapse watchers take care of re-configuring the proxy so that it always points at available servers.
+Under the hood, Synapse sports `service_watcher`s for service discovery and
+`config_generators` for configuring local state (e.g. load balancer configs)
+based on that service discovery state.
+
+Synapse supports service discovery with with pluggable `service_watcher`s which
+take care of signaling to the `config_generators` so that they can react and
+reconfigure to point at available servers on the fly.
+
 We've included a number of default watchers, including ones that query zookeeper and ones using the AWS API.
-It is easy to write your own watchers for your use case, and we encourage submitting them back to the project.
+It is easy to write your own watchers for your use case, and install them as gems that
+extend Synapse's functionality. Check out the [docs](#createsw) on creating
+a watcher if you're interested, and if you think that the service watcher
+would be generally useful feel free to pull request with a link to your watcher.
+
+Synapse also has pluggable `config_generator`s, which are responsible for reacting to service discovery
+changes and writing out appropriate config. Right now HAProxy, and local files are built in, but you
+can plug your own in [easily](#createconfig).
 
 ## Example Migration ##
 
@@ -97,13 +111,22 @@ install synapse with:
 
 ```bash
 $ mkdir -p /opt/smartstack/synapse
+# If you are on Ruby 2.X use --no-document instead of --no-ri --no-rdoc
 
 # If you want to install specific versions of dependencies such as an older
 # version of the aws-sdk, the docker-api, etc, gem install that here *before*
-# gem installing synapse
+# gem installing synapse.
 
-# If you are on Ruby 2.X use --no-document instead of --no-ri --no-rdoc
+# Example:
+# $ gem install aws-sdk -v XXX
+
 $ gem install synapse --install-dir /opt/smartstack/synapse --no-ri --no-rdoc
+
+# If you want to install specific plugins such as watchers or config generators
+# gem install them *after* you install synapse.
+
+# Example:
+# $ gem install synapse-nginx --install-dir /opt/smartstack/synapse --no-ri --no-rdoc
 ```
 
 This will download synapse and its dependencies into /opt/smartstack/synapse. You
@@ -118,16 +141,26 @@ export GEM_PATH=/opt/smartstack/synapse
 /opt/smartstack/synapse/bin/synapse --help
 ```
 
-Don't forget to install HAProxy too.
+Don't forget to install HAProxy or NGINX or whatever proxy your `config_generator`
+is configuring.
 
 ## Configuration ##
 
 Synapse depends on a single config file in JSON format; it's usually called `synapse.conf.json`.
-The file has three main sections.
+The file has a `services` section that describes how services are discovered
+and configured, and then top level sections for every supported proxy or
+configuration section. For example, the default Synapse supports three sections:
 
-1. [`services`](#services): lists the services you'd like to connect.
-2. [`haproxy`](#haproxy): specifies how to configure and interact with HAProxy.
-3. [`file_output`](#file) (optional): specifies where to write service state to on the filesystem.
+* [`services`](#services): lists the services you'd like to connect.
+* [`haproxy`](#haproxy): specifies how to configure and interact with HAProxy.
+* [`file_output`](#file) (optional): specifies where to write service state to on the filesystem.
+* [`<your config generator here>`] (optional): configuration for your custom
+   configuration generators (e.g. nginx, vulcand, envoy, etc ..., w.e. you want).
+
+If you have synapse `config_generator` plugins installed, you'll want a top
+level as well, e.g.:
+* [`nginx`](https://github.com/jolynch/synapse-nginx#top-level-config) (optional):
+  configuration for how to configure and interact with NGINX.
 
 <a name="services"/>
 ### Configuring a Service ###
@@ -138,13 +171,21 @@ Each value in the services hash is also a hash, and must contain the following k
 
 * [`discovery`](#discovery): how synapse will discover hosts providing this service (see [below](#discovery))
 
-The services hash *should* contain a section on how to configure the routing
-component you wish to use for this particular service. The only choice currently
-is `haproxy`:
+The services hash *should* contain a section on how to configure each routing
+component you wish to use for this particular service. The current choices are
+`haproxy` but you can access others e.g. [`nginx`](https://github.com/jolynch/synapse-nginx)
+through [plugins](createconfig). Note that if you give a routing component at the top level
+but not at the service level the default is typically to make that service
+available via that routing component, sans listening ports. If you wish to only
+configure a single component explicitly pass the ``disabled`` option to the
+relevant routing component. For example if you want to only configure HAProxy and
+not NGINX for a particular service, you would pass ``disabled`` to the `nginx` section
+of that service's watcher config.
 
 * [`haproxy`](#haproxysvc): how will the haproxy section for this service be configured
+* [`nginx`](https://github.com/jolynch/synapse-nginx#service-watcher-config): how will the nginx section for this service be configured. **NOTE** to use this you must have the synapse-nginx [plugin](#plugins) installed.
 
-The services hash may contain the following keys:
+The services hash may contain the following additional keys:
 
 * `default_servers` (default: `[]`): the list of default servers providing this service; synapse uses these if no others can be discovered. See [Listing Default Servers](#defaultservers).
 * `keep_default_servers` (default: false): whether default servers should be added to discovered services
@@ -278,8 +319,17 @@ This section is its own hash, which should contain the following keys:
 * `disabled`: A boolean value indicating if haproxy configuration management
 for just this service instance ought be disabled. For example, if you want
 file output for a particular service but no HAProxy config. (default is ``False``)
-* `port`: the port (on localhost) where HAProxy will listen for connections to the service. If this is omitted, only a backend stanza (and no frontend stanza) will be generated for this service; you'll need to get traffic to your service yourself via the `shared_frontend` or manual frontends in `extra_sections`
-* `bind_address`: force HAProxy to listen on this address ( default is localhost ). Setting `bind_address` on a per service basis overrides the global `bind_address` in the top level `haproxy`. Having HAProxy listen for connections on different addresses ( example: service1 listen on 127.0.0.2:443 and service2 listen on 127.0.0.3:443) allows /etc/hosts entries to point to services.
+* `port`: the port (on localhost) where HAProxy will listen for connections to
+the service. If this is null, just the bind_address will be used (e.g. for
+unix sockets) and if omitted, only a backend stanza (and no frontend stanza)
+will be generated for this service. In the case of a bare backend, you'll need
+to get traffic to your service yourself via the `shared_frontend` or
+manual frontends in `extra_sections`
+* `bind_address`: force HAProxy to listen on this address (default is localhost).
+Setting `bind_address` on a per service basis overrides the global `bind_address`
+in the top level `haproxy`. Having HAProxy listen for connections on
+different addresses (example: service1 listen on 127.0.0.2:443 and service2
+listen on 127.0.0.3:443) allows /etc/hosts entries to point to services.
 * `bind_options`: optional: default value is an empty string, specify additional bind parameters, such as ssl accept-proxy, crt, ciphers etc.
 * `server_port_override`: **DEPRECATED**. Renamed [`backend_port_override`](#backend_port_override) and moved to the top level hash. This will be removed in future versions.
 * `server_options`: the haproxy options for each `server` line of the service in HAProxy config; it may be left out.
@@ -334,7 +384,6 @@ use discovery information but not go through HAProxy.
 
 * `output_directory`: the path to a directory on disk that service registrations
 should be written to.
-
 
 ### HAProxy shared HTTP Frontend ###
 
@@ -416,6 +465,9 @@ frontend shared-frontend
 Non-HTTP backends such as MySQL or RabbitMQ will obviously continue to need their own dedicated ports.
 
 ## Contributing
+Note that now that we have a fully dynamic include system for service watchers
+and configuration generators, you don't *have* to PR into the main tree, but
+please do contribute a [link](#plugins).
 
 1. Fork it
 2. Create your feature branch (`git checkout -b my-new-feature`)
@@ -423,12 +475,20 @@ Non-HTTP backends such as MySQL or RabbitMQ will obviously continue to need thei
 4. Push to the branch (`git push origin my-new-feature`)
 5. Create new Pull Request
 
+<a name="createsw"/>
 ### Creating a Service Watcher ###
 
 See the Service Watcher [README](lib/synapse/service_watcher/README.md) for
 how to add new Service Watchers.
 
+<a name="createconfig"/>
 ### Creating a Config Generator ###
 
 See the Config Generator [README](lib/synapse/config_generator/README.md) for
 how to add new Config Generators
+
+<a name="plugins"/>
+## Links to Synapse Plugins ##
+* [`synapse-nginx`](https://github.com/jolynch/synapse-nginx) Is a `config_generator`
+  which allows Synapse to automatically configure and administer a local NGINX
+  proxy.
