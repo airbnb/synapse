@@ -997,9 +997,13 @@ class Synapse::ConfigGenerator
       )
       backend_name = watcher_config.fetch('backend_name', watcher.name)
 
+      # Explicit null value passed indicating no port needed
+      # For example if the bind_address is a unix port
+      bind_port = port.nil? ? '' : ":#{port}"
+
       bind_line = [
         "\tbind",
-        "#{bind_address}:#{port}",
+        "#{bind_address}#{bind_port}",
         watcher_config['bind_options']
       ].compact.join(' ')
 

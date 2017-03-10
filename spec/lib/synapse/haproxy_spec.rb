@@ -69,6 +69,15 @@ describe Synapse::ConfigGenerator::Haproxy do
     mockWatcher
   end
 
+  let(:mockwatcher_frontend_with_nil_port) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_service6')
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
+      'haproxy' => {'port' => nil, 'bind_address' => "unix@/foo/bar.sock"}
+    })
+    mockWatcher
+  end
+
   let(:mockwatcher_disabled) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('disabled_watcher')
@@ -438,6 +447,11 @@ describe Synapse::ConfigGenerator::Haproxy do
   it 'generates frontend stanza with bind options ' do
     mockConfig = []
     expect(subject.generate_frontend_stanza(mockwatcher_frontend_with_bind_options, mockConfig)).to eql(["\nfrontend example_service4", [], "\tbind localhost:2200 ssl no-sslv3 crt /path/to/cert/example.pem ciphers ECDHE-ECDSA-CHACHA20-POLY1305", "\tdefault_backend example_service4"])
+  end
+
+  it 'generates frontend stanza with nil port' do
+    mockConfig= []
+    expect(subject.generate_frontend_stanza(mockwatcher_frontend_with_nil_port, mockConfig)).to eql(["\nfrontend example_service6", [], "\tbind unix@/foo/bar.sock", "\tdefault_backend example_service6"])
   end
 
   it 'respects frontend bind_address ' do
