@@ -29,8 +29,7 @@ Synapse solves these difficulties in a simple and fault-tolerant way.
 ## How Synapse Works ##
 
 Synapse typically runs on your application servers, often every machine. At the heart of Synapse
-are proven routing components like [HAProxy](http://haproxy.1wt.eu/) or [NGINX](http://nginx.org/),
-so you know that you won't drop a packet.
+are proven routing components like [HAProxy](http://haproxy.1wt.eu/) or [NGINX](http://nginx.org/).
 
 For every external service that your application talks to, we assign a synapse local port on localhost.
 Synapse creates a proxy from the local port to the service, and you reconfigure your application to talk to the proxy.
@@ -39,9 +38,9 @@ Under the hood, Synapse sports `service_watcher`s for service discovery and
 `config_generators` for configuring local state (e.g. load balancer configs)
 based on that service discovery state.
 
-Synapse supports service discovery with with pluggable `service_watcher`s.
-The service watchers take care of signaling to the `config_generators` so that
-they can react and reconfigure to point at available servers.
+Synapse supports service discovery with with pluggable `service_watcher`s which
+take care of signaling to the `config_generators` so that they can react and
+reconfigure to point at available servers on the fly.
 
 We've included a number of default watchers, including ones that query zookeeper and ones using the AWS API.
 It is easy to write your own watchers for your use case, and install them as gems that
@@ -177,9 +176,11 @@ component you wish to use for this particular service. The current choices are
 `haproxy` but you can access others e.g. [`nginx`](https://github.com/jolynch/synapse-nginx)
 through [plugins](createconfig). Note that if you give a routing component at the top level
 but not at the service level the default is typically to make that service
-available via that routing component, sans listening ports, if you wish to only
+available via that routing component, sans listening ports. If you wish to only
 configure a single component explicitly pass the ``disabled`` option to the
-relevant routing component.
+relevant routing component. For example if you want to only configure HAProxy and
+not NGINX for a particular service, you would pass ``disabled`` to the `nginx` section
+of that service's watcher config.
 
 * [`haproxy`](#haproxysvc): how will the haproxy section for this service be configured
 * [`nginx`](https://github.com/jolynch/synapse-nginx#service-watcher-config): how will the nginx section for this service be configured. **NOTE** to use this you must have the synapse-nginx [plugin](#plugins) installed.
@@ -489,5 +490,5 @@ how to add new Config Generators
 <a name="plugins"/>
 ## Links to Synapse Plugins ##
 * [`synapse-nginx`](https://github.com/jolynch/synapse-nginx) Is a `config_generator`
-  which allows Synapse to automatically configure and administrate a local NGINX
+  which allows Synapse to automatically configure and administer a local NGINX
   proxy.
