@@ -179,7 +179,7 @@ describe Synapse::ConfigGenerator::Haproxy do
       end
 
       it 'does not cause a restart due to the socket' do
-        mock_socket_output = "example_service,somehost:5555"
+        mock_socket_output = "example_service,somehost:5555,0,0,0,0,200,0,0,0,0,0,,0,0,0,0,DOWN,0,"
         allow(subject).to receive(:talk_to_socket).with(socket_file_path, "show stat\n").and_return mock_socket_output
 
         expect(subject).to receive(:talk_to_socket).exactly(:once).with(
@@ -192,9 +192,9 @@ describe Synapse::ConfigGenerator::Haproxy do
       end
 
       it 'disables existing servers on the socket' do
-        mock_socket_output = "example_service,somehost:5555\ndisabled_watcher,somehost:5555"
+        mock_socket_output = "example_service,somehost:5555,0,0,0,0,200,0,0,0,0,0,,0,0,0,0,DOWN,0,\ndisabled_watcher,somehost:5555,0,0,0,0,200,0,0,0,0,0,,0,0,0,0,UP,0,"
         allow(subject).to receive(:talk_to_socket).with(socket_file_path, "show stat\n").and_return mock_socket_output
-
+        stub_const('Synapse::ConfigGenerator::Haproxy::HAPROXY_CMD_BATCH_SIZE', 1)
 
         expect(subject).to receive(:talk_to_socket).exactly(:once).with(
           socket_file_path, "enable server example_service/somehost:5555\n"
