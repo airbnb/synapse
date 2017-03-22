@@ -1112,10 +1112,10 @@ class Synapse::ConfigGenerator
 
         name, addr, state = re.match(line)[1..3]
 
-        next if ['FRONTEND', 'BACKEND'].include?(address)
+        next if ['FRONTEND', 'BACKEND'].include?(addr)
 
         cur_backends[name] ||= {}
-        cur_backends[name][address] = state
+        cur_backends[name][addr] = state
       end
 
       # build a list of backends that should be enabled
