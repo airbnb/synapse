@@ -1148,7 +1148,7 @@ class Synapse::ConfigGenerator
       cur_backends.each do |section, backends|
         backends.each do |backend, state|
           if enabled_backends.fetch(section, Set.new).include? backend
-            next if state == 'UP'
+            next if state =~ /^UP/
             command = "enable server #{section}/#{backend}"
           else
             command = "disable server #{section}/#{backend}"
