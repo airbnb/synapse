@@ -95,7 +95,7 @@ module Synapse
       config_generators = []
       opts.each do |type, generator_opts|
         # Skip the "services" top level key
-        next if type == 'services'
+        next if (type == 'services' || type == 'service_conf_dir')
         config_generators << ConfigGenerator.create(type, generator_opts)
       end
 
