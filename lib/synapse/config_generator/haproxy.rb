@@ -893,12 +893,24 @@ class Synapse::ConfigGenerator
       new_config = generate_base_config
       shared_frontend_lines = generate_shared_frontend
 
+      @frontends_cache ||= {}
+      @backends_cache ||= {}
+      @watcher_revisions ||= {}
       watchers.each do |watcher|
         watcher_config = watcher.config_for_generator[name]
         @watcher_configs[watcher.name] ||= parse_watcher_config(watcher)
         next if watcher_config['disabled']
-        new_config << generate_frontend_stanza(watcher, @watcher_configs[watcher.name]['frontend'])
-        new_config << generate_backend_stanza(watcher, @watcher_configs[watcher.name]['backend'])
+
+        regenerate = watcher.revision != @watcher_revisions[watcher.name] ||
+                     @frontends_cache[watcher.name].nil? ||
+                     @backends_cache[watcher.name].nil?
+        if regenerate
+          @frontends_cache[watcher.name] = generate_frontend_stanza(watcher, @watcher_configs[watcher.name]['frontend'])
+          @backends_cache[watcher.name] = generate_backend_stanza(watcher, @watcher_configs[watcher.name]['backend'])
+          @watcher_revisions[watcher.name] = watcher.revision
+        end
+        new_config << @frontends_cache[watcher.name] << @backends_cache[watcher.name]
+
         if watcher_config.include?('shared_frontend')
           if opts['shared_frontend'] == nil
             log.warn "synapse: service #{watcher.name} contains a shared frontend section but the base config does not! skipping."

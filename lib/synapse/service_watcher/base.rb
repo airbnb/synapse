@@ -6,13 +6,15 @@ class Synapse::ServiceWatcher
     include Synapse::Logging
 
     LEADER_WARN_INTERVAL = 30
+    MAX_REVISION = 99999999999
 
-    attr_reader :name, :config_for_generator
+    attr_reader :name, :config_for_generator, :revision
 
     def initialize(opts={}, synapse)
       super()
 
       @synapse = synapse
+      @revision = 0
 
       # set required service parameters
       %w{name discovery}.each do |req|
@@ -199,6 +201,8 @@ class Synapse::ServiceWatcher
     # Subclasses should not invoke this directly; it's only exposed so that it
     # can be overridden in subclasses.
     def reconfigure!
+      @revision += 1
+      @revision = 0 if @revision >= MAX_REVISION
       @synapse.reconfigure!
     end
   end
