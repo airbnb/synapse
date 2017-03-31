@@ -837,6 +837,11 @@ class Synapse::ConfigGenerator
       # a place to store the parsed haproxy config from each watcher
       @watcher_configs = {}
 
+      # a place to store generated frontend and backend stanzas
+      @frontends_cache = {}
+      @backends_cache = {}
+      @watcher_revisions = {}
+
       @state_file_path = @opts['state_file_path']
       @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
     end
@@ -893,9 +898,6 @@ class Synapse::ConfigGenerator
       new_config = generate_base_config
       shared_frontend_lines = generate_shared_frontend
 
-      @frontends_cache ||= {}
-      @backends_cache ||= {}
-      @watcher_revisions ||= {}
       watchers.each do |watcher|
         watcher_config = watcher.config_for_generator[name]
         @watcher_configs[watcher.name] ||= parse_watcher_config(watcher)
