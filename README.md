@@ -163,6 +163,7 @@ level as well, e.g.:
   configuration for how to configure and interact with NGINX.
 
 <a name="services"/>
+
 ### Configuring a Service ###
 
 The `services` section is a hash, where the keys are the `name` of the service to be configured.
@@ -194,6 +195,7 @@ The services hash may contain the following additional keys:
 * `backend_port_override`: the port that discovered servers listen on; you should specify this if your discovery mechanism only discovers names or addresses (like the DNS watcher or the Ec2TagWatcher). If the discovery method discovers a port along with hostnames (like the zookeeper watcher) this option may be left out, but will be used in preference if given.
 
 <a name="discovery"/>
+
 #### Service Discovery ####
 
 We've included a number of `watchers` which provide service discovery.
@@ -292,6 +294,7 @@ It takes the following options:
 * `port_index`: Index of the backend port in the task's "ports" array. (default: 0)
 
 <a name="defaultservers"/>
+
 #### Listing Default Servers ####
 
 You may list a number of default servers providing a service.
@@ -312,6 +315,7 @@ disappear then the previous known backends will be used.  Disable this behavior
 by unsetting `use_previous_backends`.
 
 <a name="haproxysvc"/>
+
 #### The `haproxy` Section ####
 
 This section is its own hash, which should contain the following keys:
@@ -343,6 +347,7 @@ listen on 127.0.0.3:443) allows /etc/hosts entries to point to services.
 * `cookie_value_method`: optional: default value is `name`, it defines the way your backends receive a cookie value in http mode. If equal to `hash`, synapse hashes backend names on cookie value assignation of your discovered backends, useful when you want to use haproxy cookie feature but you do not want that your end users receive a Set-Cookie with your server name and ip readable in clear.
 
 <a name="haproxy"/>
+
 ### Configuring HAProxy ###
 
 The top level `haproxy` section of the config file has the following options:
@@ -376,6 +381,7 @@ Note that a non-default `bind_address` can be dangerous.
 If you configure an `address:port` combination that is already in use on the system, haproxy will fail to start.
 
 <a name="file"/>
+
 ### Configuring `file_output` ###
 
 This section controls whether or not synapse will write out service state
@@ -476,18 +482,21 @@ please do contribute a [link](#plugins).
 5. Create new Pull Request
 
 <a name="createsw"/>
+
 ### Creating a Service Watcher ###
 
 See the Service Watcher [README](lib/synapse/service_watcher/README.md) for
 how to add new Service Watchers.
 
 <a name="createconfig"/>
+
 ### Creating a Config Generator ###
 
 See the Config Generator [README](lib/synapse/config_generator/README.md) for
 how to add new Config Generators
 
 <a name="plugins"/>
+
 ## Links to Synapse Plugins ##
 * [`synapse-nginx`](https://github.com/jolynch/synapse-nginx) Is a `config_generator`
   which allows Synapse to automatically configure and administer a local NGINX
