@@ -837,6 +837,11 @@ class Synapse::ConfigGenerator
       # a place to store the parsed haproxy config from each watcher
       @watcher_configs = {}
 
+      # a place to store generated frontend and backend stanzas
+      @frontends_cache = {}
+      @backends_cache = {}
+      @watcher_revisions = {}
+
       @state_file_path = @opts['state_file_path']
       @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
     end
@@ -897,8 +902,17 @@ class Synapse::ConfigGenerator
         watcher_config = watcher.config_for_generator[name]
         @watcher_configs[watcher.name] ||= parse_watcher_config(watcher)
         next if watcher_config['disabled']
-        new_config << generate_frontend_stanza(watcher, @watcher_configs[watcher.name]['frontend'])
-        new_config << generate_backend_stanza(watcher, @watcher_configs[watcher.name]['backend'])
+
+        regenerate = watcher.revision != @watcher_revisions[watcher.name] ||
+                     @frontends_cache[watcher.name].nil? ||
+                     @backends_cache[watcher.name].nil?
+        if regenerate
+          @frontends_cache[watcher.name] = generate_frontend_stanza(watcher, @watcher_configs[watcher.name]['frontend'])
+          @backends_cache[watcher.name] = generate_backend_stanza(watcher, @watcher_configs[watcher.name]['backend'])
+          @watcher_revisions[watcher.name] = watcher.revision
+        end
+        new_config << @frontends_cache[watcher.name] << @backends_cache[watcher.name]
+
         if watcher_config.include?('shared_frontend')
           if opts['shared_frontend'] == nil
             log.warn "synapse: service #{watcher.name} contains a shared frontend section but the base config does not! skipping."

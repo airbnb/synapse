@@ -14,6 +14,7 @@ describe Synapse::ConfigGenerator::Haproxy do
     allow(mockWatcher).to receive(:config_for_generator).and_return({
       'haproxy' => {'server_options' => "check inter 2000 rise 3 fall 2"}
     })
+    allow(mockWatcher).to receive(:revision).and_return(1)
     mockWatcher
   end
 
@@ -86,6 +87,7 @@ describe Synapse::ConfigGenerator::Haproxy do
     allow(mockWatcher).to receive(:config_for_generator).and_return({
       'haproxy' => {'port' => 2200, 'disabled' => true}
     })
+    allow(mockWatcher).to receive(:revision).and_return(1)
     mockWatcher
   end
 
