@@ -18,6 +18,10 @@ describe Synapse::ConfigGenerator::FileOutput do
     allow(mockWatcher).to receive(:name).and_return('example_service')
     backends = [{ 'host' => 'somehost', 'port' => 5555}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:config_for_generator).and_return(
+      {'file_output' => {}}
+    )
+    allow(mockWatcher).to receive(:revision).and_return(0)
     mockWatcher
   end
   let(:mockwatcher_2) do
@@ -25,11 +29,21 @@ describe Synapse::ConfigGenerator::FileOutput do
     allow(mockWatcher).to receive(:name).and_return('foobar_service')
     backends = [{ 'host' => 'somehost', 'port' => 1234}]
     allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:config_for_generator).and_return(
+      {'file_output' => {}}
+    )
+    allow(mockWatcher).to receive(:revision).and_return(0)
     mockWatcher
   end
 
   it 'updates the config' do
     expect(subject).to receive(:write_backends_to_file)
+    subject.update_config([mockwatcher_1])
+  end
+
+  it 'ignores repeat configs' do
+    expect(subject).to receive(:write_backends_to_file).once
+    subject.update_config([mockwatcher_1])
     subject.update_config([mockwatcher_1])
   end
 

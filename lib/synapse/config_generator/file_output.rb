@@ -21,6 +21,9 @@ class Synapse::ConfigGenerator
       rescue SystemCallError => err
         raise ArgumentError, "provided output directory #{opts['output_directory']} is not present or creatable"
       end
+
+      # For tracking backends that we don't need to update
+      @watcher_revisions = {}
     end
 
     def tick(watchers)
@@ -28,7 +31,12 @@ class Synapse::ConfigGenerator
 
     def update_config(watchers)
       watchers.each do |watcher|
-        write_backends_to_file(watcher.name, watcher.backends)
+        next if watcher.config_for_generator[name]['disabled']
+
+        unless @watcher_revisions[watcher.name] == watcher.revision
+          @watcher_revisions[watcher.name] = watcher.revision
+          write_backends_to_file(watcher.name, watcher.backends)
+        end
       end
       clean_old_watchers(watchers)
     end

@@ -7,6 +7,15 @@ when your generator has received an update from synapse via `update_config` it
 should sync the watcher state with the external configuration (e.g. HAProxy
 state)
 
+Note that you have access to the following **read only** methods on the
+watchers:
+
+* `config_for_generator[name]` -> Hash: A method for retrieving the watcher config
+ relevant to this particular config watcher.
+* `revision` -> int: A logical, monotonically increasing clock indicating which
+  revision of the watcher this is. You can use this to ignore config updates
+  from watchers that haven't changed
+
 ```ruby
 require "synapse/config_generator/base"
 
