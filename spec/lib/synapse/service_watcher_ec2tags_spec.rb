@@ -66,7 +66,7 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
       },
       "discovery" => {
         "method" => "ec2tag",
-        "tag_hash"   => {"fuNNy_tag_name": "funkyTagValue"},
+        "tag_hash"   => {"fuNNy_tag_name"=> "funkyTagValue"},
         "aws_region" => 'eu-test-1',
         "aws_access_key_id" => 'ABCDEFGHIJKLMNOPQRSTU',
         "aws_secret_access_key" => 'verylongfakekeythatireallyneedtogenerate'
@@ -209,7 +209,7 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
 
         expect(subject.ec2).to receive(:instances).and_return(instance_collection)
 
-        subject.send(:instances_with_tags, {'foo': 'bar'})
+        subject.send(:instances_with_tags, {'foo'=> 'bar'})
       end
     end
 
