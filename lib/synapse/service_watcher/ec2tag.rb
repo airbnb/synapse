@@ -10,15 +10,24 @@ class Synapse::ServiceWatcher
       region = @discovery['aws_region'] || ENV['AWS_REGION']
       log.info "Connecting to EC2 region: #{region}"
 
-      @ec2 = AWS::EC2.new(
+      @ec2 = Aws::EC2::Resource.new(
         region:            region,
         access_key_id:     @discovery['aws_access_key_id']     || ENV['AWS_ACCESS_KEY_ID'],
         secret_access_key: @discovery['aws_secret_access_key'] || ENV['AWS_SECRET_ACCESS_KEY'] )
 
       @check_interval = @discovery['check_interval'] || 15.0
+      # Backwards compatibility for single-tag ec2tag watcher
 
-      log.info "synapse: ec2tag watcher looking for instances " +
-        "tagged with #{@discovery['tag_name']}=#{@discovery['tag_value']}"
+      if @discovery.key?('tag_name')
+        if @discovery.key?('tag_hash')
+          @discovery['tag_hash'][@discovery['tag_name']] = @discovery['tag_value']
+        else
+          @discovery['tag_hash'] = {@discovery['tag_name']=>@discovery['tag_value']}
+        end
+      end
+      tag_filter_list =  @discovery['tag_hash'].collect { |t, v| "#{t}=#{v}" }
+      log.info "synapse: ec2tag watcher looking for instances tagged with " +
+        tag_filter_list.join(' AND ')
 
       @watcher = Thread.new { watch }
     end
@@ -29,10 +38,9 @@ class Synapse::ServiceWatcher
       # Required, via options only.
       raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
         unless @discovery['method'] == 'ec2tag'
-      raise ArgumentError, "aws tag name is required for service #{@name}" \
-        unless @discovery['tag_name']
-      raise ArgumentError, "aws tag value required for service #{@name}" \
-        unless @discovery['tag_value']
+      raise ArgumentError, "'tag_hash' or 'tag_name' and 'tag_value' is required for service #{@name}" \
+        unless not @discovery.key?('tag_hash') \
+            or (not @discovery.key?('tag_name') && !@discovery.key?('tag_value'))
 
       # As we're only looking up instances with hostnames/IPs, need to
       # be explicitly told which port the service we're balancing for listens on.
@@ -78,30 +86,28 @@ class Synapse::ServiceWatcher
     end
 
     def discover_instances
-      AWS.memoize do
-        instances = instances_with_tags(@discovery['tag_name'], @discovery['tag_value'])
+      instances = instances_with_tags(@discovery['tag_hash'])
 
-        new_backends = []
+      new_backends = []
 
-        # choice of private_dns_name, dns_name, private_ip_address or
-        # ip_address, for now, just stick with the private fields.
-        instances.each do |instance|
-          new_backends << {
-            'name' => instance.private_dns_name,
-            'host' => instance.private_ip_address,
-          }
-        end
-
-        new_backends
+      # choice of private_dns_name, dns_name, private_ip_address or
+      # ip_address, for now, just stick with the private fields.
+      instances.each do |instance|
+        new_backends << {
+          'name' => instance.private_dns_name,
+          'host' => instance.private_ip_address,
+        }
       end
+
+      new_backends
     end
 
-    def instances_with_tags(tag_name, tag_value)
-      @ec2.instances
-        .tagged(tag_name)
-        .tagged_values(tag_value)
-        .select { |i| i.status == :running }
+    def instances_with_tags(tag_hash)
+      filters = [{ name: 'instance-state-name', values: ['running'] }]
+      tag_hash.each do |tag, val|
+        filters << { name: "tag:#{tag}", values: ["#{val}"]}
+      end
+      @ec2.instances(filters: filters)
     end
   end
 end
-
