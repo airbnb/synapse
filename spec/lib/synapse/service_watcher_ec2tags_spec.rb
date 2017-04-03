@@ -58,6 +58,22 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
     }
   end
 
+  let(:new_config) do
+    { 'name' => 'ec2tagtest',
+      'haproxy' => {
+        'port' => '8080',
+        'server_port_override' => '8081'
+      },
+      "discovery" => {
+        "method" => "ec2tag",
+        "tag_hash"   => {"fuNNy_tag_name"=> "funkyTagValue"},
+        "aws_region" => 'eu-test-1',
+        "aws_access_key_id" => 'ABCDEFGHIJKLMNOPQRSTU',
+        "aws_secret_access_key" => 'verylongfakekeythatireallyneedtogenerate'
+      }
+    }
+  end
+
   before(:all) do
     # Clean up ENV so we don't inherit any actual AWS config.
     %w[AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION].each { |k| ENV.delete(k) }
@@ -66,7 +82,7 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
   before(:each) do
     # https://ruby.awsblog.com/post/Tx2SU6TYJWQQLC3/Stubbing-AWS-Responses
     # always returns empty results, so data may have to be faked.
-    AWS.stub!
+    Aws.config[:stub_responses] = true
   end
 
   def remove_discovery_arg(name)
@@ -98,6 +114,12 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
 
     it 'instantiates cleanly with basic config' do
       expect { subject }.not_to raise_error
+    end
+
+    it 'instantiates cleanly with new config' do
+      expect {
+        Synapse::ServiceWatcher::Ec2tagWatcher.new(new_config, mock_synapse)
+      }.not_to raise_error
     end
 
     context 'when missing arguments' do
@@ -172,8 +194,8 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
     end
 
     context 'using the AWS API' do
-      let(:ec2_client) { double('AWS::EC2') }
-      let(:instance_collection) { double('AWS::EC2::InstanceCollection') }
+      let(:ec2_client) { double('Aws::EC2::Resource') }
+      let(:instance_collection) { double('Aws::Resources::Collection') }
 
       before do
         subject.ec2 = ec2_client
@@ -187,11 +209,7 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
 
         expect(subject.ec2).to receive(:instances).and_return(instance_collection)
 
-        expect(instance_collection).to receive(:tagged).with('foo').and_return(instance_collection)
-        expect(instance_collection).to receive(:tagged_values).with('bar').and_return(instance_collection)
-        expect(instance_collection).to receive(:select).and_return(instance_collection)
-
-        subject.send(:instances_with_tags, 'foo', 'bar')
+        subject.send(:instances_with_tags, {'foo'=> 'bar'})
       end
     end
 
@@ -240,4 +258,3 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
     end
   end
 end
-

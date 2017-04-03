@@ -261,13 +261,18 @@ It takes the following options:
 ##### AWS EC2 tags #####
 
 This watcher retrieves a list of Amazon EC2 instances that have a tag
-with particular value using the AWS API.
+with particular value using the AWS API, or if you specify a tag_hash instead,
+it will filter the intersection of those tags and their values.
+
+"tag_name"=>"tag_value" will be appended to any values in "tag_hash" as
+a concession to backwards compatibility
 It takes the following options:
 
 * `method`: ec2tag
 * `tag_name`: the name of the tag to inspect. As per the AWS docs,
   this is case-sensitive.
 * `tag_value`: the value to match on. Case-sensitive.
+* `tag_hash`: A hash map of names=> values to filter instances by tags with. 
 
 Additionally, you MUST supply [`backend_port_override`](#backend_port_override)
 in the service configuration as this watcher does not know which port the
@@ -421,7 +426,7 @@ For example:
    - "balance  roundrobin"
  services:
   service1:
-   discovery: 
+   discovery:
     method: "zookeeper"
     path:  "/nerve/services/service1"
     hosts:
