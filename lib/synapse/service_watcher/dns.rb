@@ -15,7 +15,13 @@ class Synapse::ServiceWatcher
     end
 
     def ping?
-      @watcher.alive? && !(resolver.getaddresses('airbnb.com').empty?)
+      begin
+        @watcher.alive? && !(resolver.getaddresses('airbnb.com').empty?)
+      rescue => e
+        log.warn "Name server error: #{e.inspect}"
+        log.warn e.backtrace
+        false
+      end
     end
 
     def discovery_servers
