@@ -251,8 +251,8 @@ class Synapse::ServiceWatcher
       log.debug "synapse: deserializing process data"
       decoded = @decode_method.call(data)
 
-      host = decoded['host'] || (raise KeyError, 'instance json data does not have host key')
-      port = decoded['port'] || (raise KeyError, 'instance json data does not have port key')
+      host = decoded['serviceEndpoint']['host'] || (raise KeyError, 'instance json data does not have host key')
+      port = decoded['serviceEndpoint']['port'] || (raise KeyError, 'instance json data does not have port key')
       name = decoded['name'] || nil
       weight = decoded['weight'] || nil
       haproxy_server_options = decoded['haproxy_server_options'] || nil
