@@ -10,6 +10,11 @@ class Synapse::ServiceWatcher
       region = @discovery['aws_region'] || ENV['AWS_REGION']
       log.info "Connecting to EC2 region: #{region}"
 
+      unless ((@discovery['aws_access_key_id'] || ENV['aws_access_key_id']) \
+              && (@discovery['aws_secret_access_key'] || ENV['aws_secret_access_key'] ))
+        AWS.config(:credential_provider => AWS::Core::CredentialProviders::EC2Provider.new(:retries => 0))
+      end
+
       @ec2 = AWS::EC2.new(
         region:            region,
         access_key_id:     @discovery['aws_access_key_id']     || ENV['AWS_ACCESS_KEY_ID'],
