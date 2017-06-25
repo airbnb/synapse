@@ -1,5 +1,6 @@
 require 'synapse/config_generator/base'
 
+require 'csv'
 require 'fileutils'
 require 'json'
 require 'socket'
@@ -304,7 +305,7 @@ class Synapse::ConfigGenerator
     def update_backends_at(socket_file_path, watchers)
       # first, get a list of existing servers for various backends
       begin
-        stat_command = "show stat\n"
+        stat_command = "show stat -1 4 -1\n"
         info = talk_to_socket(socket_file_path, stat_command)
       rescue StandardError => e
         log.warn "synapse: restart required because socket command #{stat_command} failed "\
@@ -315,6 +316,7 @@ class Synapse::ConfigGenerator
 
       # parse the stats output to get current backends
       cur_backends = {}
+      csv = CSV.parse(info, :headers => true)
       re = Regexp.new('^(.+?),(.+?),(?:.*?,){15}(.+?),')
 
       info.split("\n").each do |line|
