@@ -7,6 +7,8 @@ require 'socket'
 require 'digest/sha1'
 require 'set'
 
+Server = Struct.new(:name, :addr)
+
 class Synapse::ConfigGenerator
   class Haproxy18 < BaseGenerator
     include Synapse::Logging
@@ -62,6 +64,10 @@ class Synapse::ConfigGenerator
       @frontends_cache = {}
       @backends_cache = {}
       @watcher_revisions = {}
+
+      # Mapping of unique_backend_name => HAProxy server id
+      # For example hostname_ip_port => s12
+      @server_id_map = {}
 
       @state_file_path = @opts['state_file_path']
       @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
@@ -306,7 +312,7 @@ class Synapse::ConfigGenerator
       # first, get a list of existing servers for various backends
       begin
         stat_command = "show stat -1 4 -1\n"
-        info = talk_to_socket(socket_file_path, stat_command)
+        info = talk_to_socket(socket_file_path, stat_command).strip()
       rescue StandardError => e
         log.warn "synapse: restart required because socket command #{stat_command} failed "\
                  "with error #{e.inspect}"
@@ -316,18 +322,17 @@ class Synapse::ConfigGenerator
 
       # parse the stats output to get current backends
       cur_backends = {}
-      csv = CSV.parse(info, :headers => true)
-      re = Regexp.new('^(.+?),(.+?),(?:.*?,){15}(.+?),')
-
-      info.split("\n").each do |line|
-        next if line[0] == '#'
-
-        name, addr, state = re.match(line)[1..3]
-
-        next if ['FRONTEND', 'BACKEND'].include?(addr)
-
-        cur_backends[name] ||= {}
-        cur_backends[name][addr] = state
+      CSV.parse(info, :headers => true) do |line|
+        begin
+          # The first field is "# pxname" which is sorta strange, so we just
+          # do 0 for that and use names for the rest
+          backend_name, server_name = line[0], line['svname']
+          addr, status = line['addr'], line['status']
+        rescue StandardError => e
+          log.warn "synapse: invalid line #{line}"
+        else
+          cur_backends[backend_name][] = status
+        end
       end
 
       # build a list of backends that should be enabled
