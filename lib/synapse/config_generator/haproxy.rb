@@ -846,7 +846,7 @@ class Synapse::ConfigGenerator
       @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
 
       # For giving consistent orders, even if they are random
-      @seed = rand(2000)
+      @seed = @opts.fetch('seed', rand(2000))
     end
 
     def normalize_watcher_provided_config(service_watcher_name, service_watcher_config)

@@ -342,7 +342,12 @@ listen on 127.0.0.3:443) allows /etc/hosts entries to point to services.
 * `backend_name`: The name of the generated HAProxy backend for this service
   (defaults to the service's key in the `services` section)
 * `listen`: these lines will be parsed and placed in the correct `frontend`/`backend` section as applicable; you can put lines which are the same for the frontend and backend here.
-* `backend_order`: optional: how backends should be ordered in the `backend` stanza. (default is shuffling). Setting to `asc` means sorting backends in ascending alphabetical order before generating stanza. `desc` means descending alphabetical order. `no_shuffle` means no shuffling or sorting.
+* `backend_order`: optional: how backends should be ordered in the `backend` stanza. (default is shuffling).
+  Setting to `asc` means sorting backends in ascending alphabetical order before generating stanza.
+  `desc` means descending alphabetical order.
+  `no_shuffle` means no shuffling or sorting.
+  If you shuffle consider setting `seed` at the top level so that your backend
+  ordering is deterministic across HAProxy reloads
 * `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
 * `cookie_value_method`: optional: default value is `name`, it defines the way your backends receive a cookie value in http mode. If equal to `hash`, synapse hashes backend names on cookie value assignation of your discovered backends, useful when you want to use haproxy cookie feature but you do not want that your end users receive a Set-Cookie with your server name and ip readable in clear.
 
@@ -376,6 +381,12 @@ The top level `haproxy` section of the config file has the following options:
 * `state_file_ttl`: the number of seconds that backends should be kept in the
   state file cache.  This only applies if `state_file_path` is provided.
   (default: 86400)
+* `seed`: A number to seed random actions with so that all orders are
+  deterministic. You can use this so that backend ordering is deterministic
+  but still shuffled, for example by setting this to the hash of your machine's
+  IP address you guarantee that HAProxy on different machines have different
+  orders, but within that machine you always choose the same order.
+  (default: ``rand(2000)``)
 
 Note that a non-default `bind_address` can be dangerous.
 If you configure an `address:port` combination that is already in use on the system, haproxy will fail to start.
