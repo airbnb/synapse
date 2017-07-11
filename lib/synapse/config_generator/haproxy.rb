@@ -844,6 +844,9 @@ class Synapse::ConfigGenerator
 
       @state_file_path = @opts['state_file_path']
       @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
+
+      # For giving consistent orders, even if they are random
+      @seed = rand(2000)
     end
 
     def normalize_watcher_provided_config(service_watcher_name, service_watcher_config)
@@ -1071,7 +1074,7 @@ class Synapse::ConfigGenerator
       when 'no_shuffle'
         backends.keys
       else
-        backends.keys.shuffle
+        backends.keys.shuffle(random: Random.new(@seed))
       end
 
       stanza = [
