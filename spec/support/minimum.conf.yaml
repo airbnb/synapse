@@ -27,7 +27,6 @@ haproxy:
     - global_test_option
   defaults:
     - default_test_option
-  seed: 1234
 
 # settings for the file output generator
 file_output:

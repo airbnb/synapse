@@ -373,14 +373,6 @@ describe Synapse::ConfigGenerator::Haproxy do
   describe 'generate backend stanza in correct order' do
     let(:multiple_backends_stanza_map) do
       {
-        'shuffle' => [
-          "\nbackend example_service",
-          [],
-          ["\tserver somehost1_10.11.11.11:5555 10.11.11.11:5555 cookie somehost1_10.11.11.11:5555 check inter 2000 rise 3 fall 2",
-           "\tserver somehost3_10.22.22.22:5555 10.22.22.22:5555 cookie somehost3_10.22.22.22:5555 check inter 2000 rise 3 fall 2",
-           "\tserver somehost2_10.10.10.10:5555 10.10.10.10:5555 cookie somehost2_10.10.10.10:5555 check inter 2000 rise 3 fall 2",
-          ]
-        ],
         'asc' => [
           "\nbackend example_service",
           [],
@@ -418,7 +410,7 @@ describe Synapse::ConfigGenerator::Haproxy do
       mockWatcher
     end
 
-    ['asc', 'desc', 'no_shuffle', 'shuffle'].each do |order_option|
+    ['asc', 'desc', 'no_shuffle'].each do |order_option|
       context "when #{order_option} is specified for backend_order" do
         it 'generates backend stanza in correct order' do
           mockConfig = []
@@ -430,6 +422,22 @@ describe Synapse::ConfigGenerator::Haproxy do
           })
           expect(subject.generate_backend_stanza(mockwatcher_with_multiple_backends, mockConfig)).to eql(multiple_backends_stanza_map[order_option])
         end
+      end
+    end
+
+    context "when shuffle is specified for backend_order" do
+      it 'generates backend stanza in reproducible order' do
+        mockConfig = []
+        allow(mockwatcher_with_multiple_backends).to receive(:config_for_generator).and_return({
+          'haproxy' => {
+            'server_options' => "check inter 2000 rise 3 fall 2",
+            'backend_order' => 'shuffle',
+            'seed' => 1234,
+          }
+        })
+        runs = (1..5).collect { |_| subject.generate_backend_stanza(mockwatcher_with_multiple_backends, mockConfig) }
+        expect(runs.length).to eq(5)
+        expect(runs.uniq.length).to eq(1)
       end
     end
   end
