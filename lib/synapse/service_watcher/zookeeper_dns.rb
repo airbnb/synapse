@@ -51,8 +51,9 @@ class Synapse::ServiceWatcher
       # Overrides the discovery_servers method on the parent class
       attr_accessor :discovery_servers
 
-      def initialize(opts={}, synapse, message_queue)
+      def initialize(opts={}, parent=nil, synapse, message_queue)
         @message_queue = message_queue
+        @parent = parent
 
         super(opts, synapse)
       end
@@ -94,6 +95,11 @@ class Synapse::ServiceWatcher
             unless last_resolution == current_resolution
               last_resolution = current_resolution
               configure_backends(last_resolution)
+
+              # Propagate revision updates down to ZookeeperDnsWatcher, so
+              # that stanza cache can work properly.
+              @revision += 1
+              @parent.reconfigure! unless @parent.nil?
             end
           end
         end
@@ -147,6 +153,7 @@ class Synapse::ServiceWatcher
 
       @dns = Dns.new(
         mk_child_watcher_opts(dns_discovery_opts),
+        self,
         @synapse,
         @message_queue
       )
