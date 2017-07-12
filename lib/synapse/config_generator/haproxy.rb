@@ -799,7 +799,7 @@ class Synapse::ConfigGenerator
     DEFAULT_BIND_ADDRESS = 'localhost'
     # It's unclear how many servers HAProxy can have in one backend, but 65k
     # should be enough for anyone right (famous last words)?
-    MAX_SERVER_ID = 2**16 - 1
+    MAX_SERVER_ID = (2**16 - 1).freeze
 
     def initialize(opts)
       super(opts)
@@ -850,10 +850,7 @@ class Synapse::ConfigGenerator
 
       # For giving consistent orders, even if they are random
       @server_order_seed = @opts.fetch('server_order_seed', rand(2000))
-      @max_server_id = @opts.fetch('max_server_id', MAX_SERVER_ID)
-      # Map of backend names -> hash of HAProxy server names -> puids
-      # (server->id aka "name") to their proxy unique id (server->puid aka "id")
-      @server_id_map = Hash.new{|h,k| h[k] = {}}
+      @max_server_id = @opts.fetch('max_server_id', MAX_SERVER_ID).to_i
 
     end
 
@@ -1068,15 +1065,10 @@ class Synapse::ConfigGenerator
         end
         backends[backend_name] = backend.merge('enabled' => true)
         # HAProxy needs unique ids s.t. 0 < id < sizeof(signed int) although
-        # the practical limit of backends is around 4k,
-        @server_id_map[watcher.name][backend_name] ||= (
-          (@server_id_map[watcher.name].values.max || 0) % @max_server_id + 1
-        )
+        # the practical limit of backends is probably much lower ...,
+        max_existing_id = backends.values.collect{|b| b['haproxy_server_id']}.compact.max || 0
+        backends[backend_name]['haproxy_server_id'] ||= max_existing_id % @max_server_id + 1
       end
-      # Remove any servers we don't use anymore
-      @server_id_map[watcher.name].select!{ |server_name|
-        backends.has_key?(server_name)
-      }
 
       if watcher.backends.empty?
         log.debug "synapse: no backends found for watcher #{watcher.name}"
@@ -1104,7 +1096,7 @@ class Synapse::ConfigGenerator
           has_id = [watcher_config['server_options'], backend['haproxy_server_options']].collect {|server_opts|
              (server_opts || 'no match').split(' ').include?('id')
           }.any?
-          b = "#{b} id #{@server_id_map[watcher.name][backend_name]}" unless has_id
+          b = "#{b} id #{backend['haproxy_server_id']}" unless has_id
 
           unless config.include?('mode tcp')
             b = case watcher_config['cookie_value_method']
@@ -1308,7 +1300,9 @@ class Synapse::ConfigGenerator
 
         watcher.backends.each do |backend|
           backend_name = construct_name(backend)
-          seen[watcher.name][backend_name] = backend.merge('timestamp' => timestamp)
+          seen[watcher.name][backend_name] = backend.merge(
+            'timestamp' => timestamp
+          )
         end
       end
 
