@@ -849,7 +849,7 @@ class Synapse::ConfigGenerator
       @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
 
       # For giving consistent orders, even if they are random
-      @server_order_seed = @opts.fetch('server_order_seed', rand(2000)).hash.to_i
+      @server_order_seed = @opts.fetch('server_order_seed', rand(2000)).to_i
       @max_server_id = @opts.fetch('max_server_id', MAX_SERVER_ID).to_i
       # Map of backend names -> hash of HAProxy server names -> puids
       # (server->id aka "name") to their proxy unique id (server->puid aka "id")
