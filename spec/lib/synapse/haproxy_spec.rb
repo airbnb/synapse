@@ -367,7 +367,7 @@ describe Synapse::ConfigGenerator::Haproxy do
 
   it 'generates backend stanza' do
     mockConfig = []
-    expect(subject.generate_backend_stanza(mockwatcher, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2"]])
+    expect(subject.generate_backend_stanza(mockwatcher, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555 check inter 2000 rise 3 fall 2"]])
   end
 
   describe 'generate backend stanza in correct order' do
@@ -376,25 +376,25 @@ describe Synapse::ConfigGenerator::Haproxy do
         'asc' => [
           "\nbackend example_service",
           [],
-          ["\tserver somehost1_10.11.11.11:5555 10.11.11.11:5555 cookie somehost1_10.11.11.11:5555 check inter 2000 rise 3 fall 2",
-           "\tserver somehost2_10.10.10.10:5555 10.10.10.10:5555 cookie somehost2_10.10.10.10:5555 check inter 2000 rise 3 fall 2",
-           "\tserver somehost3_10.22.22.22:5555 10.22.22.22:5555 cookie somehost3_10.22.22.22:5555 check inter 2000 rise 3 fall 2"
+          ["\tserver somehost1_10.11.11.11:5555 10.11.11.11:5555 id 1 cookie somehost1_10.11.11.11:5555 check inter 2000 rise 3 fall 2",
+           "\tserver somehost2_10.10.10.10:5555 10.10.10.10:5555 id 3 cookie somehost2_10.10.10.10:5555 check inter 2000 rise 3 fall 2",
+           "\tserver somehost3_10.22.22.22:5555 10.22.22.22:5555 id 2 cookie somehost3_10.22.22.22:5555 check inter 2000 rise 3 fall 2"
           ]
         ],
         'desc' => [
           "\nbackend example_service",
           [],
-          ["\tserver somehost3_10.22.22.22:5555 10.22.22.22:5555 cookie somehost3_10.22.22.22:5555 check inter 2000 rise 3 fall 2",
-           "\tserver somehost2_10.10.10.10:5555 10.10.10.10:5555 cookie somehost2_10.10.10.10:5555 check inter 2000 rise 3 fall 2",
-           "\tserver somehost1_10.11.11.11:5555 10.11.11.11:5555 cookie somehost1_10.11.11.11:5555 check inter 2000 rise 3 fall 2"
+          ["\tserver somehost3_10.22.22.22:5555 10.22.22.22:5555 id 2 cookie somehost3_10.22.22.22:5555 check inter 2000 rise 3 fall 2",
+           "\tserver somehost2_10.10.10.10:5555 10.10.10.10:5555 id 3 cookie somehost2_10.10.10.10:5555 check inter 2000 rise 3 fall 2",
+           "\tserver somehost1_10.11.11.11:5555 10.11.11.11:5555 id 1 cookie somehost1_10.11.11.11:5555 check inter 2000 rise 3 fall 2"
           ]
         ],
         'no_shuffle' => [
           "\nbackend example_service",
           [],
-          ["\tserver somehost1_10.11.11.11:5555 10.11.11.11:5555 cookie somehost1_10.11.11.11:5555 check inter 2000 rise 3 fall 2",
-           "\tserver somehost3_10.22.22.22:5555 10.22.22.22:5555 cookie somehost3_10.22.22.22:5555 check inter 2000 rise 3 fall 2",
-           "\tserver somehost2_10.10.10.10:5555 10.10.10.10:5555 cookie somehost2_10.10.10.10:5555 check inter 2000 rise 3 fall 2"
+          ["\tserver somehost1_10.11.11.11:5555 10.11.11.11:5555 id 1 cookie somehost1_10.11.11.11:5555 check inter 2000 rise 3 fall 2",
+           "\tserver somehost3_10.22.22.22:5555 10.22.22.22:5555 id 2 cookie somehost3_10.22.22.22:5555 check inter 2000 rise 3 fall 2",
+           "\tserver somehost2_10.10.10.10:5555 10.10.10.10:5555 id 3 cookie somehost2_10.10.10.10:5555 check inter 2000 rise 3 fall 2"
           ]
         ]
       }
@@ -444,17 +444,17 @@ describe Synapse::ConfigGenerator::Haproxy do
 
   it 'hashes backend name as cookie value' do
     mockConfig = []
-    expect(subject.generate_backend_stanza(mockwatcher_with_cookie_value_method_hash, mockConfig)).to eql(["\nbackend example_service3", [], ["\tserver somehost:5555 somehost:5555 cookie 9e736eef2f5a1d441e34ade3d2a8eb1e3abb1c92 check inter 2000 rise 3 fall 2"]])
+    expect(subject.generate_backend_stanza(mockwatcher_with_cookie_value_method_hash, mockConfig)).to eql(["\nbackend example_service3", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie 9e736eef2f5a1d441e34ade3d2a8eb1e3abb1c92 check inter 2000 rise 3 fall 2"]])
   end
 
   it 'generates backend stanza without cookies for tcp mode' do
     mockConfig = ['mode tcp']
-    expect(subject.generate_backend_stanza(mockwatcher, mockConfig)).to eql(["\nbackend example_service", ["\tmode tcp"], ["\tserver somehost:5555 somehost:5555 check inter 2000 rise 3 fall 2"]])
+    expect(subject.generate_backend_stanza(mockwatcher, mockConfig)).to eql(["\nbackend example_service", ["\tmode tcp"], ["\tserver somehost:5555 somehost:5555 id 1 check inter 2000 rise 3 fall 2"]])
   end
 
   it 'respects haproxy_server_options' do
     mockConfig = []
-    expect(subject.generate_backend_stanza(mockwatcher_with_server_options, mockConfig)).to eql(["\nbackend example_service2", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2 backup"]])
+    expect(subject.generate_backend_stanza(mockwatcher_with_server_options, mockConfig)).to eql(["\nbackend example_service2", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555 check inter 2000 rise 3 fall 2 backup"]])
   end
 
   it 'generates frontend stanza ' do

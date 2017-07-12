@@ -381,12 +381,19 @@ The top level `haproxy` section of the config file has the following options:
 * `state_file_ttl`: the number of seconds that backends should be kept in the
   state file cache.  This only applies if `state_file_path` is provided.
   (default: 86400)
-* `seed`: A number to seed random actions with so that all orders are
+* `server_order_seed`: A number to seed random actions with so that all orders are
   deterministic. You can use this so that backend ordering is deterministic
   but still shuffled, for example by setting this to the hash of your machine's
   IP address you guarantee that HAProxy on different machines have different
   orders, but within that machine you always choose the same order.
   (default: ``rand(2000)``)
+* `max_server_id`: Synapse will try to ensure that server lines are written out
+  with HAProxy "id"s that are unique and associated 1:1 with a service backend
+  (host + port + name). To ensure these are unique Synapse internally counts
+  up from 1 until `max_server_id`, so you can have no more than this number
+  of servers in a backend. If the default (65k) is not enough, make this higher
+  but be wary that HAProxy internally uses an int to store this id, so ...
+  your mileage may vary trying to make this higher. (default: 65535)
 
 Note that a non-default `bind_address` can be dangerous.
 If you configure an `address:port` combination that is already in use on the system, haproxy will fail to start.
