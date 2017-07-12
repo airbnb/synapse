@@ -346,8 +346,8 @@ listen on 127.0.0.3:443) allows /etc/hosts entries to point to services.
   Setting to `asc` means sorting backends in ascending alphabetical order before generating stanza.
   `desc` means descending alphabetical order.
   `no_shuffle` means no shuffling or sorting.
-  If you shuffle consider setting `seed` at the top level so that your backend
-  ordering is deterministic across HAProxy reloads
+  If you shuffle consider setting `server_order_seed` at the top level so that your backend
+  ordering is deterministic across HAProxy reloads.
 * `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
 * `cookie_value_method`: optional: default value is `name`, it defines the way your backends receive a cookie value in http mode. If equal to `hash`, synapse hashes backend names on cookie value assignation of your discovered backends, useful when you want to use haproxy cookie feature but you do not want that your end users receive a Set-Cookie with your server name and ip readable in clear.
 

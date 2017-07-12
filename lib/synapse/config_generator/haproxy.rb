@@ -849,8 +849,11 @@ class Synapse::ConfigGenerator
       @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
 
       # For giving consistent orders, even if they are random
-      @server_order_seed = @opts.fetch('server_order_seed', rand(2000))
+      @server_order_seed = @opts.fetch('server_order_seed', rand(2000)).hash.to_i
       @max_server_id = @opts.fetch('max_server_id', MAX_SERVER_ID).to_i
+      # Map of backend names -> hash of HAProxy server names -> puids
+      # (server->id aka "name") to their proxy unique id (server->puid aka "id")
+      @server_id_map = Hash.new{|h,k| h[k] = {}}
 
     end
 
@@ -1046,7 +1049,10 @@ class Synapse::ConfigGenerator
       # The ordering here is important.  First we add all the backends in the
       # disabled state...
       seen.fetch(watcher.name, []).each do |backend_name, backend|
-        backends[backend_name] = backend.merge('enabled' => false)
+        backends[backend_name] = backend.merge(
+          'enabled' => false,
+          'haproxy_server_id' => backend['haproxy_server_id']
+        )
       end
 
       # ... and then we overwite any backends that the watchers know about,
@@ -1055,20 +1061,40 @@ class Synapse::ConfigGenerator
         backend_name = construct_name(backend)
         # If we have information in the state file that allows us to detect
         # server option changes, use that to potentially force a restart
+        # Also record any HAProxy server id so that HAProxy can reload state
+        # properly using HAProxy's state file (not the Synapse state file)
+        state_file_data = {}
         if backends.has_key?(backend_name)
           old_backend = backends[backend_name]
+          state_file_data['haproxy_server_id'] = old_backend['haproxy_server_id']
           if (old_backend.fetch('haproxy_server_options', "") !=
               backend.fetch('haproxy_server_options', ""))
             log.info "synapse: restart required because haproxy_server_options changed for #{backend_name}"
             @restart_required = true
           end
         end
-        backends[backend_name] = backend.merge('enabled' => true)
-        # HAProxy needs unique ids s.t. 0 < id < sizeof(signed int) although
-        # the practical limit of backends is probably much lower ...,
-        max_existing_id = backends.values.collect{|b| b['haproxy_server_id']}.compact.max || 0
-        backends[backend_name]['haproxy_server_id'] ||= max_existing_id % @max_server_id + 1
+
+        # Note that if the backend in the registry defines the
+        # haproxy_server_id that is preferred.
+        backends[backend_name] = state_file_data.merge(
+          backend.merge('enabled' => true)
+        )
+        @server_id_map[watcher.name][backend_name] ||= backends[backend_name]['haproxy_server_id']
       end
+
+      # Time to update the server id map
+      # Now that we know the maximum possible existing server_id, we can
+      # set any that don't exist yet.
+      watcher.backends.each do |backend|
+        backend_name = construct_name(backend)
+        @server_id_map[watcher.name][backend_name] ||= (
+          ((@server_id_map[watcher.name].values + [0]).compact.max) % @max_server_id + 1
+        )
+      end
+      # Remove any servers that don't exist anymore
+      @server_id_map[watcher.name].select!{ |server_name|
+        backends.has_key?(server_name)
+      }
 
       if watcher.backends.empty?
         log.debug "synapse: no backends found for watcher #{watcher.name}"
@@ -1096,7 +1122,9 @@ class Synapse::ConfigGenerator
           has_id = [watcher_config['server_options'], backend['haproxy_server_options']].collect {|server_opts|
              (server_opts || 'no match').split(' ').include?('id')
           }.any?
-          b = "#{b} id #{backend['haproxy_server_id']}" unless has_id
+          if (!has_id && @server_id_map[watcher.name][backend_name])
+            b = "#{b} id #{@server_id_map[watcher.name][backend_name]}"
+          end
 
           unless config.include?('mode tcp')
             b = case watcher_config['cookie_value_method']
@@ -1300,9 +1328,10 @@ class Synapse::ConfigGenerator
 
         watcher.backends.each do |backend|
           backend_name = construct_name(backend)
-          seen[watcher.name][backend_name] = backend.merge(
-            'timestamp' => timestamp
-          )
+          seen[watcher.name][backend_name] = {
+            'haproxy_server_id' => @server_id_map[watcher.name][backend_name],
+            'timestamp' => timestamp,
+          }.merge(backend)
         end
       end
 
