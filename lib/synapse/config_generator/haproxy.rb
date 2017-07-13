@@ -1151,7 +1151,7 @@ class Synapse::ConfigGenerator
       end
 
       max_existing_id = @id_server_map[watcher_name].keys()[-1] || 0
-      probe = max_existing_id % @max_server_id + 1
+      probe = (max_existing_id % @max_server_id) + 1
 
       while @id_server_map[watcher_name].include?(probe)
         probe = (probe % @max_server_id) + 1
@@ -1350,7 +1350,8 @@ class Synapse::ConfigGenerator
           data = {
             'timestamp' => timestamp,
           }
-          if @server_id_map[watcher.name].has_key?(backend_name)
+          server_id = @server_id_map[watcher.name][backend_name]
+          if server_id && server_id > 0 && server_id <= MAX_SERVER_ID
             data['haproxy_server_id'] = @server_id_map[watcher.name][backend_name].to_i
           end
 
