@@ -6,6 +6,10 @@ class MockWatcher; end;
 describe Synapse::ConfigGenerator::Haproxy do
   subject { Synapse::ConfigGenerator::Haproxy.new(config['haproxy']) }
 
+  let(:maxid) do
+    Synapse::ConfigGenerator::Haproxy::MAX_SERVER_ID
+  end
+
   let(:mockwatcher) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service')
@@ -31,11 +35,18 @@ describe Synapse::ConfigGenerator::Haproxy do
 
   let(:mockwatcher_with_server_id) do
     mockWatcher = double(Synapse::ServiceWatcher)
-    allow(mockWatcher).to receive(:name).and_return('example_service2')
-    backends = [{ 'host' => 'somehost', 'port' => 5555, 'haproxy_server_id' => '1337'}]
+    allow(mockWatcher).to receive(:name).and_return('server_id_svc')
+    backends = [
+      {'host' => 'host1', 'port' => 5555, 'haproxy_server_id' => 1},
+      {'host' => 'host2', 'port' => 5555},
+      {'host' => 'host3', 'port' => 5555, 'haproxy_server_options' => "id #{maxid}"},
+    ]
     allow(mockWatcher).to receive(:backends).and_return(backends)
     allow(mockWatcher).to receive(:config_for_generator).and_return({
-      'haproxy' => {'server_options' => "check inter 2000 rise 3 fall 2"}
+      'haproxy' => {
+        'server_options' => "check inter 2000 rise 3 fall 2",
+        'backend_order' => 'asc',
+      },
     })
     mockWatcher
   end
@@ -443,7 +454,7 @@ describe Synapse::ConfigGenerator::Haproxy do
           'haproxy' => {
             'server_options' => "check inter 2000 rise 3 fall 2",
             'backend_order' => 'shuffle',
-            'seed' => 1234,
+            'server_order_seed' => 1234,
           }
         })
         runs = (1..5).collect { |_| subject.generate_backend_stanza(mockwatcher_with_multiple_backends, mockConfig) }
@@ -470,7 +481,15 @@ describe Synapse::ConfigGenerator::Haproxy do
 
   it 'respects haproxy_server_id' do
     mockConfig = []
-    expect(subject.generate_backend_stanza(mockwatcher_with_server_id, mockConfig)).to eql(["\nbackend example_service2", [], ["\tserver somehost:5555 somehost:5555 id 1337 cookie somehost:5555 check inter 2000 rise 3 fall 2"]])
+    expect(subject.generate_backend_stanza(mockwatcher_with_server_id, mockConfig)).to eql(
+      ["\nbackend server_id_svc", [],
+        [
+          "\tserver host1:5555 host1:5555 id 1 cookie host1:5555 check inter 2000 rise 3 fall 2",
+          "\tserver host2:5555 host2:5555 id 2 cookie host2:5555 check inter 2000 rise 3 fall 2",
+          "\tserver host3:5555 host3:5555 cookie host3:5555 check inter 2000 rise 3 fall 2 id #{maxid}",
+        ]
+      ]
+    )
   end
 
   it 'generates frontend stanza ' do

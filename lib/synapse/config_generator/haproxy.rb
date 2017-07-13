@@ -854,6 +854,9 @@ class Synapse::ConfigGenerator
       # Map of backend names -> hash of HAProxy server names -> puids
       # (server->id aka "name") to their proxy unique id (server->puid aka "id")
       @server_id_map = Hash.new{|h,k| h[k] = {}}
+      # Map of backend names -> hash of HAProxy server puids -> names
+      # (server->puid aka "id") to their name (server->id aka "name")
+      @id_server_map = Hash.new{|h,k| h[k] = {}}
 
     end
 
@@ -1049,13 +1052,12 @@ class Synapse::ConfigGenerator
       # The ordering here is important.  First we add all the backends in the
       # disabled state...
       seen.fetch(watcher.name, []).each do |backend_name, backend|
-        backends[backend_name] = backend.merge(
-          'enabled' => false,
-        )
+        backends[backend_name] = backend.merge('enabled' => false)
         # We remember the haproxy_server_id from a previous reload here.
         # Note though that if live servers below define haproxy_server_id
         # that overrides the remembered value
-        @server_id_map[watcher.name][backend_name] ||= backends[backend_name]['haproxy_server_id']
+        @server_id_map[watcher.name][backend_name] ||= backends[backend_name]['haproxy_server_id'].to_i
+        @id_server_map[watcher.name][@server_id_map[watcher.name][backend_name]] = backend_name
       end
 
       # ... and then we overwite any backends that the watchers know about,
@@ -1076,23 +1078,26 @@ class Synapse::ConfigGenerator
         backends[backend_name] = backend.merge('enabled' => true)
 
         # If the the registry defines the haproxy_server_id that must be preferred.
+        # Note that the order here is important, because if haproxy_server_options
+        # does define an id, then we will write that out below, so that must be what
+        # is in the id_map as well.
+        @server_id_map[watcher.name][backend_name] = backend['haproxy_server_id'].to_i if backend['haproxy_server_id']
         server_opts = (backend['haproxy_server_options'] || 'no match').split(' ')
         @server_id_map[watcher.name][backend_name] = server_opts[server_opts.index('id') + 1].to_i if server_opts.include?('id')
-        # This is going to be an issue ... and haproxy will fail if this happens ... oh well
-        @server_id_map[watcher.name][backend_name] = backend['haproxy_server_id'] if backend['haproxy_server_id']
+        @id_server_map[watcher.name][@server_id_map[watcher.name][backend_name]] = backend_name
       end
 
       # Now that we know the maximum possible existing haproxy_server_id for
       # this backend, we can set any that don't exist yet.
       watcher.backends.each do |backend|
         backend_name = construct_name(backend)
-        @server_id_map[watcher.name][backend_name] ||= (
-          ((@server_id_map[watcher.name].values + [0]).compact.max) % @max_server_id + 1
-        )
+        @server_id_map[watcher.name][backend_name] ||= find_next_id(watcher.name, backend_name)
+        @id_server_map[watcher.name][@server_id_map[watcher.name][backend_name]] = backend_name
       end
       # Remove any servers that don't exist anymore from the server_id_map
       # to control memory growth
-      @server_id_map[watcher.name].select! { |server_name| backends.has_key?(server_name)}
+      @server_id_map[watcher.name].keep_if { |server_name| backends.has_key?(server_name) }
+      @id_server_map[watcher.name].keep_if { |_,  server_name| @server_id_map[watcher.name][server_name] }
 
       if watcher.backends.empty?
         log.debug "synapse: no backends found for watcher #{watcher.name}"
@@ -1136,6 +1141,23 @@ class Synapse::ConfigGenerator
           b = "#{b} disabled" unless backend['enabled']
           b }
       ]
+    end
+
+    def find_next_id(watcher_name, backend_name)
+      probe = nil
+      if @server_id_map[watcher_name].size >= @max_server_id
+        log.error "synapse: ran out of server ids for #{watcher_name}, if you need more increase the max_server_id option"
+        return probe
+      end
+
+      max_existing_id = @id_server_map[watcher_name].keys()[-1] || 0
+      probe = max_existing_id % @max_server_id + 1
+
+      while @id_server_map[watcher_name].include?(probe)
+        probe = (probe % @max_server_id) + 1
+      end
+
+      probe
     end
 
     def talk_to_socket(socket_file_path, command)
@@ -1329,7 +1351,7 @@ class Synapse::ConfigGenerator
             'timestamp' => timestamp,
           }
           if @server_id_map[watcher.name].has_key?(backend_name)
-            data['haproxy_server_id'] = @server_id_map[watcher.name][backend_name]
+            data['haproxy_server_id'] = @server_id_map[watcher.name][backend_name].to_i
           end
 
           seen[watcher.name][backend_name] = data.merge(backend)
