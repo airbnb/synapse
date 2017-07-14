@@ -1056,8 +1056,8 @@ class Synapse::ConfigGenerator
         # We remember the haproxy_server_id from a previous reload here.
         # Note though that if live servers below define haproxy_server_id
         # that overrides the remembered value
-        @server_id_map[watcher.name][backend_name] ||= backends[backend_name]['haproxy_server_id'].to_i
-        @id_server_map[watcher.name][@server_id_map[watcher.name][backend_name]] = backend_name
+        @server_id_map[watcher.name][backend_name] ||= backends[backend_name]['haproxy_server_id']
+        @id_server_map[watcher.name][@server_id_map[watcher.name][backend_name]] = backend_name if @server_id_map[watcher.name][backend_name]
       end
 
       # ... and then we overwite any backends that the watchers know about,
@@ -1097,7 +1097,7 @@ class Synapse::ConfigGenerator
       # Remove any servers that don't exist anymore from the server_id_map
       # to control memory growth
       @server_id_map[watcher.name].keep_if { |server_name| backends.has_key?(server_name) }
-      @id_server_map[watcher.name].keep_if { |_,  server_name| @server_id_map[watcher.name][server_name] }
+      @id_server_map[watcher.name].keep_if { |_, server_name| @server_id_map[watcher.name][server_name] }
 
       if watcher.backends.empty?
         log.debug "synapse: no backends found for watcher #{watcher.name}"
@@ -1150,7 +1150,7 @@ class Synapse::ConfigGenerator
         return probe
       end
 
-      max_existing_id = @id_server_map[watcher_name].keys()[-1] || 0
+      max_existing_id = @id_server_map[watcher_name].keys.compact.max || 0
       probe = (max_existing_id % @max_server_id) + 1
 
       while @id_server_map[watcher_name].include?(probe)
@@ -1350,9 +1350,9 @@ class Synapse::ConfigGenerator
           data = {
             'timestamp' => timestamp,
           }
-          server_id = @server_id_map[watcher.name][backend_name]
+          server_id = @server_id_map[watcher.name][backend_name].to_i
           if server_id && server_id > 0 && server_id <= MAX_SERVER_ID
-            data['haproxy_server_id'] = @server_id_map[watcher.name][backend_name].to_i
+            data['haproxy_server_id'] = server_id
           end
 
           seen[watcher.name][backend_name] = data.merge(backend)
