@@ -797,6 +797,9 @@ class Synapse::ConfigGenerator
     DEFAULT_STATE_FILE_TTL = (60 * 60 * 24).freeze # 24 hours
     STATE_FILE_UPDATE_INTERVAL = 60.freeze # iterations; not a unit of time
     DEFAULT_BIND_ADDRESS = 'localhost'
+    # It's unclear how many servers HAProxy can have in one backend, but 65k
+    # should be enough for anyone right (famous last words)?
+    MAX_SERVER_ID = (2**16 - 1).freeze
 
     def initialize(opts)
       super(opts)
@@ -844,6 +847,17 @@ class Synapse::ConfigGenerator
 
       @state_file_path = @opts['state_file_path']
       @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
+
+      # For giving consistent orders, even if they are random
+      @server_order_seed = @opts.fetch('server_order_seed', rand(2000)).to_i
+      @max_server_id = @opts.fetch('max_server_id', MAX_SERVER_ID).to_i
+      # Map of backend names -> hash of HAProxy server names -> puids
+      # (server->id aka "name") to their proxy unique id (server->puid aka "id")
+      @server_id_map = Hash.new{|h,k| h[k] = {}}
+      # Map of backend names -> hash of HAProxy server puids -> names
+      # (server->puid aka "id") to their name (server->id aka "name")
+      @id_server_map = Hash.new{|h,k| h[k] = {}}
+
     end
 
     def normalize_watcher_provided_config(service_watcher_name, service_watcher_config)
@@ -1039,6 +1053,11 @@ class Synapse::ConfigGenerator
       # disabled state...
       seen.fetch(watcher.name, []).each do |backend_name, backend|
         backends[backend_name] = backend.merge('enabled' => false)
+        # We remember the haproxy_server_id from a previous reload here.
+        # Note though that if live servers below define haproxy_server_id
+        # that overrides the remembered value
+        @server_id_map[watcher.name][backend_name] ||= backends[backend_name]['haproxy_server_id']
+        @id_server_map[watcher.name][@server_id_map[watcher.name][backend_name]] = backend_name if @server_id_map[watcher.name][backend_name]
       end
 
       # ... and then we overwite any backends that the watchers know about,
@@ -1055,8 +1074,30 @@ class Synapse::ConfigGenerator
             @restart_required = true
           end
         end
+
         backends[backend_name] = backend.merge('enabled' => true)
+
+        # If the the registry defines the haproxy_server_id that must be preferred.
+        # Note that the order here is important, because if haproxy_server_options
+        # does define an id, then we will write that out below, so that must be what
+        # is in the id_map as well.
+        @server_id_map[watcher.name][backend_name] = backend['haproxy_server_id'].to_i if backend['haproxy_server_id']
+        server_opts = (backend['haproxy_server_options'] || 'no match').split(' ')
+        @server_id_map[watcher.name][backend_name] = server_opts[server_opts.index('id') + 1].to_i if server_opts.include?('id')
+        @id_server_map[watcher.name][@server_id_map[watcher.name][backend_name]] = backend_name
       end
+
+      # Now that we know the maximum possible existing haproxy_server_id for
+      # this backend, we can set any that don't exist yet.
+      watcher.backends.each do |backend|
+        backend_name = construct_name(backend)
+        @server_id_map[watcher.name][backend_name] ||= find_next_id(watcher.name, backend_name)
+        @id_server_map[watcher.name][@server_id_map[watcher.name][backend_name]] = backend_name
+      end
+      # Remove any servers that don't exist anymore from the server_id_map
+      # to control memory growth
+      @server_id_map[watcher.name].keep_if { |server_name| backends.has_key?(server_name) }
+      @id_server_map[watcher.name].keep_if { |_, server_name| @server_id_map[watcher.name][server_name] }
 
       if watcher.backends.empty?
         log.debug "synapse: no backends found for watcher #{watcher.name}"
@@ -1071,7 +1112,7 @@ class Synapse::ConfigGenerator
       when 'no_shuffle'
         backends.keys
       else
-        backends.keys.shuffle
+        backends.keys.shuffle(random: Random.new(@server_order_seed))
       end
 
       stanza = [
@@ -1080,6 +1121,13 @@ class Synapse::ConfigGenerator
         keys.map {|backend_name|
           backend = backends[backend_name]
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
+
+          # Again, if the registry defines an id, we can't set it.
+          has_id = (backend['haproxy_server_options'] || 'no match').split(' ').include?('id')
+          if (!has_id && @server_id_map[watcher.name][backend_name])
+            b = "#{b} id #{@server_id_map[watcher.name][backend_name]}"
+          end
+
           unless config.include?('mode tcp')
             b = case watcher_config['cookie_value_method']
             when 'hash'
@@ -1093,6 +1141,23 @@ class Synapse::ConfigGenerator
           b = "#{b} disabled" unless backend['enabled']
           b }
       ]
+    end
+
+    def find_next_id(watcher_name, backend_name)
+      probe = nil
+      if @server_id_map[watcher_name].size >= @max_server_id
+        log.error "synapse: ran out of server ids for #{watcher_name}, if you need more increase the max_server_id option"
+        return probe
+      end
+
+      max_existing_id = @id_server_map[watcher_name].keys.compact.max || 0
+      probe = (max_existing_id % @max_server_id) + 1
+
+      while @id_server_map[watcher_name].include?(probe)
+        probe = (probe % @max_server_id) + 1
+      end
+
+      probe
     end
 
     def talk_to_socket(socket_file_path, command)
@@ -1282,7 +1347,15 @@ class Synapse::ConfigGenerator
 
         watcher.backends.each do |backend|
           backend_name = construct_name(backend)
-          seen[watcher.name][backend_name] = backend.merge('timestamp' => timestamp)
+          data = {
+            'timestamp' => timestamp,
+          }
+          server_id = @server_id_map[watcher.name][backend_name].to_i
+          if server_id && server_id > 0 && server_id <= MAX_SERVER_ID
+            data['haproxy_server_id'] = server_id
+          end
+
+          seen[watcher.name][backend_name] = data.merge(backend)
         end
       end
 
