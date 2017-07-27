@@ -1150,8 +1150,7 @@ class Synapse::ConfigGenerator
         return probe
       end
 
-      max_existing_id = @id_server_map[watcher_name].keys.compact.max || 0
-      probe = (max_existing_id % @max_server_id) + 1
+      probe = 1
 
       while @id_server_map[watcher_name].include?(probe)
         probe = (probe % @max_server_id) + 1
