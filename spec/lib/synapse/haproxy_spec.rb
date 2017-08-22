@@ -397,7 +397,7 @@ describe Synapse::ConfigGenerator::Haproxy do
     before do
       config['haproxy']['state_file_path'] = '/statefile'
       config['haproxy']['state_file_ttl'] = state_file_ttl
-      allow_any_instance_of(Synapse::ConfigGenerator::Haproxy::HaproxyState).to receive(:write_data_to_state_file)
+      allow(subject.state_cache).to receive(:write_data_to_state_file)
     end
 
     it 'adds backends along with timestamps' do

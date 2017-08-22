@@ -165,7 +165,6 @@ class Synapse::ServiceWatcher
         new_config_for_generator = {}
       end
 
-
       set_backends(new_backends, new_config_for_generator)
     end
 

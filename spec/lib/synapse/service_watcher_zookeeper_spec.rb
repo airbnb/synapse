@@ -101,13 +101,13 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     it 'reacts to zk push events' do
       expect(subject).to receive(:watch)
       expect(subject).to receive(:discover).and_call_original
-      expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).and_return("")
+      expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).and_return(config_for_generator_string)
       expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).and_return(
         ["test_child_1"]
       )
       expect(mock_zk).to receive(:get).with('some/path/test_child_1').and_return(mock_node)
       subject.instance_variable_set('@zk', mock_zk)
-      expect(subject).to receive(:set_backends).with([service_data.merge({'id' => 1})], {})
+      expect(subject).to receive(:set_backends).with([service_data.merge({'id' => 1})], parsed_config_for_generator)
       subject.send(:watcher_callback).call
     end
 
