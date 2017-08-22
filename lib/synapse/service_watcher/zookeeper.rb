@@ -157,7 +157,16 @@ class Synapse::ServiceWatcher
         end
       end
 
-      set_backends(new_backends)
+      node = @zk.get(@discovery['path'], :watch => true)
+      begin
+        new_config_for_generator = parse_service_config(node)
+      rescue StandardError => e
+        log.error "synapse: invalid config data in ZK node at #{@discovery['path']}: #{e}"
+        new_config_for_generator = {}
+      end
+
+
+      set_backends(new_backends, new_config_for_generator)
     end
 
     # sets up zookeeper callbacks if the data at the discovery path changes
@@ -259,6 +268,37 @@ class Synapse::ServiceWatcher
       labels = decoded['labels'] || nil
 
       return host, port, name, weight, haproxy_server_options, labels
+    end
+
+    def parse_service_config(data)
+      log.debug "synapse: deserializing process data"
+      if data.nil? || data.empty?
+        decoded = {}
+      else
+        decoded = @decode_method.call(data)
+      end
+
+      new_generator_config = {}
+      # validate the config. if the config is not empty:
+      #   each key should be named by one of the available generators
+      #   each value should be a hash (could be empty)
+      decoded.collect.each do |generator_name, generator_config|
+        if !@synapse.available_generators.keys.include?(generator_name)
+          log.error "synapse: invalid generator name in ZK node at #{@discovery['path']}:" \
+            " #{generator_name}"
+          next
+        else
+          if generator_config.nil? || !generator_config.is_a?(Hash)
+            log.warn "synapse: invalid generator config in ZK node at #{@discovery['path']}" \
+            " for generator #{generator_name}"
+            new_generator_config[generator_name] = {}
+          else
+            new_generator_config[generator_name] = generator_config
+          end
+        end
+      end
+
+      return new_generator_config
     end
   end
 end

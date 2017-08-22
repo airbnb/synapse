@@ -33,6 +33,28 @@ describe Synapse::ConfigGenerator::Haproxy do
     mockWatcher
   end
 
+  let(:mockwatcher_with_non_haproxy_config) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_service2')
+    backends = [{ 'host' => 'somehost', 'port' => 5555, 'haproxy_server_options' => 'id 12 backup'}]
+    allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
+      'unknown' => {'server_options' => "check inter 2000 rise 3 fall 2"}
+    })
+    mockWatcher
+  end
+
+  let(:mockwatcher_with_empty_haproxy_config) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_service2')
+    backends = [{ 'host' => 'somehost', 'port' => 5555, 'haproxy_server_options' => 'id 12 backup'}]
+    allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
+      'haproxy' => {}
+    })
+    mockWatcher
+  end
+
   let(:mockwatcher_with_server_id) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('server_id_svc')
@@ -316,6 +338,46 @@ describe Synapse::ConfigGenerator::Haproxy do
         subject.update_config(watchers)
       end
     end
+
+    context 'if watcher has empty or nil config_for_generator[haproxy]' do
+      let(:watchers) { [mockwatcher, mockwatcher_with_non_haproxy_config, mockwatcher_with_empty_haproxy_config] }
+
+      it 'does not generate config for those watchers' do
+        allow(subject).to receive(:parse_watcher_config).and_return({})
+        expect(subject).to receive(:generate_frontend_stanza).exactly(:once).with(mockwatcher, nil)
+        expect(subject).to receive(:generate_backend_stanza).exactly(:once).with(mockwatcher, nil)
+        subject.update_config(watchers)
+      end
+    end
+
+    context 'if watcher has a new different config_for_generator[haproxy]' do
+      let(:watchers) { [mockwatcher] }
+      let(:socket_file_path) { ['socket_file_path1', 'socket_file_path2'] }
+
+      before do
+        config['haproxy']['do_writes'] = true
+        config['haproxy']['do_reloads'] = true
+        config['haproxy']['do_socket'] = true
+        config['haproxy']['socket_file_path'] = socket_file_path
+      end
+
+      it 'trigger restart' do
+        allow(subject).to receive(:parse_watcher_config).and_return({})
+        allow(subject).to receive(:write_config).and_return(nil)
+
+        # set config_for_generator in state_cache to {}
+        allow(subject.state_cache).to receive(:config_for_generator).and_return({})
+
+        # make sure @restart_required is not triggered in other places
+        allow(subject).to receive(:update_backends_at).and_return(nil)
+        allow(subject).to receive(:generate_frontend_stanza).exactly(:once).with(mockwatcher, nil).and_return([])
+        allow(subject).to receive(:generate_backend_stanza).exactly(:once).with(mockwatcher, nil).and_return([])
+
+        expect(subject).to receive(:restart)
+
+        subject.update_config(watchers)
+      end
+    end
   end
 
   describe '#tick' do
@@ -329,28 +391,55 @@ describe Synapse::ConfigGenerator::Haproxy do
 
   describe '#update_state_file' do
     let(:watchers) { [mockwatcher, mockwatcher_with_server_options] }
+    let(:watchers_with_non_haproxy_config) { [mockwatcher_with_non_haproxy_config] }
     let(:state_file_ttl) { 60 } # seconds
 
     before do
       config['haproxy']['state_file_path'] = '/statefile'
       config['haproxy']['state_file_ttl'] = state_file_ttl
-      allow(subject).to receive(:write_data_to_state_file)
+      allow_any_instance_of(Synapse::ConfigGenerator::Haproxy::HaproxyState).to receive(:write_data_to_state_file)
     end
 
     it 'adds backends along with timestamps' do
       subject.update_state_file(watchers)
-      data = subject.send(:seen)
 
       watcher_names = watchers.map{ |w| w.name }
-      expect(data.keys).to contain_exactly(*watcher_names)
+      expect(subject.state_cache.send(:seen).keys).to contain_exactly(*watcher_names)
 
       watchers.each do |watcher|
         backend_names = watcher.backends.map{ |b| subject.construct_name(b) }
-        expect(data[watcher.name].keys).to contain_exactly(*backend_names)
+        data = subject.state_cache.backends(watcher.name)
+        expect(data.keys).to contain_exactly(*backend_names)
 
         backend_names.each do |backend_name|
-          expect(data[watcher.name][backend_name]).to include('timestamp')
+          expect(data[backend_name]).to include('timestamp')
         end
+      end
+    end
+
+    it 'adds config_for_generator from watcher' do
+      subject.update_state_file(watchers)
+
+      watcher_names = watchers.map{ |w| w.name }
+      expect(subject.state_cache.send(:seen).keys).to contain_exactly(*watcher_names)
+
+      watchers.each do |watcher|
+        watcher_config_for_generator = watcher.config_for_generator
+        data = subject.state_cache.config_for_generator(watcher.name)
+        expect(data).to eq(watcher_config_for_generator["haproxy"])
+      end
+    end
+
+    it 'does not add config_for_generator of other generators from watcher' do
+      subject.update_state_file(watchers_with_non_haproxy_config)
+
+      watcher_names = watchers_with_non_haproxy_config.map{ |w| w.name }
+      expect(subject.state_cache.send(:seen).keys).to contain_exactly(*watcher_names)
+
+      watchers_with_non_haproxy_config.each do |watcher|
+        watcher_config_for_generator = watcher.config_for_generator
+        data = subject.state_cache.config_for_generator(watcher.name)
+        expect(data).to eq({})
       end
     end
 
@@ -363,7 +452,7 @@ describe Synapse::ConfigGenerator::Haproxy do
             allow(watcher).to receive(:backends).and_return([])
           end
           subject.update_state_file(watchers)
-        end.to_not change { subject.send(:seen) }
+        end.to_not change { subject.state_cache.send(:seen) }
       end
 
       context 'if those backends are stale' do
@@ -377,9 +466,9 @@ describe Synapse::ConfigGenerator::Haproxy do
           # the final +1 puts us over the expiry limit
           Timecop.travel(Time.now + state_file_ttl + 1) do
             subject.update_state_file(watchers)
-            data = subject.send(:seen)
             watchers.each do |watcher|
-              expect(data[watcher.name]).to be_empty
+              data = subject.state_cache.backends(watcher.name)
+              expect(data).to be_empty
             end
           end
         end

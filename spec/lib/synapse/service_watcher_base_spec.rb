@@ -53,12 +53,42 @@ describe Synapse::ServiceWatcher::BaseWatcher do
       {'name' => 'server1', 'host' => 'server1', 'port' => 123},
       {'name' => 'server2', 'host' => 'server2', 'port' => 123}
     ]
+    config_for_generator = {
+      "haproxy" => {
+        "frontend" => [
+          "binding ::1:1111"
+        ],
+        "listen" => [
+          "mode http",
+          "option httpchk GET /health",
+          "timeout  client  300s",
+          "timeout  server  300s",
+          "option httplog"
+        ],
+        "port" => 1111,
+        "server_options" => "check inter 60s fastinter 2s downinter 5s rise 3 fall 2",
+      }
+    }
     let(:args) { testargs.merge({'default_servers' => default_servers}) }
 
     it 'sets backends' do
       expect(subject).to receive(:'reconfigure!').exactly(:once)
       expect(subject.send(:set_backends, backends)).to equal(true)
       expect(subject.backends).to eq(backends)
+    end
+
+    it 'sets backends with config for generator' do
+      expect(subject).to receive(:'reconfigure!').exactly(:once)
+      expect(subject.send(:set_backends, backends, config_for_generator)).to equal(true)
+      expect(subject.backends).to eq(backends)
+      expect(subject.config_for_generator).to  eq(config_for_generator)
+    end
+
+    it 'calls reconfigure for duplicate backends but different config_for_generator' do
+      allow(subject).to receive(:backends).and_return(backends)
+      expect(subject).to receive(:'reconfigure!').exactly(:once)
+      expect(subject.send(:set_backends, backends, config_for_generator)).to equal(true)
+      expect(subject.config_for_generator).to eq(config_for_generator)
     end
 
     it 'removes duplicate backends' do
@@ -72,6 +102,19 @@ describe Synapse::ServiceWatcher::BaseWatcher do
       expect(subject).to receive(:'reconfigure!').exactly(:once)
       expect(subject.send(:set_backends, [])).to equal(true)
       expect(subject.backends).to eq(default_servers)
+    end
+
+    it 'keeps the current config_for_generator if no config discovered from ZK' do
+      expect(subject).to receive(:'reconfigure!').exactly(:once)
+      # set config_for_generator to some valid config
+      expect(subject.send(:set_backends, backends, config_for_generator)).to equal(true)
+      expect(subject.backends).to eq(backends)
+      expect(subject.config_for_generator).to eq(config_for_generator)
+
+      # re-set config_for_generator to empty
+      expect(subject.send(:set_backends, backends, {})).to equal(false)
+      expect(subject.backends).to eq(backends)
+      expect(subject.config_for_generator).to eq(config_for_generator)
     end
 
     context 'with no default_servers' do
@@ -98,12 +141,14 @@ describe Synapse::ServiceWatcher::BaseWatcher do
       end
     end
 
-    it 'calls reconfigure only once for duplicate backends' do
+    it 'calls reconfigure only once for duplicate backends and config_for_generator' do
       expect(subject).to receive(:'reconfigure!').exactly(:once)
-      expect(subject.send(:set_backends, backends)).to equal(true)
+      expect(subject.send(:set_backends, backends, config_for_generator)).to equal(true)
       expect(subject.backends).to eq(backends)
-      expect(subject.send(:set_backends, backends)).to equal(false)
+      expect(subject.config_for_generator).to eq(config_for_generator)
+      expect(subject.send(:set_backends, backends, config_for_generator)).to equal(false)
       expect(subject.backends).to eq(backends)
+      expect(subject.config_for_generator).to eq(config_for_generator)
     end
 
     context 'with keep_default_servers set' do

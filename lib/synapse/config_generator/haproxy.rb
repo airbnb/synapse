@@ -5,6 +5,7 @@ require 'json'
 require 'socket'
 require 'digest/sha1'
 require 'set'
+require 'hashdiff'
 
 class Synapse::ConfigGenerator
   class Haproxy < BaseGenerator
@@ -801,6 +802,8 @@ class Synapse::ConfigGenerator
     # should be enough for anyone right (famous last words)?
     MAX_SERVER_ID = (2**16 - 1).freeze
 
+    attr_reader :server_id_map, :state_cache
+
     def initialize(opts)
       super(opts)
 
@@ -845,8 +848,11 @@ class Synapse::ConfigGenerator
       @backends_cache = {}
       @watcher_revisions = {}
 
-      @state_file_path = @opts['state_file_path']
-      @state_file_ttl = @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i
+      @state_cache = HaproxyState.new(
+        @opts['state_file_path'],
+        @opts.fetch('state_file_ttl', DEFAULT_STATE_FILE_TTL).to_i,
+        self
+      )
 
       # For giving consistent orders, even if they are random
       @server_order_seed = @opts.fetch('server_order_seed', rand(2000)).to_i
@@ -907,6 +913,10 @@ class Synapse::ConfigGenerator
       end
     end
 
+    def update_state_file(watchers)
+      @state_cache.update_state_file(watchers)
+    end
+
     # generates a new config based on the state of the watchers
     def generate_config(watchers)
       new_config = generate_base_config
@@ -914,8 +924,14 @@ class Synapse::ConfigGenerator
 
       watchers.each do |watcher|
         watcher_config = watcher.config_for_generator[name]
+        next if watcher_config.nil? || watcher_config.empty? || watcher_config['disabled']
         @watcher_configs[watcher.name] ||= parse_watcher_config(watcher)
-        next if watcher_config['disabled']
+
+        # if watcher_config is changed, trigger restart
+        config_diff = HashDiff.diff(@state_cache.config_for_generator(watcher.name), watcher_config)
+        if !config_diff.empty?
+          @restart_required = true
+        end
 
         regenerate = watcher.revision != @watcher_revisions[watcher.name] ||
                      @frontends_cache[watcher.name].nil? ||
@@ -1051,7 +1067,7 @@ class Synapse::ConfigGenerator
 
       # The ordering here is important.  First we add all the backends in the
       # disabled state...
-      seen.fetch(watcher.name, []).each do |backend_name, backend|
+      @state_cache.backends(watcher).each do |backend_name, backend|
         backends[backend_name] = backend.merge('enabled' => false)
         # We remember the haproxy_server_id from a previous reload here.
         # Note though that if live servers below define haproxy_server_id
@@ -1308,74 +1324,112 @@ class Synapse::ConfigGenerator
     ######################################
     # methods for managing the state file
     ######################################
-    def seen
-      # if we don't support the state file, return nothing
-      return {} if @state_file_path.nil?
+    class HaproxyState
+      include Synapse::Logging
 
-      # if we've never needed the backends, now is the time to load them
-      @seen = read_state_file if @seen.nil?
+      KEY_WATCHER_CONFIG_FOR_GENERATOR = "watcher_config_for_generator"
+      NON_BACKENDS_KEYS = [KEY_WATCHER_CONFIG_FOR_GENERATOR]
 
-      @seen
-    end
+      def initialize(state_file_path, state_file_ttl, haproxy)
+        @state_file_path = state_file_path
+        @state_file_ttl = state_file_ttl
+        @haproxy = haproxy
+      end
 
-    def update_state_file(watchers)
-      # if we don't support the state file, do nothing
-      return if @state_file_path.nil?
-
-      log.info "synapse: writing state file"
-      timestamp = Time.now.to_i
-
-      # Remove stale backends
-      seen.each do |watcher_name, backends|
-        backends.each do |backend_name, backend|
-          ts = backend.fetch('timestamp', 0)
-          delta = (timestamp - ts).abs
-          if delta > @state_file_ttl
-            log.info "synapse: expiring #{backend_name} with age #{delta}"
-            backends.delete(backend_name)
-          end
+      def backends(watcher_name)
+        if seen.key?(watcher_name)
+          seen[watcher_name].select { |section, data| !NON_BACKENDS_KEYS.include?(section) }
+        else
+          {}
         end
       end
 
-      # Remove any services which no longer have any backends
-      seen.reject!{|watcher_name, backends| backends.keys.length == 0}
-
-      # Add backends from watchers
-      watchers.each do |watcher|
-        seen[watcher.name] ||= {}
-
-        watcher.backends.each do |backend|
-          backend_name = construct_name(backend)
-          data = {
-            'timestamp' => timestamp,
-          }
-          server_id = @server_id_map[watcher.name][backend_name].to_i
-          if server_id && server_id > 0 && server_id <= MAX_SERVER_ID
-            data['haproxy_server_id'] = server_id
-          end
-
-          seen[watcher.name][backend_name] = data.merge(backend)
+      def config_for_generator(watcher_name)
+        cache_config = {}
+        if seen.key?(watcher_name) && seen[watcher_name].key?(KEY_WATCHER_CONFIG_FOR_GENERATOR)
+          cache_config = seen[watcher_name][KEY_WATCHER_CONFIG_FOR_GENERATOR]
         end
+
+        cache_config
       end
 
-      # write the data!
-      write_data_to_state_file(seen)
-    end
+      def update_state_file(watchers)
+        # if we don't support the state file, do nothing
+        return if @state_file_path.nil?
 
-    def read_state_file
-      # Some versions of JSON return nil on an empty file ...
-      JSON.load(File.read(@state_file_path)) || {}
-    rescue StandardError => e
-      # It's ok if the state file doesn't exist or contains invalid data
-      # The state file will be rebuilt automatically
-      {}
-    end
+        log.info "synapse: writing state file"
+        timestamp = Time.now.to_i
 
-    # we do this atomically so the state file is always consistent
-    def write_data_to_state_file(data)
-      tmp_state_file_path = @state_file_path + ".tmp"
-      File.write(tmp_state_file_path, JSON.pretty_generate(data))
-      FileUtils.mv(tmp_state_file_path, @state_file_path)
+        # Remove stale backends
+        seen.each do |watcher_name, data|
+          backends(watcher_name).each do |backend_name, backend|
+            ts = backend.fetch('timestamp', 0)
+            delta = (timestamp - ts).abs
+            if delta > @state_file_ttl
+              log.info "synapse: expiring #{backend_name} with age #{delta}"
+              data.delete(backend_name)
+            end
+          end
+        end
+
+        # Remove any services which no longer have any backends
+        seen.reject!{|watcher_name, data| backends(watcher_name).keys.length == 0}
+
+        # Add backends and config from watchers
+        watchers.each do |watcher|
+          seen[watcher.name] ||= {}
+
+          watcher.backends.each do |backend|
+            backend_name = @haproxy.construct_name(backend)
+            data = {
+              'timestamp' => timestamp,
+            }
+            server_id = @haproxy.server_id_map[watcher.name][backend_name].to_i
+            if server_id && server_id > 0 && server_id <= MAX_SERVER_ID
+              data['haproxy_server_id'] = server_id
+            end
+
+            seen[watcher.name][backend_name] = data.merge(backend)
+          end
+
+          # Add config for generator from watcher
+          if watcher.config_for_generator.key?(@haproxy.name)
+            seen[watcher.name][KEY_WATCHER_CONFIG_FOR_GENERATOR] =
+              watcher.config_for_generator[@haproxy.name]
+          end
+        end
+
+        # write the data!
+        write_data_to_state_file(seen)
+      end
+
+      private
+
+      def seen
+        # if we don't support the state file, return nothing
+        return {} if @state_file_path.nil?
+
+        # if we've never needed the backends, now is the time to load them
+        @seen = read_state_file if @seen.nil?
+
+        @seen
+      end
+
+      def read_state_file
+        # Some versions of JSON return nil on an empty file ...
+        JSON.load(File.read(@state_file_path)) || {}
+      rescue StandardError => e
+        # It's ok if the state file doesn't exist or contains invalid data
+        # The state file will be rebuilt automatically
+        {}
+      end
+
+      # we do this atomically so the state file is always consistent
+      def write_data_to_state_file(data)
+        tmp_state_file_path = @state_file_path + ".tmp"
+        File.write(tmp_state_file_path, JSON.pretty_generate(data))
+        FileUtils.mv(tmp_state_file_path, @state_file_path)
+      end
     end
   end
 end
