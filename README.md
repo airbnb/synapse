@@ -34,11 +34,11 @@ are proven routing components like [HAProxy](http://haproxy.1wt.eu/) or [NGINX](
 For every external service that your application talks to, we assign a synapse local port on localhost.
 Synapse creates a proxy from the local port to the service, and you reconfigure your application to talk to the proxy.
 
-Under the hood, Synapse sports `service_watcher`s for service discovery and
+Under the hood, Synapse supports `service_watcher`s for service discovery and
 `config_generators` for configuring local state (e.g. load balancer configs)
 based on that service discovery state.
 
-Synapse supports service discovery with with pluggable `service_watcher`s which
+Synapse supports service discovery with pluggable `service_watcher`s which
 take care of signaling to the `config_generators` so that they can react and
 reconfigure to point at available servers on the fly.
 
@@ -183,7 +183,7 @@ relevant routing component. For example if you want to only configure HAProxy an
 not NGINX for a particular service, you would pass ``disabled`` to the `nginx` section
 of that service's watcher config.
 
-* [`haproxy`](#haproxysvc): how will the haproxy section for this service be configured
+* [`haproxy`](#haproxysvc): how will the haproxy section for this service be configured. If the corresponding `watcher` is defined to use `zookeeper` and the service publishes its `haproxy` configure on ZK, the `haproxy` hash can be filled/updated via data from the ZK node. 
 * [`nginx`](https://github.com/jolynch/synapse-nginx#service-watcher-config): how will the nginx section for this service be configured. **NOTE** to use this you must have the synapse-nginx [plugin](#plugins) installed.
 
 The services hash may contain the following additional keys:
@@ -221,7 +221,7 @@ Given a `label_filters`: `[{ "label": "cluster", "value": "dev", "condition": "e
 
 ##### Zookeeper #####
 
-This watcher retrieves a list of servers from zookeeper.
+This watcher retrieves a list of servers and also service config data from zookeeper.
 It takes the following mandatory arguments:
 
 * `method`: zookeeper
@@ -229,6 +229,8 @@ It takes the following mandatory arguments:
 * `hosts`: the list of zookeeper servers to query
 
 The watcher assumes that each node under `path` represents a service server.
+
+The watcher assumes that the data (if any) retrieved at znode `path` is a hash, where each key is named by a valid `config_generator` (e.g. `haproxy`) and the value is a hash that configs the generator.
 
 The following arguments are optional:
 
