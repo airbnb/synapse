@@ -925,7 +925,7 @@ class Synapse::ConfigGenerator
       watchers.each do |watcher|
         watcher_config = watcher.config_for_generator[name]
         next if watcher_config.nil? || watcher_config.empty? || watcher_config['disabled']
-        @watcher_configs[watcher.name] ||= parse_watcher_config(watcher)
+        @watcher_configs[watcher.name] = parse_watcher_config(watcher)
 
         # if watcher_config is changed, trigger restart
         config_diff = HashDiff.diff(@state_cache.config_for_generator(watcher.name), watcher_config)

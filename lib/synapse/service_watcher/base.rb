@@ -8,7 +8,7 @@ class Synapse::ServiceWatcher
 
     LEADER_WARN_INTERVAL = 30
 
-    attr_reader :name, :config_for_generator, :revision
+    attr_reader :name, :revision
 
     def initialize(opts={}, synapse)
       super()
@@ -100,6 +100,11 @@ class Synapse::ServiceWatcher
       true
     end
 
+    # deep clone the hash to protect its readonly property
+    def config_for_generator
+      Marshal.load( Marshal.dump(@config_for_generator))
+    end
+    
     def backends
       filtered = backends_filtered_by_labels
 
