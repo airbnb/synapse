@@ -930,6 +930,7 @@ class Synapse::ConfigGenerator
         # if watcher_config is changed, trigger restart
         config_diff = HashDiff.diff(@state_cache.config_for_generator(watcher.name), watcher_config)
         if !config_diff.empty?
+          log.info "synapse: restart required because config_for_generator changed. before: #{@state_cache.config_for_generator(watcher.name)}, after: #{watcher_config}"
           @restart_required = true
         end
 
