@@ -91,7 +91,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     end
 
     it 'decodes config data correctly' do
-      expect(subject.send(:parse_service_config, config_for_generator_string)).to eql(parsed_config_for_generator)
+      expect(subject.send(:parse_service_config, config_for_generator_string.first)).to eql(parsed_config_for_generator)
     end
 
     it 'decodes invalid config data correctly' do
