@@ -1328,6 +1328,7 @@ class Synapse::ConfigGenerator
     class HaproxyState
       include Synapse::Logging
 
+      # TODO: enable version in the Haproxy Cache File
       KEY_WATCHER_CONFIG_FOR_GENERATOR = "watcher_config_for_generator"
       NON_BACKENDS_KEYS = [KEY_WATCHER_CONFIG_FOR_GENERATOR]
 
