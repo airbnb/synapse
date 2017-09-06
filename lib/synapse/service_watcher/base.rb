@@ -1,5 +1,6 @@
 require 'synapse/log'
 require 'set'
+require 'hashdiff'
 
 class Synapse::ServiceWatcher
   class BaseWatcher
@@ -7,7 +8,7 @@ class Synapse::ServiceWatcher
 
     LEADER_WARN_INTERVAL = 30
 
-    attr_reader :name, :config_for_generator, :revision
+    attr_reader :name, :revision
 
     def initialize(opts={}, synapse)
       super()
@@ -99,6 +100,11 @@ class Synapse::ServiceWatcher
       true
     end
 
+    # deep clone the hash to protect its readonly property
+    def config_for_generator
+      Marshal.load( Marshal.dump(@config_for_generator))
+    end
+    
     def backends
       filtered = backends_filtered_by_labels
 
@@ -152,7 +158,7 @@ class Synapse::ServiceWatcher
       end
     end
 
-    def set_backends(new_backends)
+    def set_backends(new_backends, new_config_for_generator = {})
       # Aggregate and deduplicate all potential backend service instances.
       new_backends = (new_backends + @default_servers) if @keep_default_servers
       # Substitute backend_port_override for the provided port
@@ -165,7 +171,20 @@ class Synapse::ServiceWatcher
         [b['host'], b['port'], b.fetch('name', '')]
       }
 
+      backends_updated = update_backends(new_backends)
+      config_updated = update_config_for_generator(new_config_for_generator)
+
+      if backends_updated || config_updated
+        reconfigure!
+        return true
+      else
+        return false
+      end
+    end
+
+    def update_backends(new_backends)
       if new_backends.to_set == @backends.to_set
+        log.info "synapse: backends for service #{@name} do not change."
         return false
       end
 
@@ -192,9 +211,26 @@ class Synapse::ServiceWatcher
         @backends = new_backends
       end
 
-      reconfigure!
-
       return true
+    end
+
+    def update_config_for_generator(new_config_for_generator)
+      if new_config_for_generator.empty?
+        log.info "synapse: no config_for_generator data from #{name} for" \
+              " service #{@name}; keep existing config_for_generator: #{@config_for_generator.inspect}"
+        return false
+      else
+        log.info "synapse: discovered config_for_generator for service #{@name}"
+        diff = HashDiff.diff(new_config_for_generator, config_for_generator)
+
+        if diff.empty?
+          log.info "synapse: config_for_generator for service #{@name} does not change."
+          return false
+        else
+          @config_for_generator = new_config_for_generator
+          return true
+        end
+      end
     end
 
     # Subclasses should not invoke this directly; it's only exposed so that it
