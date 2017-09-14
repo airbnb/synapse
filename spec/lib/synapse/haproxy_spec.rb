@@ -481,6 +481,48 @@ describe Synapse::ConfigGenerator::Haproxy do
     expect(subject.generate_backend_stanza(mockwatcher, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555 check inter 2000 rise 3 fall 2"]])
   end
 
+  describe 'when known backend gets offline' do
+    let(:mockStateCache) do
+      mockCache = double(Synapse::ConfigGenerator::Haproxy::HaproxyState)
+      allow(mockCache).to receive(:backends).with(mockwatcher.name).and_return(
+        {
+          "somehost2:5555" => {
+            "host" => "somehost2",
+            "port" => 5555,
+            'haproxy_server_id' => 10,
+          }
+        }
+      )
+      mockCache
+    end
+
+    before do
+      allow(mockwatcher).to receive(:config_for_generator).and_return(
+        {
+          'haproxy' => {
+            'server_options' => "check inter 2000 rise 3 fall 2",
+            'backend_order' => 'no_shuffle',
+          }
+        }
+      )
+      subject.instance_variable_set(:@state_cache, mockStateCache)
+    end
+
+    it 'generates backend stanza with the disabled stat' do
+      mockConfig = ['mode tcp']
+      expect(subject.generate_backend_stanza(mockwatcher, mockConfig)).to eql(
+        [
+          "\nbackend example_service",
+          ["\tmode tcp"],
+          [
+            "\tserver somehost2:5555 somehost2:5555 id 10 check inter 2000 rise 3 fall 2 disabled",
+            "\tserver somehost:5555 somehost:5555 id 1 check inter 2000 rise 3 fall 2"
+          ]
+        ]
+      )
+    end
+  end
+
   describe 'generate backend stanza in correct order' do
     let(:multiple_backends_stanza_map) do
       {
