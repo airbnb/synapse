@@ -1068,7 +1068,7 @@ class Synapse::ConfigGenerator
 
       # The ordering here is important.  First we add all the backends in the
       # disabled state...
-      @state_cache.backends(watcher).each do |backend_name, backend|
+      @state_cache.backends(watcher.name).each do |backend_name, backend|
         backends[backend_name] = backend.merge('enabled' => false)
         # We remember the haproxy_server_id from a previous reload here.
         # Note though that if live servers below define haproxy_server_id
