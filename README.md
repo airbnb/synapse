@@ -13,7 +13,7 @@ Synapse emerged from the need to maintain high-availability applications in the 
 Traditional high-availability techniques, which involve using a CRM like [pacemaker](http://linux-ha.org/wiki/Pacemaker), do not work in environments where the end-user has no control over the networking.
 In an environment like Amazon's EC2, all of the available workarounds are suboptimal:
 
-* Round-robin DNS: Slow to converge, and doesn't work when applications cache DNS lookups (which is frequent)
+* Round-robin DNS: slow to converge, and doesn't work when applications cache DNS lookups (which is frequent)
 * Elastic IPs: slow to converge, limited in number, public-facing-only, which makes them less useful for internal services
 * ELB: ultimately uses DNS (see above), can't tune load balancing, have to launch a new one for every service * region, autoscaling doesn't happen fast enough
 
