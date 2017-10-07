@@ -8,6 +8,8 @@ services:
       path: /airbnb/service/logging/event_collector
       hosts:
         - localhost:2181
+      label_filters:
+        - { label: "tag", value: "<%= ENV['SYNAPSE_CONFIG_VALUE'] %>", condition: "equals" }
     haproxy:
       port: 3219
       bind_address: 'localhost'

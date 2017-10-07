@@ -2,6 +2,7 @@
 
 require 'yaml'
 require 'optparse'
+require 'erb'
 
 require 'synapse'
 
@@ -32,13 +33,18 @@ optparse.parse!
 def parseconfig(filename)
   # parse synapse config file
   begin
-    c = YAML::parse(File.read(filename))
+    c = YAML::parse(ERB.new(File.read(filename)).result)
   rescue Errno::ENOENT => e
     raise ArgumentError, "config file does not exist:\n#{e.inspect}"
   rescue Errno::EACCES => e
     raise ArgumentError, "could not open config file:\n#{e.inspect}"
   rescue YAML::SyntaxError => e
     raise "config file #{filename} is not yaml:\n#{e.inspect}"
+  rescue SyntaxError => e
+    raise SyntaxError, "ERB syntax error in config file #{filename}:\n#{e.inspect}"
+  rescue
+    puts "failed to parse config file #{filename}"
+    raise
   end
   return c.to_ruby
 end
