@@ -230,7 +230,8 @@ It takes the following mandatory arguments:
 
 The watcher assumes that each node under `path` represents a service server.
 
-The watcher assumes that the data (if any) retrieved at znode `path` is a hash, where each key is named by a valid `config_generator` (e.g. `haproxy`) and the value is a hash that configs the generator.
+The watcher assumes that the data (if any) retrieved at znode `path` is a hash, where each key is named by a valid `config_generator` (e.g. `haproxy`) and the value is a hash that configs the generator.   Alternatively, if a `generator_config_path` argument is specified, the watcher will attempt to read generator config from that znode instead.
+If `generator_config_path` has the value `disabled`, then generator config will not be read from zookeeper at all.
 
 The following arguments are optional:
 

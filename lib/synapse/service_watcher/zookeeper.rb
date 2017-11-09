@@ -157,11 +157,30 @@ class Synapse::ServiceWatcher
         end
       end
 
-      node = @zk.get(@discovery['path'], :watch => true)
-      begin
-        new_config_for_generator = parse_service_config(node.first)
-      rescue StandardError => e
-        log.error "synapse: invalid config data in ZK node at #{@discovery['path']}: #{e}"
+      # support for a separate 'generator_config_path' key, for reading the
+      # generator config block, that may be different from the 'path' key where
+      # we discover service instances. if generator_config_path is present and
+      # the value is "disabled", then skip all zk-based discovery of the
+      # generator config (and use the values from the local config.json
+      # instead).
+      case @discovery.fetch('generator_config_path', nil)
+      when 'disabled'
+        discovery_key = nil
+      when nil
+        discovery_key = 'path'
+      else
+        discovery_key = 'generator_config_path'
+      end
+
+      if discovery_key
+        node = @zk.get(@discovery[discovery_key], :watch => true)
+        begin
+          new_config_for_generator = parse_service_config(node.first)
+        rescue StandardError => e
+          log.error "synapse: invalid config data in ZK node at #{@discovery[discovery_key]}: #{e}"
+          new_config_for_generator = {}
+        end
+      else
         new_config_for_generator = {}
       end
 
