@@ -1269,7 +1269,7 @@ class Synapse::ConfigGenerator
       if old_config == new_config
         return false
       else
-        File.open(opts['config_file_path'],'w') {|f| f.write(new_config)}
+        atomic_file_write(opts['config_file_path'], new_config)
         return true
       end
     end
@@ -1373,9 +1373,13 @@ class Synapse::ConfigGenerator
 
     # we do this atomically so the state file is always consistent
     def write_data_to_state_file(data)
-      tmp_state_file_path = @state_file_path + ".tmp"
-      File.write(tmp_state_file_path, JSON.pretty_generate(data))
-      FileUtils.mv(tmp_state_file_path, @state_file_path)
+      atomic_file_write(@state_file_path, JSON.pretty_generate(data))
+    end
+
+    def atomic_file_write(file_path, data)
+      tmp_file_path = "#{file_path}_#{Time.now.to_i}.tmp"
+      File.write(tmp_file_path, data)
+      FileUtils.mv(tmp_file_path, file_path)
     end
   end
 end

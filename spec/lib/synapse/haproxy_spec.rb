@@ -283,10 +283,19 @@ describe Synapse::ConfigGenerator::Haproxy do
 
     context 'if we support config writes' do
       include_context 'generate_config is stubbed out'
-      before { config['haproxy']['do_writes'] = true }
+      let(:config_file_path) { "./config.json" }
+      before do
+        config['haproxy']['do_writes'] = true
+        config['haproxy']['config_file_path'] = config_file_path
+      end
 
       it 'writes the new config' do
         expect(subject).to receive(:write_config).with(new_config)
+        subject.update_config(watchers)
+      end
+
+      it 'writes the new config in atomic way' do
+        expect(subject).to receive(:atomic_file_write).with(config_file_path, new_config)
         subject.update_config(watchers)
       end
     end
