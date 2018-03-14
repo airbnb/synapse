@@ -1153,6 +1153,7 @@ class Synapse::ConfigGenerator
               b = "#{b} cookie #{backend_name}"
             end
           end
+          b = "#{b} weight #{backend['weight']}" if backend['weight']
           b = "#{b} #{watcher_config['server_options']}" if watcher_config['server_options'].is_a? String
           b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options'].is_a? String
           b = "#{b} disabled" unless backend['enabled']

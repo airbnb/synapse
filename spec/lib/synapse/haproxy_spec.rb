@@ -107,6 +107,18 @@ describe Synapse::ConfigGenerator::Haproxy do
     mockWatcher
   end
 
+  let(:mockwatcher_with_weight) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_weighted_service')
+    backends = [{ 'host' => 'somehost', 'port' => 5555, 'weight' => 1}]
+    allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
+      'haproxy' => {
+      }
+    })
+    mockWatcher
+  end
+
   let(:mockwatcher_frontend) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service4')
@@ -654,6 +666,13 @@ describe Synapse::ConfigGenerator::Haproxy do
         ]
       ]
     )
+  end
+
+  it 'respects backend weight' do
+    mockConfig = []
+    expect(subject.generate_backend_stanza(mockwatcher_with_weight, mockConfig)).to eql(
+      ["\nbackend example_weighted_service", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555 weight 1"]]
+      )
   end
 
   it 'generates frontend stanza ' do
