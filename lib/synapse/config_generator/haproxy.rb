@@ -1099,8 +1099,8 @@ class Synapse::ConfigGenerator
         # does define an id, then we will write that out below, so that must be what
         # is in the id_map as well.
         @server_id_map[watcher.name][backend_name] = backend['haproxy_server_id'].to_i if backend['haproxy_server_id']
-        server_opts = (backend['haproxy_server_options'] || 'no match').split(' ')
-        @server_id_map[watcher.name][backend_name] = server_opts[server_opts.index('id') + 1].to_i if server_opts.include?('id')
+        server_opts = backend['haproxy_server_options'].split(' ') if backend['haproxy_server_options'].is_a? String
+        @server_id_map[watcher.name][backend_name] = server_opts[server_opts.index('id') + 1].to_i if server_opts && server_opts.include?('id')
         @id_server_map[watcher.name][@server_id_map[watcher.name][backend_name]] = backend_name
       end
 
@@ -1140,7 +1140,7 @@ class Synapse::ConfigGenerator
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
 
           # Again, if the registry defines an id, we can't set it.
-          has_id = (backend['haproxy_server_options'] || 'no match').split(' ').include?('id')
+          has_id = backend['haproxy_server_options'].split(' ').include?('id') if backend['haproxy_server_options'].is_a? String
           if (!has_id && @server_id_map[watcher.name][backend_name])
             b = "#{b} id #{@server_id_map[watcher.name][backend_name]}"
           end
@@ -1153,8 +1153,8 @@ class Synapse::ConfigGenerator
               b = "#{b} cookie #{backend_name}"
             end
           end
-          b = "#{b} #{watcher_config['server_options']}" if watcher_config['server_options']
-          b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options']
+          b = "#{b} #{watcher_config['server_options']}" if watcher_config['server_options'].is_a? String
+          b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options'].is_a? String
           b = "#{b} disabled" unless backend['enabled']
           b }
       ]

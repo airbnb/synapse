@@ -22,6 +22,29 @@ describe Synapse::ConfigGenerator::Haproxy do
     mockWatcher
   end
 
+  let(:mockwatcher_with_hashed_haproxy_server_options) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_service')
+    backends = [{ 'host' => 'somehost', 'port' => 5555, 'haproxy_server_options' => {'option_key' => 'option_value'}}]
+    allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
+      'haproxy' => {'server_options' => "check inter 2000 rise 3 fall 2"}
+    })
+    allow(mockWatcher).to receive(:revision).and_return(1)
+    mockWatcher
+  end
+
+  let(:mockwatcher_with_hashed_server_options) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_service2')
+    backends = [{ 'host' => 'somehost', 'port' => 5555, 'haproxy_server_options' => 'id 12 backup'}]
+    allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
+      'haproxy' => {'server_options' => {'hash_key' => 'check inter 2000 rise 3 fall 2'}}
+    })
+    mockWatcher
+  end
+
   let(:mockwatcher_with_server_options) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service2')
@@ -479,6 +502,16 @@ describe Synapse::ConfigGenerator::Haproxy do
   it 'generates backend stanza' do
     mockConfig = []
     expect(subject.generate_backend_stanza(mockwatcher, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555 check inter 2000 rise 3 fall 2"]])
+  end
+
+  it 'ignores non-strings of haproxy_server_options' do
+    mockConfig = []
+    expect(subject.generate_backend_stanza(mockwatcher_with_hashed_haproxy_server_options, mockConfig)).to eql(["\nbackend example_service", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555 check inter 2000 rise 3 fall 2"]])
+  end
+
+  it 'ignores non-strings of server_options' do
+    mockConfig = []
+    expect(subject.generate_backend_stanza(mockwatcher_with_hashed_server_options, mockConfig)).to eql(["\nbackend example_service2", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 id 12 backup"]])
   end
 
   describe 'when known backend gets offline' do
