@@ -125,6 +125,15 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       subject.send(:watcher_callback).call
     end
 
+    it 'responds fail to ping? when the client is not in any of the connected/connecting/associatin state' do
+      expect(mock_zk).to receive(:associating?).and_return(false)
+      expect(mock_zk).to receive(:connecting?).and_return(false)
+      expect(mock_zk).to receive(:connected?).and_return(false)
+
+      subject.instance_variable_set('@zk', mock_zk)
+      expect(subject.ping?).to be false
+    end
+    
     context "when generator_config_path is defined" do
       let(:discovery) { { 'method' => 'zookeeper', 'hosts' => 'somehost', 'path' => 'some/path', 'generator_config_path' => 'some/other/path' } }
 

@@ -47,7 +47,9 @@ class Synapse::ServiceWatcher
     def ping?
       # @zk being nil implies no session *or* a lost session, do not remove
       # the check on @zk being truthy
-      @zk && @zk.connected?
+      # if the client is in any of the three states: associating, connecting, connected
+      # we consider it alive. this can avoid synapse restart on short network dis-connection
+      @zk && (@zk.associating? || @zk.connecting? || @zk.connected?)
     end
 
     private
