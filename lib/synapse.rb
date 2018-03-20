@@ -3,6 +3,7 @@ require 'json'
 
 require 'synapse/version'
 require 'synapse/log'
+require 'synapse/statsd'
 require 'synapse/config_generator'
 require 'synapse/service_watcher'
 
@@ -11,8 +12,11 @@ module Synapse
   class Synapse
 
     include Logging
+    include StatsD
 
     def initialize(opts={})
+      StatsD.configure_statsd(opts["statsd"] || {})
+
       # create objects that need to be notified of service changes
       @config_generators = create_config_generators(opts)
       raise "no config generators supplied" if @config_generators.empty?
@@ -29,47 +33,76 @@ module Synapse
       Thread.abort_on_exception = true
 
       log.debug "synapse: completed init"
+    rescue Exception => e
+      statsd && statsd.increment('synapse.stop', tags: ['stop_avenue:abort', 'stop_location:init'])
+      raise e
     end
 
     # start all the watchers and enable haproxy configuration
     def run
       log.info "synapse: starting..."
+      statsd.increment('synapse.start')
 
       # start all the watchers
-      @service_watchers.map { |watcher| watcher.start }
-
-      # main loop
-      loops = 0
-      loop do
-        @service_watchers.each do |w|
-          raise "synapse: service watcher #{w.name} failed ping!" unless w.ping?
-        end
-
-        if @config_updated
-          @config_updated = false
-          @config_generators.each do |config_generator|
-            log.info "synapse: configuring #{config_generator.name}"
-            config_generator.update_config(@service_watchers)
+      statsd.time('synapse.watchers.start.time') do
+        @service_watchers.map do |watcher|
+          begin
+            watcher.start
+            statsd.increment("synapse.watcher.start", tags: ['start_result:success', "watcher_name:#{watcher.name}"])
+          rescue Exception => e
+            statsd.increment("synapse.watcher.start", tags: ['start_result:fail', "watcher_name:#{watcher.name}"])
+            raise e
           end
         end
+      end
 
-        sleep 1
-        @config_generators.each do |config_generator|
-          config_generator.tick(@service_watchers)
+      statsd.time('synapse.main_loop.elapsed_time') do
+        # main loop
+        loops = 0
+        loop do
+          @service_watchers.each do |w|
+            alive = w.ping?
+            statsd.increment('synapse.watcher.ping.count', tags: ["watcher_name:#{w.name}", "ping_result:#{alive ? "success" : "failure"}"])
+            raise "synapse: service watcher #{w.name} failed ping!" unless alive
+          end
+
+          if @config_updated
+            @config_updated = false
+            statsd.increment('synapse.config.update')
+            @config_generators.each do |config_generator|
+              log.info "synapse: configuring #{config_generator.name}"
+              config_generator.update_config(@service_watchers)
+            end
+          end
+
+          sleep 1
+          @config_generators.each do |config_generator|
+            config_generator.tick(@service_watchers)
+          end
+
+          loops += 1
+          log.debug "synapse: still running at #{Time.now}" if (loops % 60) == 0
         end
-
-        loops += 1
-        log.debug "synapse: still running at #{Time.now}" if (loops % 60) == 0
       end
 
     rescue StandardError => e
+      statsd.increment('synapse.stop', tags: ['stop_avenue:abort', 'stop_location:main_loop'])
       log.error "synapse: encountered unexpected exception #{e.inspect} in main thread"
       raise e
     ensure
       log.warn "synapse: exiting; sending stop signal to all watchers"
 
       # stop all the watchers
-      @service_watchers.map(&:stop)
+      @service_watchers.map do |w|
+        begin
+          w.stop
+          statsd.increment("synapse.watcher.stop", tags: ['stop_avenue:clean', 'stop_location:main_loop', "watcher_name:#{w.name}"])
+        rescue Exception => e
+          statsd.increment("synapse.watcher.stop", tags: ['stop_avenue:exception', 'stop_location:main_loop', "watcher_name:#{w.name}"])
+          raise e
+        end
+      end
+      statsd.increment('synapse.stop', tags: ['stop_avenue:clean', 'stop_location:main_loop'])
     end
 
     def reconfigure!

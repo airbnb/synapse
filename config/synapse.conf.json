@@ -1,4 +1,8 @@
 {
+  "statsd": {
+    "host": "localhost",
+    "port": 8125
+  },
   "services": {
     "service1": {
       "default_servers": [

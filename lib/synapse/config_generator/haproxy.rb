@@ -1287,7 +1287,7 @@ class Synapse::ConfigGenerator
         return false
       else
         tmp_file_path = "#{opts['config_file_path']}_#{Time.now.to_i}.tmp"
-        File.write(tmp_file_path, data)
+        File.write(tmp_file_path, new_config)
         FileUtils.mv(tmp_file_path, opts['config_file_path'])
         return true
       end

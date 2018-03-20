@@ -1,10 +1,12 @@
 require 'synapse/log'
+require 'synapse/statsd'
 require 'set'
 require 'hashdiff'
 
 class Synapse::ServiceWatcher
   class BaseWatcher
     include Synapse::Logging
+    include Synapse::StatsD
 
     LEADER_WARN_INTERVAL = 30
 
