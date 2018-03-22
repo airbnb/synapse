@@ -814,7 +814,7 @@ class Synapse::ConfigGenerator
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
       @opts['do_reloads'] = true unless @opts.key?('do_reloads')
-
+      @opts['use_nerve_weights'] = true if @opts.key?('use_nerve_weights')
       req_pairs = {
         'do_writes' => 'config_file_path',
         'do_socket' => 'socket_file_path',
@@ -1090,6 +1090,11 @@ class Synapse::ConfigGenerator
             log.info "synapse: restart required because haproxy_server_options changed for #{backend_name}"
             @restart_required = true
           end
+
+          if(@opts['use_nerve_weights'] && old_backend.fetch('weight', "") != backend.fetch('weight', ""))
+            log.info "synapse: restart required because weight changed for #{backend_name}"
+            @restart_required = true
+          end
         end
 
         backends[backend_name] = backend.merge('enabled' => true)
@@ -1153,12 +1158,35 @@ class Synapse::ConfigGenerator
               b = "#{b} cookie #{backend_name}"
             end
           end
-          b = "#{b} weight #{backend['weight']}" if backend['weight']
-          b = "#{b} #{watcher_config['server_options']}" if watcher_config['server_options'].is_a? String
-          b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options'].is_a? String
+
+          if @opts['use_nerve_weights'] && backend['weight'] && ((backend['weight'].is_a? String) || (backend['weight'].is_a? Integer))
+            clean_server_options = remove_weight_option watcher_config['server_options']
+            clean_haproxy_server_options = remove_weight_option backend['haproxy_server_options']
+            if clean_server_options != watcher_config['server_options']
+                log.warn "synapse: weight is defined in both server_options and nerve. nerve weight will take precedence"
+            end
+            if clean_haproxy_server_options != backend['haproxy_server_options']
+                log.warn "synapse: weight is defined in both haproxy_server_options and nerve. nerve weight will take precedence"
+            end
+            b = "#{b} #{clean_server_options}" if clean_server_options
+            b = "#{b} #{clean_haproxy_server_options}" if clean_haproxy_server_options
+
+            weight = backend['weight'].to_i
+            b = "#{b} weight #{weight}".squeeze(" ")
+          else
+            b = "#{b} #{watcher_config['server_options']}" if watcher_config['server_options'].is_a? String
+            b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options'].is_a? String
+          end
           b = "#{b} disabled" unless backend['enabled']
           b }
       ]
+    end
+
+    def remove_weight_option(server_options)
+      if server_options.is_a? String
+        server_options = server_options.sub /weight +[0-9]+/,''
+      end
+      server_options
     end
 
     def find_next_id(watcher_name, backend_name)

@@ -353,6 +353,7 @@ listen on 127.0.0.3:443) allows /etc/hosts entries to point to services.
   ordering is deterministic across HAProxy reloads.
 * `shared_frontend`: optional: haproxy configuration directives for a shared http frontend (see below)
 * `cookie_value_method`: optional: default value is `name`, it defines the way your backends receive a cookie value in http mode. If equal to `hash`, synapse hashes backend names on cookie value assignation of your discovered backends, useful when you want to use haproxy cookie feature but you do not want that your end users receive a Set-Cookie with your server name and ip readable in clear.
+* `use_nerve_weights`: optional: this option enables reading the weights from nerve and applying them to the haproxy configuration. By default this is disabled in the case where users apply weights using `server_options` or `haproxy_server_options`.  This option will also remove the weight parameter from `server_options` and `haproxy_server_options`
 
 <a name="haproxy"/>
 

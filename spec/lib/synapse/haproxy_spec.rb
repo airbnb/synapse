@@ -6,6 +6,12 @@ class MockWatcher; end;
 describe Synapse::ConfigGenerator::Haproxy do
   subject { Synapse::ConfigGenerator::Haproxy.new(config['haproxy']) }
 
+  let (:nerve_weights_subject) {
+    nerve_weights_subject = subject.clone
+    nerve_weights_subject.opts['use_nerve_weights'] = true
+    nerve_weights_subject
+  }
+
   let(:maxid) do
     Synapse::ConfigGenerator::Haproxy::MAX_SERVER_ID
   end
@@ -119,6 +125,42 @@ describe Synapse::ConfigGenerator::Haproxy do
     mockWatcher
   end
 
+  let(:mockwatcher_with_weight_as_string) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_weighted_service')
+    backends = [{ 'host' => 'somehost', 'port' => 5555, 'weight' => '1'}]
+    allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
+      'haproxy' => {
+      }
+    })
+    mockWatcher
+  end
+
+  let(:mockwatcher_with_weight_as_hash) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_weighted_service')
+    backends = [{ 'host' => 'somehost', 'port' => 5555, 'weight' => {}}]
+    allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
+      'haproxy' => {
+      }
+    })
+    mockWatcher
+  end
+
+  let(:mockwatcher_with_haproxy_weight_and_nerve_weight) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_weighted_service')
+    backends = [{ 'host' => 'somehost', 'port' => 5555, 'weight' => 99, 'haproxy_server_options' => 'weight 50'}]
+    allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
+      'haproxy' => {
+      }
+    })
+    mockWatcher
+  end
+
   let(:mockwatcher_frontend) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('example_service4')
@@ -183,6 +225,20 @@ describe Synapse::ConfigGenerator::Haproxy do
       expect{Synapse::ConfigGenerator::Haproxy.new(conf)}.not_to raise_error
     end
 
+    it 'reads use_nerve_weights in config' do
+      conf = {
+        'global' => [],
+        'defaults' => [],
+        'do_writes' => false,
+        'do_reloads' => false,
+        'do_socket' => false,
+        'use_nerve_weights' => true
+      }
+      expect{Synapse::ConfigGenerator::Haproxy.new(conf)}.not_to raise_error
+      haproxy = Synapse::ConfigGenerator::Haproxy.new(conf)
+      expect(haproxy.opts['use_nerve_weights']).to eql(true)
+    end
+
     it 'validates req_pairs' do
       req_pairs = {
         'do_writes' => 'config_file_path',
@@ -206,7 +262,7 @@ describe Synapse::ConfigGenerator::Haproxy do
 
     end
 
-    it 'properly defaults do_writes, do_socket, do_reloads' do
+    it 'properly defaults do_writes, do_socket, do_reloads, use_nerve_weights' do
       conf = {
         'global' => [],
         'defaults' => [],
@@ -220,6 +276,7 @@ describe Synapse::ConfigGenerator::Haproxy do
       expect(haproxy.opts['do_writes']).to eql(true)
       expect(haproxy.opts['do_socket']).to eql(true)
       expect(haproxy.opts['do_reloads']).to eql(true)
+      expect(haproxy.opts['use_nerve_weights']).to eql(nil)
     end
 
     it 'complains when req_pairs are not passed at all' do
@@ -668,12 +725,44 @@ describe Synapse::ConfigGenerator::Haproxy do
     )
   end
 
-  it 'respects backend weight' do
-    mockConfig = []
-    expect(subject.generate_backend_stanza(mockwatcher_with_weight, mockConfig)).to eql(
-      ["\nbackend example_weighted_service", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555 weight 1"]]
-      )
+  describe '#use_nerve_weights' do
+    it 'respects weight as integer' do
+      mockConfig = []
+      expect(nerve_weights_subject.generate_backend_stanza(mockwatcher_with_weight, mockConfig)).to eql(
+        ["\nbackend example_weighted_service", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555 weight 1"]]
+        )
+    end
+
+    it 'respects weight as string' do
+      mockConfig = []
+      expect(nerve_weights_subject.generate_backend_stanza(mockwatcher_with_weight_as_string, mockConfig)).to eql(
+        ["\nbackend example_weighted_service", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555 weight 1"]]
+        )
+    end
+
+    it 'ignores weight if not valid' do
+      mockConfig = []
+      expect(nerve_weights_subject.generate_backend_stanza(mockwatcher_with_weight_as_hash, mockConfig)).to eql(
+        ["\nbackend example_weighted_service", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555"]]
+        )
+    end
+
+    it 'ignores haproxy_server_options weight with use_nerve_weights true' do
+      mockConfig = []
+      expect(nerve_weights_subject.generate_backend_stanza(mockwatcher_with_haproxy_weight_and_nerve_weight, mockConfig)).to eql(
+        ["\nbackend example_weighted_service", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555 weight 99"]]
+        )
+    end
+
+    it 'ignores nerve weight with use_nerve_weights false' do
+      mockConfig = []
+      expect(subject.generate_backend_stanza(mockwatcher_with_haproxy_weight_and_nerve_weight, mockConfig)).to eql(
+        ["\nbackend example_weighted_service", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555 weight 50"]]
+        )
+    end
   end
+
+
 
   it 'generates frontend stanza ' do
     mockConfig = []
