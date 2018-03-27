@@ -1,9 +1,10 @@
 PATH
   remote: .
   specs:
-    synapse (0.15.1)
+    synapse (0.15.2)
       aws-sdk (~> 1.39)
       docker-api (~> 1.7)
+      dogstatsd-ruby (~> 3.3.0)
       hashdiff (~> 0.2.3)
       logging (~> 1.8)
       zk (~> 1.9.4)
@@ -18,35 +19,38 @@ GEM
       thread_safe (~> 0.3, >= 0.3.4)
       tzinfo (~> 1.1)
     addressable (2.4.0)
-    aws-sdk (1.66.0)
-      aws-sdk-v1 (= 1.66.0)
-    aws-sdk-v1 (1.66.0)
+    aws-sdk (1.67.0)
+      aws-sdk-v1 (= 1.67.0)
+    aws-sdk-v1 (1.67.0)
       json (~> 1.4)
-      nokogiri (>= 1.4.4)
+      nokogiri (~> 1)
     coderay (1.1.0)
     crack (0.4.3)
       safe_yaml (~> 1.0.0)
     diff-lcs (1.2.5)
-    docker-api (1.29.0)
-      excon (>= 0.38.0)
-      json
-    excon (0.49.0)
+    docker-api (1.34.2)
+      excon (>= 0.47.0)
+      multi_json
+    dogstatsd-ruby (3.3.0)
+    excon (0.61.0)
     factory_girl (4.7.0)
       activesupport (>= 3.0.0)
     ffi (1.9.10-java)
     hashdiff (0.2.3)
     i18n (0.7.0)
     json (1.8.3)
-    little-plugger (1.1.3)
+    json (1.8.3-java)
+    little-plugger (1.1.4)
     logging (1.8.2)
       little-plugger (>= 1.1.3)
       multi_json (>= 1.8.4)
     method_source (0.8.2)
-    mini_portile2 (2.0.0)
+    mini_portile2 (2.1.0)
     minitest (5.9.0)
-    multi_json (1.11.2)
-    nokogiri (1.6.7.2)
-      mini_portile2 (~> 2.0.0.rc2)
+    multi_json (1.13.1)
+    nokogiri (1.6.8.1)
+      mini_portile2 (~> 2.1.0)
+    nokogiri (1.6.8.1-java)
     pry (0.10.3)
       coderay (~> 1.1.0)
       method_source (~> 0.8.1)
@@ -73,9 +77,12 @@ GEM
     rspec-support (3.1.2)
     safe_yaml (1.0.4)
     slop (3.6.0)
+    slyphon-log4j (1.2.15)
+    slyphon-zookeeper_jar (3.3.5-java)
     spoon (0.0.4)
       ffi
     thread_safe (0.3.5)
+    thread_safe (0.3.5-java)
     timecop (0.8.1)
     tzinfo (1.2.2)
       thread_safe (~> 0.1)
@@ -86,6 +93,9 @@ GEM
     zk (1.9.6)
       zookeeper (~> 1.4.0)
     zookeeper (1.4.11)
+    zookeeper (1.4.11-java)
+      slyphon-log4j (= 1.2.15)
+      slyphon-zookeeper_jar (= 3.3.5)
 
 PLATFORMS
   java
@@ -102,4 +112,4 @@ DEPENDENCIES
   webmock
 
 BUNDLED WITH
-   1.11.2
+   1.16.1

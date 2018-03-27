@@ -334,6 +334,13 @@ describe Synapse::ConfigGenerator::Haproxy do
         expect(subject).to receive(:write_config).with(new_config)
         subject.update_config(watchers)
       end
+
+      it 'writes the new config to the file system' do
+        expect(File).to receive(:read).and_return(nil)
+        expect(File).to receive(:write)
+        expect(FileUtils).to receive(:mv)
+        subject.update_config(watchers)
+      end
     end
 
     context 'if we do not support config writes' do
