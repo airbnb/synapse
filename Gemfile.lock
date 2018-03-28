@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    synapse (0.15.2)
+    synapse (0.15.3)
       aws-sdk (~> 1.39)
       docker-api (~> 1.7)
       dogstatsd-ruby (~> 3.3.0)
@@ -32,9 +32,10 @@ GEM
       excon (>= 0.47.0)
       multi_json
     dogstatsd-ruby (3.3.0)
-    excon (0.61.0)
+    excon (0.62.0)
     factory_girl (4.7.0)
       activesupport (>= 3.0.0)
+    ffi (1.9.10)
     ffi (1.9.10-java)
     hashdiff (0.2.3)
     i18n (0.7.0)
@@ -45,12 +46,12 @@ GEM
       little-plugger (>= 1.1.3)
       multi_json (>= 1.8.4)
     method_source (0.8.2)
-    mini_portile2 (2.1.0)
+    mini_portile2 (2.3.0)
     minitest (5.9.0)
     multi_json (1.13.1)
-    nokogiri (1.6.8.1)
-      mini_portile2 (~> 2.1.0)
-    nokogiri (1.6.8.1-java)
+    nokogiri (1.8.2)
+      mini_portile2 (~> 2.3.0)
+    nokogiri (1.8.2-java)
     pry (0.10.3)
       coderay (~> 1.1.0)
       method_source (~> 0.8.1)
