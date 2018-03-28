@@ -34,7 +34,7 @@ module Synapse
 
       log.debug "synapse: completed init"
     rescue Exception => e
-      statsd && statsd.increment('synapse.stop', tags: ['stop_avenue:abort', 'stop_location:init'])
+      statsd && statsd.increment('synapse.stop', tags: ['stop_avenue:abort', 'stop_location:init', "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
       raise e
     end
 
@@ -50,7 +50,7 @@ module Synapse
             watcher.start
             statsd.increment("synapse.watcher.start", tags: ['start_result:success', "watcher_name:#{watcher.name}"])
           rescue Exception => e
-            statsd.increment("synapse.watcher.start", tags: ['start_result:fail', "watcher_name:#{watcher.name}"])
+            statsd.increment("synapse.watcher.start", tags: ['start_result:fail', "watcher_name:#{watcher.name}", "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
             raise e
           end
         end
@@ -86,7 +86,7 @@ module Synapse
       end
 
     rescue StandardError => e
-      statsd.increment('synapse.stop', tags: ['stop_avenue:abort', 'stop_location:main_loop'])
+      statsd.increment('synapse.stop', tags: ['stop_avenue:abort', 'stop_location:main_loop', "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
       log.error "synapse: encountered unexpected exception #{e.inspect} in main thread"
       raise e
     ensure
@@ -98,7 +98,7 @@ module Synapse
           w.stop
           statsd.increment("synapse.watcher.stop", tags: ['stop_avenue:clean', 'stop_location:main_loop', "watcher_name:#{w.name}"])
         rescue Exception => e
-          statsd.increment("synapse.watcher.stop", tags: ['stop_avenue:exception', 'stop_location:main_loop', "watcher_name:#{w.name}"])
+          statsd.increment("synapse.watcher.stop", tags: ['stop_avenue:exception', 'stop_location:main_loop', "watcher_name:#{w.name}", "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
           raise e
         end
       end
