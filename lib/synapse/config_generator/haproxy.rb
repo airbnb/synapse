@@ -1286,7 +1286,7 @@ class Synapse::ConfigGenerator
       if old_config == new_config
         return false
       else
-        tmp_file_path = "#{opts['config_file_path']}_#{Time.now.to_i}.tmp"
+        tmp_file_path = "#{opts['config_file_path']}.tmp"
         File.write(tmp_file_path, new_config)
         FileUtils.mv(tmp_file_path, opts['config_file_path'])
         return true
