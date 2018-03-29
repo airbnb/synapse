@@ -1,8 +1,4 @@
 {
-  "statsd": {
-    "host": "localhost",
-    "port": 8125
-  },
   "services": {
     "service1": {
       "default_servers": [
@@ -29,7 +25,7 @@
           "http-check expect string OK"
         ]
       }
-      
+
     },
     "service2": {
       "default_servers": [
@@ -90,6 +86,17 @@
         "stats uri /",
         "stats refresh 5s"
       ]
+    }
+  },
+  "statsd": {
+    "host": "localhost",
+    "port": 8125,
+    "sample_rate": {
+      "synapse.watcher.ping.count": 0.1,
+      "synapse.watcher.zk.discovery": 0.7,
+      "synapse.watcher.zk.discovery.elapsed_time": 0.7,
+      "synapse.watcher.zk.get.elapsed_time": 0.5,
+      "synapse.watcher.zk.watch.elapsed_time": 0.7
     }
   }
 }

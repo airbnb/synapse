@@ -136,14 +136,14 @@ class Synapse::ServiceWatcher
 
     # find the current backends at the discovery path
     def discover
-      statsd.increment('synapse.watcher.zk.discovery', tags: ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"])
-      statsd.time('synapse.watcher.zk.discovery.elapsed_time', tags: ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
+      statsd_increment('synapse.watcher.zk.discovery', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"])
+      statsd_time('synapse.watcher.zk.discovery.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
         log.info "synapse: discovering backends for service #{@name}"
 
         new_backends = []
         @zk.children(@discovery['path'], :watch => true).each do |id|
           begin
-            node = statsd.time('synapse.watcher.zk.get.elapsed_time', tags: ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+            node = statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
               @zk.get("#{@discovery['path']}/#{id}")
             end
           rescue ZK::Exceptions::NoNode => e
@@ -190,7 +190,7 @@ class Synapse::ServiceWatcher
         end
 
         if discovery_key
-          node = statsd.time('synapse.watcher.zk.get.elapsed_time', tags: ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+          node = statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
             @zk.get(@discovery[discovery_key], :watch => true)
           end
           begin
@@ -212,7 +212,7 @@ class Synapse::ServiceWatcher
       return if @zk.nil?
       log.debug "synapse: setting watch at #{@discovery['path']}"
 
-      statsd.time('synapse.watcher.zk.watch.elapsed_time', tags: ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
+      statsd_time('synapse.watcher.zk.watch.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
         @watcher = @zk.register(@discovery['path'], &watcher_callback) unless @watcher
 
         # Verify that we actually set up the watcher.
@@ -262,7 +262,7 @@ class Synapse::ServiceWatcher
     end
 
     def zk_connect
-      statsd.time('synapse.watcher.zk.connect.elapsed_time', tags: ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+      statsd_time('synapse.watcher.zk.connect.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
         log.info "synapse: zookeeper watcher connecting to ZK at #{@zk_hosts}"
 
         # Ensure that all Zookeeper watcher re-use a single zookeeper
@@ -273,11 +273,11 @@ class Synapse::ServiceWatcher
             @@zk_pool[@zk_hosts] = ZK.new(@zk_hosts, :timeout => 5, :thread => :per_callback)
             @@zk_pool_count[@zk_hosts] = 1
             log.info "synapse: successfully created zk connection to #{@zk_hosts}"
-            statsd.increment('synapse.watcher.zk.client.created', tags: ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
+            statsd_increment('synapse.watcher.zk.client.created', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
           else
             @@zk_pool_count[@zk_hosts] += 1
             log.info "synapse: re-using existing zookeeper connection to #{@zk_hosts}"
-            statsd.increment('synapse.watcher.zk.client.reused', tags: ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
+            statsd_increment('synapse.watcher.zk.client.reused', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
           end
         }
 
@@ -287,13 +287,13 @@ class Synapse::ServiceWatcher
         # handle session expiry -- by cleaning up zk, this will make `ping?`
         # fail and so synapse will exit
         @zk.on_expired_session do
-          statsd.increment('synapse.watcher.zk.session.expired', tags: ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
+          statsd_increment('synapse.watcher.zk.session.expired', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
           log.warn "synapse: zookeeper watcher ZK session expired!"
           zk_cleanup
         end
 
         # the path must exist, otherwise watch callbacks will not work
-        statsd.time('synapse.watcher.zk.create_path.elapsed_time', tags: ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+        statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
           create(@discovery['path'])
         end
 
