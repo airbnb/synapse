@@ -34,41 +34,41 @@ module Synapse
 
       log.debug "synapse: completed init"
     rescue Exception => e
-      statsd && statsd.increment('synapse.stop', tags: ['stop_avenue:abort', 'stop_location:init', "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
+      statsd && statsd_increment('synapse.stop', ['stop_avenue:abort', 'stop_location:init', "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
       raise e
     end
 
     # start all the watchers and enable haproxy configuration
     def run
       log.info "synapse: starting..."
-      statsd.increment('synapse.start')
+      statsd_increment('synapse.start')
 
       # start all the watchers
-      statsd.time('synapse.watchers.start.time') do
+      statsd_time('synapse.watchers.start.time') do
         @service_watchers.map do |watcher|
           begin
             watcher.start
-            statsd.increment("synapse.watcher.start", tags: ['start_result:success', "watcher_name:#{watcher.name}"])
+            statsd_increment("synapse.watcher.start", ['start_result:success', "watcher_name:#{watcher.name}"])
           rescue Exception => e
-            statsd.increment("synapse.watcher.start", tags: ['start_result:fail', "watcher_name:#{watcher.name}", "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
+            statsd_increment("synapse.watcher.start", ['start_result:fail', "watcher_name:#{watcher.name}", "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
             raise e
           end
         end
       end
 
-      statsd.time('synapse.main_loop.elapsed_time') do
+      statsd_time('synapse.main_loop.elapsed_time') do
         # main loop
         loops = 0
         loop do
           @service_watchers.each do |w|
             alive = w.ping?
-            statsd.increment('synapse.watcher.ping.count', tags: ["watcher_name:#{w.name}", "ping_result:#{alive ? "success" : "failure"}"])
+            statsd_increment('synapse.watcher.ping.count', ["watcher_name:#{w.name}", "ping_result:#{alive ? "success" : "failure"}"])
             raise "synapse: service watcher #{w.name} failed ping!" unless alive
           end
 
           if @config_updated
             @config_updated = false
-            statsd.increment('synapse.config.update')
+            statsd_increment('synapse.config.update')
             @config_generators.each do |config_generator|
               log.info "synapse: configuring #{config_generator.name}"
               config_generator.update_config(@service_watchers)
@@ -86,7 +86,7 @@ module Synapse
       end
 
     rescue StandardError => e
-      statsd.increment('synapse.stop', tags: ['stop_avenue:abort', 'stop_location:main_loop', "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
+      statsd_increment('synapse.stop', ['stop_avenue:abort', 'stop_location:main_loop', "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
       log.error "synapse: encountered unexpected exception #{e.inspect} in main thread"
       raise e
     ensure
@@ -96,13 +96,13 @@ module Synapse
       @service_watchers.map do |w|
         begin
           w.stop
-          statsd.increment("synapse.watcher.stop", tags: ['stop_avenue:clean', 'stop_location:main_loop', "watcher_name:#{w.name}"])
+          statsd_increment("synapse.watcher.stop", ['stop_avenue:clean', 'stop_location:main_loop', "watcher_name:#{w.name}"])
         rescue Exception => e
-          statsd.increment("synapse.watcher.stop", tags: ['stop_avenue:exception', 'stop_location:main_loop', "watcher_name:#{w.name}", "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
+          statsd_increment("synapse.watcher.stop", ['stop_avenue:exception', 'stop_location:main_loop', "watcher_name:#{w.name}", "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
           raise e
         end
       end
-      statsd.increment('synapse.stop', tags: ['stop_avenue:clean', 'stop_location:main_loop'])
+      statsd_increment('synapse.stop', ['stop_avenue:clean', 'stop_location:main_loop'])
     end
 
     def reconfigure!
@@ -124,11 +124,18 @@ module Synapse
     end
 
     private
+
+    WAIVED_CONFIG_SECTIONS = [
+      'services',
+      'service_conf_dir',
+      'statsd',
+    ].freeze
+
     def create_config_generators(opts={})
       config_generators = []
       opts.each do |type, generator_opts|
         # Skip the "services" top level key
-        next if (type == 'services' || type == 'service_conf_dir')
+        next if WAIVED_CONFIG_SECTIONS.include? type
         config_generators << ConfigGenerator.create(type, generator_opts)
       end
 
