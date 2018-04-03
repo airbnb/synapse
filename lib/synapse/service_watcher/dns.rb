@@ -63,7 +63,8 @@ class Synapse::ServiceWatcher
       resolver.tap do |dns|
         resolution = discovery_servers.map do |server|
           addresses = dns.getaddresses(server['host']).map(&:to_s)
-          [server, addresses.sort]
+          port = dns.getresource(server['srv'],Resolv::DNS::Resource::IN::SRV).port if server['srv']
+          [server, addresses.sort, port]
         end
 
         return resolution
@@ -79,11 +80,12 @@ class Synapse::ServiceWatcher
     end
 
     def configure_backends(servers)
-      new_backends = servers.flat_map do |(server, addresses)|
+      new_backends = servers.flat_map do |(server, addresses, port)|
+        custom_port = port || server['port']
         addresses.map do |address|
           {
             'host' => address,
-            'port' => server['port'],
+            'port' => custom_port,
             'name' => server['name'],
             'labels' => server['labels'],
           }
