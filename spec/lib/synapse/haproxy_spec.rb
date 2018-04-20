@@ -733,13 +733,6 @@ describe Synapse::ConfigGenerator::Haproxy do
         )
     end
 
-    it 'respects weight as string' do
-      mockConfig = []
-      expect(nerve_weights_subject.generate_backend_stanza(mockwatcher_with_weight_as_string, mockConfig)).to eql(
-        ["\nbackend example_weighted_service", [], ["\tserver somehost:5555 somehost:5555 id 1 cookie somehost:5555 weight 1"]]
-        )
-    end
-
     it 'ignores weight if not valid' do
       mockConfig = []
       expect(nerve_weights_subject.generate_backend_stanza(mockwatcher_with_weight_as_hash, mockConfig)).to eql(

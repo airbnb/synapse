@@ -814,7 +814,6 @@ class Synapse::ConfigGenerator
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
       @opts['do_reloads'] = true unless @opts.key?('do_reloads')
-      @opts['use_nerve_weights'] = true if @opts.key?('use_nerve_weights')
       req_pairs = {
         'do_writes' => 'config_file_path',
         'do_socket' => 'socket_file_path',
@@ -1159,7 +1158,7 @@ class Synapse::ConfigGenerator
             end
           end
 
-          if @opts['use_nerve_weights'] && backend['weight'] && ((backend['weight'].is_a? String) || (backend['weight'].is_a? Integer))
+          if @opts['use_nerve_weights'] && backend['weight'] && (backend['weight'].is_a? Integer)
             clean_server_options = remove_weight_option watcher_config['server_options']
             clean_haproxy_server_options = remove_weight_option backend['haproxy_server_options']
             if clean_server_options != watcher_config['server_options']
