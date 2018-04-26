@@ -59,10 +59,16 @@ class Synapse::ServiceWatcher
       end
     end
 
+    IP_REGEX = Regexp.union([Resolv::IPv4::Regex, Resolv::IPv6::Regex])
+
     def resolve_servers
       resolver.tap do |dns|
         resolution = discovery_servers.map do |server|
-          addresses = dns.getaddresses(server['host']).map(&:to_s)
+          if server['host'] =~ IP_REGEX
+            addresses = [server['host']]
+          else
+            addresses = dns.getaddresses(server['host']).map(&:to_s)
+          end
           [server, addresses.sort]
         end
 
