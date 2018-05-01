@@ -339,7 +339,7 @@ different addresses (example: service1 listen on 127.0.0.2:443 and service2
 listen on 127.0.0.3:443) allows /etc/hosts entries to point to services.
 * `bind_options`: optional: default value is an empty string, specify additional bind parameters, such as ssl accept-proxy, crt, ciphers etc.
 * `server_port_override`: **DEPRECATED**. Renamed [`backend_port_override`](#backend_port_override) and moved to the top level hash. This will be removed in future versions.
-* `server_options`: the haproxy options for each `server` line of the service in HAProxy config; it may be left out.
+* `server_options`: the haproxy options for each `server` line of the service in HAProxy config; it may be left out. This field supports some basic templating: you can add include `%{port}`, `%{host}`, or `%{name}` in this string, and those will be replaced with the appropriate values for the particular server being configured.
 * `frontend`: additional lines passed to the HAProxy config in the `frontend` stanza of this service
 * `backend`: additional lines passed to the HAProxy config in the `backend` stanza of this service
 * `backend_name`: The name of the generated HAProxy backend for this service

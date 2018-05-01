@@ -1141,6 +1141,11 @@ class Synapse::ConfigGenerator
         config.map {|c| "\t#{c}"},
         keys.map {|backend_name|
           backend = backends[backend_name]
+          backend_template_vars = {
+            :host => backend['host'],
+            :port => backend['port'],
+            :name => backend_name,
+          }
           b = "\tserver #{backend_name} #{backend['host']}:#{backend['port']}"
 
           # Again, if the registry defines an id, we can't set it.
@@ -1167,14 +1172,14 @@ class Synapse::ConfigGenerator
             if clean_haproxy_server_options != backend['haproxy_server_options']
                 log.warn "synapse: weight is defined in both haproxy_server_options and nerve. nerve weight will take precedence"
             end
-            b = "#{b} #{clean_server_options}" if clean_server_options
-            b = "#{b} #{clean_haproxy_server_options}" if clean_haproxy_server_options
+            b = "#{b} #{clean_server_options % backend_template_vars}" if clean_server_options
+            b = "#{b} #{clean_haproxy_server_options % backend_template_vars}" if clean_haproxy_server_options
 
             weight = backend['weight'].to_i
             b = "#{b} weight #{weight}".squeeze(" ")
           else
-            b = "#{b} #{watcher_config['server_options']}" if watcher_config['server_options'].is_a? String
-            b = "#{b} #{backend['haproxy_server_options']}" if backend['haproxy_server_options'].is_a? String
+            b = "#{b} #{watcher_config['server_options'] % backend_template_vars}" if watcher_config['server_options'].is_a? String
+            b = "#{b} #{backend['haproxy_server_options'] % backend_template_vars}" if backend['haproxy_server_options'].is_a? String
           end
           b = "#{b} disabled" unless backend['enabled']
           b }
