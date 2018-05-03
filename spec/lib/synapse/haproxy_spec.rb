@@ -212,6 +212,17 @@ describe Synapse::ConfigGenerator::Haproxy do
     mockWatcher
   end
 
+  let(:mockwatcher_with_server_option_templates) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('example_service7')
+    backends = [{ 'host' => 'somehost', 'port' => 5555, 'haproxy_server_options' => 'id 12 backup'}]
+    allow(mockWatcher).to receive(:backends).and_return(backends)
+    allow(mockWatcher).to receive(:config_for_generator).and_return({
+      'haproxy' => {'server_options' => "check port %{port} inter 2000 rise 3 fall 2"}
+    })
+    mockWatcher
+  end
+
   describe '#initialize' do
     it 'succeeds on minimal config' do
       conf = {
@@ -717,6 +728,11 @@ describe Synapse::ConfigGenerator::Haproxy do
   it 'respects haproxy_server_options' do
     mockConfig = []
     expect(subject.generate_backend_stanza(mockwatcher_with_server_options, mockConfig)).to eql(["\nbackend example_service2", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check inter 2000 rise 3 fall 2 id 12 backup"]])
+  end
+
+  it 'templates haproxy backend options' do
+    mockConfig = []
+    expect(subject.generate_backend_stanza(mockwatcher_with_server_option_templates, mockConfig)).to eql(["\nbackend example_service7", [], ["\tserver somehost:5555 somehost:5555 cookie somehost:5555 check port 5555 inter 2000 rise 3 fall 2 id 12 backup"]])
   end
 
   it 'respects haproxy_server_id' do
