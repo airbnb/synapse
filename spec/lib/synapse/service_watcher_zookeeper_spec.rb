@@ -133,7 +133,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       subject.instance_variable_set('@zk', mock_zk)
       expect(subject.ping?).to be false
     end
-    
+
     context "when generator_config_path is defined" do
       let(:discovery) { { 'method' => 'zookeeper', 'hosts' => 'somehost', 'path' => 'some/path', 'generator_config_path' => 'some/other/path' } }
 
@@ -144,6 +144,20 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
           ["test_child_1"]
         )
         expect(mock_zk).to receive(:get).with('some/other/path', {:watch=>true}).and_return("")
+        expect(mock_zk).to receive(:get).with('some/path/test_child_1').and_raise(ZK::Exceptions::NoNode)
+
+        subject.instance_variable_set('@zk', mock_zk)
+        expect(subject).to receive(:set_backends).with([],{})
+        subject.send(:watcher_callback).call
+      end
+
+      it 'does not crash if there is no zk node' do
+        expect(subject).to receive(:watch)
+        expect(subject).to receive(:discover).and_call_original
+        expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).and_return(
+          ["test_child_1"]
+        )
+        expect(mock_zk).to receive(:get).with('some/other/path', {:watch=>true}).and_raise(ZK::Exceptions::NoNode)
         expect(mock_zk).to receive(:get).with('some/path/test_child_1').and_raise(ZK::Exceptions::NoNode)
 
         subject.instance_variable_set('@zk', mock_zk)
@@ -168,9 +182,6 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         subject.send(:watcher_callback).call
       end
     end
-
-
-
   end
 
   context 'ZookeeperDnsWatcher' do
