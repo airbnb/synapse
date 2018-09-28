@@ -195,11 +195,11 @@ class Synapse::ServiceWatcher
               @zk.get(@discovery[discovery_key], :watch => true)
             end
             new_config_for_generator = parse_service_config(node.first)
-          rescue StandardError => e
-            log.error "synapse: invalid config data in ZK node at #{@discovery[discovery_key]}: #{e}"
-            new_config_for_generator = {}
           rescue ZK::Exceptions::NoNode => e
             log.error "synapse: No ZK node for config data at #{@discovery[discovery_key]}: #{e}"
+            new_config_for_generator = {}
+          rescue StandardError => e
+            log.error "synapse: invalid config data in ZK node at #{@discovery[discovery_key]}: #{e}"
             new_config_for_generator = {}
           end
         else
