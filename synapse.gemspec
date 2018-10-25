@@ -28,6 +28,9 @@ Gem::Specification.new do |gem|
   gem.add_runtime_dependency "hashdiff", "~> 0.2.3"
   gem.add_runtime_dependency "dogstatsd-ruby", "~> 3.3.0"
 
+  gem.add_runtime_dependency 'ffi', '~> 1.9', '>= 1.9.24'
+  gem.add_runtime_dependency 'nokogiri', '~> 1.8', '>= 1.8.2'
+
   gem.add_development_dependency "rake"
   gem.add_development_dependency "rspec", "~> 3.1.0"
   gem.add_development_dependency "factory_girl"
