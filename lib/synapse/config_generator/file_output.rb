@@ -31,7 +31,7 @@ class Synapse::ConfigGenerator
 
     def update_config(watchers)
       watchers.each do |watcher|
-        next if watcher.config_for_generator[name]['disabled']
+        next if writer_disabled?(watcher)
 
         unless @watcher_revisions[watcher.name] == watcher.revision
           @watcher_revisions[watcher.name] = watcher.revision
@@ -68,12 +68,20 @@ class Synapse::ConfigGenerator
       # Cleanup old services that Synapse no longer manages
       FileUtils.cd(opts['output_directory']) do
         present_files = Dir.glob('*.json')
-        managed_watchers = current_watchers.reject {|watcher| watcher.config_for_generator[name]['disabled']}
+        managed_watchers = current_watchers.reject do |watcher|
+          writer_disabled?(watcher)
+        end
         managed_files = managed_watchers.collect {|watcher| "#{watcher.name}.json"}
         files_to_purge = present_files.select {|svc| not managed_files.include?(svc)}
         log.info "synapse: purging unknown service files #{files_to_purge}" if files_to_purge.length > 0
         FileUtils.rm(files_to_purge)
       end
+    end
+
+    private
+
+    def writer_disabled?(watcher)
+      watcher.config_for_generator[name].nil? || watcher.config_for_generator[name]['disabled']
     end
   end
 end

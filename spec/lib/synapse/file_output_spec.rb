@@ -36,6 +36,13 @@ describe Synapse::ConfigGenerator::FileOutput do
     mockWatcher
   end
 
+  let(:mockwatcher_with_no_name) do
+    mockWatcher = double(Synapse::ServiceWatcher)
+    allow(mockWatcher).to receive(:name).and_return('no_name_service')
+    allow(mockWatcher).to receive(:config_for_generator).and_return({})
+    mockWatcher
+  end
+
   let(:mockwatcher_disabled) do
     mockWatcher = double(Synapse::ServiceWatcher)
     allow(mockWatcher).to receive(:name).and_return('disabled_service')
@@ -60,14 +67,14 @@ describe Synapse::ConfigGenerator::FileOutput do
   end
 
   it 'manages correct files' do
-    subject.update_config([mockwatcher_1, mockwatcher_2, mockwatcher_disabled])
+    subject.update_config([mockwatcher_1, mockwatcher_2, mockwatcher_disabled, mockwatcher_with_no_name])
     FileUtils.cd(config['file_output']['output_directory']) do
       expect(Dir.glob('*.json').sort).to eql(['example_service.json', 'foobar_service.json'])
     end
     # Should clean up after itself
     FileUtils.cd(config['file_output']['output_directory']) do
       FileUtils.touch('disabled_service.json')
-      subject.update_config([mockwatcher_1, mockwatcher_disabled])
+      subject.update_config([mockwatcher_1, mockwatcher_disabled, mockwatcher_with_no_name])
       expect(Dir.glob('*.json')).to eql(['example_service.json'])
     end
     # Should clean up after itself
