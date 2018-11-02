@@ -10,3 +10,4 @@ rvm:
 
 before_install:
   - gem install bundler
+  - sudo apt-get install -y build-essential libtool libxml2-dev libxslt-dev zlib1g-dev patch ruby-dev liblzma-dev
