@@ -152,6 +152,10 @@ class Synapse::ServiceWatcher
             # a read to ``get`` of a child returned by ``children`` will succeed
             log.error("synapse: #{@discovery['path']}/#{id} disappeared before it could be read: #{e}")
             next
+          rescue StandardError => e
+            log.error("synapse: #{@discovery['path']}/#{id} failed to get from ZK: #{e}")
+            statsd_increment('synapse.watcher.zk.get_failed')
+            raise e
           end
 
           begin
@@ -159,6 +163,7 @@ class Synapse::ServiceWatcher
             host, port, name, weight, haproxy_server_options, labels = deserialize_service_instance(node.first)
           rescue StandardError => e
             log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
+            statsd_increment('synapse.watcher.zk.deserialize_failed')
           else
             # find the numberic id in the node name; used for leader elections if enabled
             numeric_id = id.split('_').last
@@ -200,6 +205,7 @@ class Synapse::ServiceWatcher
             new_config_for_generator = {}
           rescue StandardError => e
             log.error "synapse: invalid config data in ZK node at #{@discovery[discovery_key]}: #{e}"
+            statsd_increment('synapse.watcher.zk.get_failed')
             new_config_for_generator = {}
           end
         else
@@ -221,6 +227,7 @@ class Synapse::ServiceWatcher
         # Verify that we actually set up the watcher.
         unless @zk.exists?(@discovery['path'], :watch => true)
           log.error "synapse: zookeeper watcher path #{@discovery['path']} does not exist!"
+          statsd_increment('synapse.watcher.zk.register_failed')
           zk_cleanup
         end
       end
