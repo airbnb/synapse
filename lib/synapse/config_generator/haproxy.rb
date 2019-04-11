@@ -1340,6 +1340,7 @@ class Synapse::ConfigGenerator
       res = `#{opts['reload_command']}`.chomp
       unless $?.success?
         log.error "failed to reload haproxy via #{opts['reload_command']}: #{res}"
+        statsd_increment("synapse.haproxy.reload_failed")
         return
       end
       log.info "synapse: restarted haproxy"
