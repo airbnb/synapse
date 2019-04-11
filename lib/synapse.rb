@@ -68,16 +68,16 @@ module Synapse
 
           if @config_updated
             @config_updated = false
+            statsd_increment('synapse.config.update')
             @config_generators.each do |config_generator|
               log.info "synapse: configuring #{config_generator.name}"
               begin
                 config_generator.update_config(@service_watchers)
               rescue StandardError => e
-                statsd_increment("synapse.config.update", ['result:fail', "config_name:#{config_generator.name}"])
+                statsd_increment("synapse.config.update_failed", ["config_name:#{config_generator.name}"])
                 log.error "synapse: update config failed for config #{config_generator.name} with exception #{e}"
                 raise e
               end
-              statsd_increment("synapse.config.update", ['result:success', "config_name:#{config_generator.name}"])
             end
           end
 
