@@ -152,13 +152,18 @@ class Synapse::ServiceWatcher
             # a read to ``get`` of a child returned by ``children`` will succeed
             log.error("synapse: #{@discovery['path']}/#{id} disappeared before it could be read: #{e}")
             next
+          rescue StandardError => e
+            log.error("synapse: #{@discovery['path']}/#{id} failed to get from ZK: #{e}")
+            statsd_increment('synapse.watcher.zk.get_child_failed')
+            raise e
           end
 
           begin
             # TODO: Do less munging, or refactor out this processing
             host, port, name, weight, haproxy_server_options, labels = deserialize_service_instance(node.first)
           rescue StandardError => e
-            log.error "synapse: invalid data in ZK node #{id} at #{@discovery['path']}: #{e}"
+            log.error "synapse: skip child due to invalid data in ZK at #{@discovery['path']}/#{id}: #{e}"
+            statsd_increment('synapse.watcher.zk.parse_child_failed')
           else
             # find the numberic id in the node name; used for leader elections if enabled
             numeric_id = id.split('_').last
@@ -199,7 +204,8 @@ class Synapse::ServiceWatcher
             log.error "synapse: No ZK node for config data at #{@discovery[discovery_key]}: #{e}"
             new_config_for_generator = {}
           rescue StandardError => e
-            log.error "synapse: invalid config data in ZK node at #{@discovery[discovery_key]}: #{e}"
+            log.error "synapse: skip path due to invalid data in ZK at #{@discovery[discovery_key]}: #{e}"
+            statsd_increment('synapse.watcher.zk.get_config_failed')
             new_config_for_generator = {}
           end
         else
@@ -221,6 +227,7 @@ class Synapse::ServiceWatcher
         # Verify that we actually set up the watcher.
         unless @zk.exists?(@discovery['path'], :watch => true)
           log.error "synapse: zookeeper watcher path #{@discovery['path']} does not exist!"
+          statsd_increment('synapse.watcher.zk.register_failed')
           zk_cleanup
         end
       end
