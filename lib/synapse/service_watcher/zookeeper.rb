@@ -136,13 +136,13 @@ class Synapse::ServiceWatcher
 
     # get with retry to reduce failure when network connectivity is flaky or ZK is overloaded
     def zk_get_path(path, opts = {})
-      retry_limit = 3
+      retry_limit = 3 # by default retry three times on top of initial call
       if opts.has_key? :retry_limit
         retry_limit = opts[:retry_limit]
         opts.delete(:retry_limit)
       end
 
-      retry_interval = 5
+      retry_interval = 3 # by default sleep 3 seconds in-between retries
       if opts.has_key? :retry_interval
         retry_interval = opts[:retry_interval]
         opts.delete(:retry_interval)
