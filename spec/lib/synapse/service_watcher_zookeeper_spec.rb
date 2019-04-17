@@ -105,7 +105,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       expect(mock_zk).to receive(:get).with('test/path', {}).and_return(nil)
       expect(mock_zk).to receive(:get).with('test/path', {}).and_return(mock_node)
       subject.instance_variable_set('@zk', mock_zk)
-      expect(subject.send(:get, 'test/path', :retry_limit => 5, :retry_interval => 0)).to eql mock_node
+      expect(subject.send(:zk_get_path, 'test/path', :retry_limit => 5, :retry_interval => 0)).to eql mock_node
     end
 
     it 'handle zk get retrun nill failure' do
@@ -114,7 +114,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       expect(mock_zk).to receive(:get).with('test/path', {}).and_return(nil)
       expect(mock_zk).to receive(:get).with('test/path', {}).and_return(nil)
       subject.instance_variable_set('@zk', mock_zk)
-      expect{subject.send(:get, 'test/path', :retry_interval => 0)}.to raise_error(RuntimeError)
+      expect{subject.send(:zk_get_path, 'test/path', :retry_interval => 0)}.to raise_error(RuntimeError)
     end
 
     it 'handle zk get timeout success' do
@@ -124,7 +124,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       expect(mock_zk).to receive(:get).with('test/path', {}).and_raise(ZK::Exceptions::OperationTimeOut)
       expect(mock_zk).to receive(:get).with('test/path', {}).and_return(mock_node)
       subject.instance_variable_set('@zk', mock_zk)
-      expect(subject.send(:get, 'test/path', :retry_limit => 5, :retry_interval => 0)).to eql mock_node
+      expect(subject.send(:zk_get_path, 'test/path', :retry_limit => 5, :retry_interval => 0)).to eql mock_node
     end
 
     it 'handle zk get timeout failure' do
@@ -133,7 +133,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       expect(mock_zk).to receive(:get).with('test/path', {}).and_raise(ZK::Exceptions::OperationTimeOut)
       expect(mock_zk).to receive(:get).with('test/path', {}).and_raise(ZK::Exceptions::OperationTimeOut)
       subject.instance_variable_set('@zk', mock_zk)
-      expect{subject.send(:get, 'test/path', :retry_interval => 0)}.to raise_error(RuntimeError)
+      expect{subject.send(:zk_get_path, 'test/path', :retry_interval => 0)}.to raise_error(RuntimeError)
     end
 
     it 'reacts to zk push events' do
