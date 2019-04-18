@@ -134,6 +134,36 @@ class Synapse::ServiceWatcher
       @zk.create(path, ignore: :node_exists)
     end
 
+    # get with retry to reduce failure when network connectivity is flaky or ZK is overloaded
+    def zk_get_path(path, opts = {})
+      retry_limit = 3 # by default retry three times on top of initial call
+      if opts.has_key? :retry_limit
+        retry_limit = opts[:retry_limit]
+        opts.delete(:retry_limit)
+      end
+
+      retry_interval = 3 # by default sleep 3 seconds in-between retries
+      if opts.has_key? :retry_interval
+        retry_interval = opts[:retry_interval]
+        opts.delete(:retry_interval)
+      end
+
+      retry_count = 0
+      begin
+        node = @zk.get(path, opts)
+        raise IOError, "synapse: get ZK path return nil" if node.nil?
+        return node
+      rescue ZK::Exceptions::OperationTimeOut, IOError => e
+        log.error("synapse: get ZK #{path} failed for the #{retry_count} time: #{e}")
+        retry_count += 1
+        if retry_count > retry_limit
+          raise RuntimeError, "synapse: get ZK path failed after retry"
+        end
+        sleep retry_interval
+        retry
+      end
+    end
+
     # find the current backends at the discovery path
     def discover
       statsd_increment('synapse.watcher.zk.discovery', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"])
@@ -144,7 +174,7 @@ class Synapse::ServiceWatcher
         @zk.children(@discovery['path'], :watch => true).each do |id|
           begin
             node = statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-              @zk.get("#{@discovery['path']}/#{id}")
+              zk_get_path("#{@discovery['path']}/#{id}")
             end
           rescue ZK::Exceptions::NoNode => e
             # This can happen when the registry unregisters a service node between
@@ -197,7 +227,7 @@ class Synapse::ServiceWatcher
         if discovery_key
           begin
             node = statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-              @zk.get(@discovery[discovery_key], :watch => true)
+              zk_get_path(@discovery[discovery_key], :watch => true)
             end
             new_config_for_generator = parse_service_config(node.first)
           rescue ZK::Exceptions::NoNode => e
