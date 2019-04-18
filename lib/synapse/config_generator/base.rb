@@ -1,8 +1,10 @@
 require 'synapse/log'
+require 'synapse/statsd'
 
 class Synapse::ConfigGenerator
   class BaseGenerator
     include Synapse::Logging
+    include Synapse::StatsD
 
     NAME = 'base'.freeze
 
