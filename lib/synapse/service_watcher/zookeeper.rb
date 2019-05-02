@@ -254,7 +254,10 @@ class Synapse::ServiceWatcher
       log.debug "synapse: setting watch at #{@discovery['path']}"
 
       statsd_time('synapse.watcher.zk.watch.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
-        @watcher = @zk.register(@discovery['path'], &watcher_callback) unless @watcher
+        unless @watcher
+          @watcher = @zk.register(@discovery['path'], &watcher_callback)
+          log.info "synapse: register watcher at path #{@discovery['path']}"
+        end
 
         # Verify that we actually set up the watcher.
         unless @zk.exists?(@discovery['path'], :watch => true)
