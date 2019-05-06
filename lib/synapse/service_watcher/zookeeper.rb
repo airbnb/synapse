@@ -347,7 +347,9 @@ class Synapse::ServiceWatcher
         # http://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkSessions
         @zk.on_connected do
           log.info "synapse: ZK client has reconnected #{@name}"
-          # zookeeper watcher is one-time trigger, and be lost when disconnected
+          # random backoff to avoid refresh at the same time
+          sleep rand(10)
+          # zookeeper watcher is one-time trigger, and can be lost when disconnected
           # https://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkWatches
           @watcher.unsubscribe unless @watcher.nil?
           @watcher = nil
