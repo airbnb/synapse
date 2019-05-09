@@ -171,7 +171,9 @@ class Synapse::ServiceWatcher
         log.info "synapse: discovering backends for service #{@name}"
 
         new_backends = []
-        @zk.children(@discovery['path'], :watch => true).each do |id|
+        zk_children = @zk.children(@discovery['path'], :watch => true)
+        log.info "synapse: set watch for children at #{@discovery['path']}"
+        zk_children.each do |id|
           begin
             node = statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
               zk_get_path("#{@discovery['path']}/#{id}")
@@ -252,7 +254,10 @@ class Synapse::ServiceWatcher
       log.debug "synapse: setting watch at #{@discovery['path']}"
 
       statsd_time('synapse.watcher.zk.watch.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
-        @watcher = @zk.register(@discovery['path'], &watcher_callback) unless @watcher
+        unless @watcher
+          @watcher = @zk.register(@discovery['path'], &watcher_callback)
+          log.info "synapse: register watch at #{@discovery['path']}"
+        end
 
         # Verify that we actually set up the watcher.
         unless @zk.exists?(@discovery['path'], :watch => true)
@@ -261,7 +266,7 @@ class Synapse::ServiceWatcher
           zk_cleanup
         end
       end
-      log.debug "synapse: set watch at #{@discovery['path']}"
+      log.info "synapse: set watch for parent at #{@discovery['path']}"
     end
 
     # handles the event that a watched path has changed in zookeeper
@@ -328,8 +333,27 @@ class Synapse::ServiceWatcher
         # fail and so synapse will exit
         @zk.on_expired_session do
           statsd_increment('synapse.watcher.zk.session.expired', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
-          log.warn "synapse: zookeeper watcher ZK session expired!"
+          log.warn "synapse: ZK client session expired #{@name}"
           zk_cleanup
+        end
+
+        # handle session reconnecting
+        # http://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkSessions
+        @zk.on_connecting do
+          log.info "synapse: ZK client is attempting to reconnect #{@name}"
+        end
+
+        # handle session connected after reconnecting
+        # http://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkSessions
+        @zk.on_connected do
+          log.info "synapse: ZK client has reconnected #{@name}"
+          # random backoff to avoid refresh at the same time
+          sleep rand(10)
+          # zookeeper watcher is one-time trigger, and can be lost when disconnected
+          # https://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkWatches
+          @watcher.unsubscribe unless @watcher.nil?
+          @watcher = nil
+          watcher_callback.call
         end
 
         # the path must exist, otherwise watch callbacks will not work
