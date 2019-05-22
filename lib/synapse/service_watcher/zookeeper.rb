@@ -337,12 +337,6 @@ class Synapse::ServiceWatcher
           zk_cleanup
         end
 
-        # handle session reconnecting
-        # http://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkSessions
-        @zk.on_connecting do
-          log.info "synapse: ZK client is attempting to reconnect #{@name}"
-        end
-
         # handle session connected after reconnecting
         # http://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkSessions
         @zk.on_connected do
