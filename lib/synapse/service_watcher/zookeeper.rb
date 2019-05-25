@@ -272,7 +272,27 @@ class Synapse::ServiceWatcher
     # handles the event that a watched path has changed in zookeeper
     def watcher_callback
       @callback ||= Proc.new do |event|
-        # Set new watcher
+        # We instantiate ZK client with :thread => :per_callback
+        # https://github.com/zk-ruby/zk/wiki/EventDeliveryModel#thread-per-callback
+        # Only one thread will be executing the callback at a time
+        #
+        # We call watch on every callback, but do not call zk.register => change callback, except the first time.
+        #
+        # We sleep. We loose / do not get any events during this time for this service.
+        # This helps with throttling discover.
+        #
+        # We call watch and discover on every callback.
+        # We call exists(watch), children(discover) and get(discover) with (:watch=>true)
+        # This re-initializes callbacks just before get scan. So we do not miss any updates by sleeping.
+        #
+        if @watcher && @discovery['discovery_jitter']
+          if @discovery['discovery_jitter'] > 0 && @discovery['discovery_jitter'] < 120
+            log.info "synapse: sleeping for discovery_jitter=#{@discovery['discovery_jitter']} seconds for service:#{@name}"
+            sleep @discovery['discovery_jitter']
+          else
+            log.warn "synapse: invalid discovery_jitter=#{@discovery['discovery_jitter']} for service:#{@name}"
+          end
+        end
         watch
         # Rediscover
         discover
