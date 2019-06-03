@@ -172,6 +172,15 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       expect(subject.ping?).to be false
     end
 
+    it 'throttles discovery if discovery_jitter is set' do
+      discovery['discovery_jitter'] = 25
+      expect(subject).to receive(:watch)
+      expect(subject).to receive(:discover)
+      expect(subject).to receive(:sleep).with(25)
+      subject.instance_variable_set(:@watcher, instance_double(ZK::EventHandlerSubscription))
+      subject.send(:watcher_callback).call
+    end
+
     context "generator_config_path" do
       let(:discovery) { { 'method' => 'zookeeper', 'hosts' => 'somehost', 'path' => 'some/path', 'generator_config_path' => generator_config_path } }
       before :each do
