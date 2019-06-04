@@ -6,6 +6,8 @@ require 'zk'
 class Synapse::ServiceWatcher
   class ZookeeperWatcher < BaseWatcher
     NUMBERS_RE = /^\d+$/
+    MIN_JITTER = 0
+    MAX_JITTER = 120
 
     @@zk_pool = {}
     @@zk_pool_count = {}
@@ -286,7 +288,7 @@ class Synapse::ServiceWatcher
         # This re-initializes callbacks just before get scan. So we do not miss any updates by sleeping.
         #
         if @watcher && @discovery['discovery_jitter']
-          if @discovery['discovery_jitter'] > 0 && @discovery['discovery_jitter'] < 120
+          if @discovery['discovery_jitter'].between?(MIN_JITTER, MAX_JITTER)
             log.info "synapse: sleeping for discovery_jitter=#{@discovery['discovery_jitter']} seconds for service:#{@name}"
             sleep @discovery['discovery_jitter']
           else
