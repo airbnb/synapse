@@ -181,6 +181,15 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       subject.send(:watcher_callback).call
     end
 
+    it 'do not throttle on invalid discovery_jitter' do
+      discovery['discovery_jitter'] = Synapse::ServiceWatcher::ZookeeperWatcher::MAX_JITTER + 1
+      expect(subject).to receive(:watch)
+      expect(subject).to receive(:discover)
+      expect(subject).not_to receive(:sleep)
+      subject.instance_variable_set(:@watcher, instance_double(ZK::EventHandlerSubscription))
+      subject.send(:watcher_callback).call
+    end
+
     context "generator_config_path" do
       let(:discovery) { { 'method' => 'zookeeper', 'hosts' => 'somehost', 'path' => 'some/path', 'generator_config_path' => generator_config_path } }
       before :each do
