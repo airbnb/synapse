@@ -172,22 +172,38 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       expect(subject.ping?).to be false
     end
 
-    it 'throttles discovery if discovery_jitter is set' do
-      discovery['discovery_jitter'] = 25
-      expect(subject).to receive(:watch)
-      expect(subject).to receive(:discover)
-      expect(subject).to receive(:sleep).with(25)
-      subject.instance_variable_set(:@watcher, instance_double(ZK::EventHandlerSubscription))
-      subject.send(:watcher_callback).call
-    end
+    context 'watcher_callback' do
+      let (:time_now) { Time.now }
+      before :each do
+        expect(subject).to receive(:watch)
+        expect(subject).to receive(:discover)
+        subject.instance_variable_set(:@watcher, instance_double(ZK::EventHandlerSubscription))
+        discovery['discovery_jitter'] = 25
+        allow(Time).to receive(:now).and_return(time_now)
+      end
 
-    it 'do not throttle on invalid discovery_jitter' do
-      discovery['discovery_jitter'] = Synapse::ServiceWatcher::ZookeeperWatcher::MAX_JITTER + 1
-      expect(subject).to receive(:watch)
-      expect(subject).to receive(:discover)
-      expect(subject).not_to receive(:sleep)
-      subject.instance_variable_set(:@watcher, instance_double(ZK::EventHandlerSubscription))
-      subject.send(:watcher_callback).call
+      it 'does not sleep if there was no discovery in last discovery_jitter seconds' do
+        subject.instance_variable_set(:@last_discovery, time_now - (discovery['discovery_jitter'] + 1))
+        expect(subject).not_to receive(:sleep)
+        subject.send(:watcher_callback).call
+      end
+
+      it 'does not sleep if @last_discovery is not set - first time' do
+        expect(subject).not_to receive(:sleep)
+        subject.send(:watcher_callback).call
+      end
+
+      it 'sleep if there was a discovery in last discovery_jitter seconds' do
+        subject.instance_variable_set(:@last_discovery, time_now - (discovery['discovery_jitter'] - 1))
+        expect(subject).to receive(:sleep).with(discovery['discovery_jitter'])
+        subject.send(:watcher_callback).call
+      end
+
+      it 'do not throttle on invalid discovery_jitter' do
+        discovery['discovery_jitter'] = Synapse::ServiceWatcher::ZookeeperWatcher::MAX_JITTER + 1
+        expect(subject).not_to receive(:sleep)
+        subject.send(:watcher_callback).call
+      end
     end
 
     context "generator_config_path" do

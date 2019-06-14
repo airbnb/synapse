@@ -280,17 +280,21 @@ class Synapse::ServiceWatcher
         #
         # We call watch on every callback, but do not call zk.register => change callback, except the first time.
         #
-        # We sleep. We loose / do not get any events during this time for this service.
+        # We sleep if we have not slept in discovery_jitter seconds
+        # We loose / do not get any events during this time for this service.
         # This helps with throttling discover.
         #
         # We call watch and discover on every callback.
         # We call exists(watch), children(discover) and get(discover) with (:watch=>true)
         # This re-initializes callbacks just before get scan. So we do not miss any updates by sleeping.
         #
-        if @watcher && @discovery['discovery_jitter']
+        if @discovery['discovery_jitter']
           if @discovery['discovery_jitter'].between?(MIN_JITTER, MAX_JITTER)
-            log.info "synapse: sleeping for discovery_jitter=#{@discovery['discovery_jitter']} seconds for service:#{@name}"
-            sleep @discovery['discovery_jitter']
+            if @last_discovery && (Time.now - @last_discovery) < @discovery['discovery_jitter']
+              log.info "synapse: sleeping for discovery_jitter=#{@discovery['discovery_jitter']} seconds for service:#{@name}"
+              sleep @discovery['discovery_jitter']
+            end
+            @last_discovery = Time.now
           else
             log.warn "synapse: invalid discovery_jitter=#{@discovery['discovery_jitter']} for service:#{@name}"
           end
