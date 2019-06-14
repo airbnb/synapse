@@ -369,9 +369,9 @@ class Synapse::ServiceWatcher
           log.info "synapse: ZK client has reconnected #{@name}"
           # random backoff to avoid checking and refreshing all watchers at the same time
           sleep rand(10)
-		  now = Time.now
+          now = Time.now
           # ensure there is only one refresh can happen within a time window
-          if !@last_reconnect_time.nil? && (now - @last_connect_time) < 60
+          if !@last_reconnect_time.nil? && (now - @last_reconnect_time) < 60
             log.info "synapse: ZK client skip since last reconnect is too close #{@name}"
             return
           end
