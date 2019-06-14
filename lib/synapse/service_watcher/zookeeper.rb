@@ -363,6 +363,30 @@ class Synapse::ServiceWatcher
           zk_cleanup
         end
 
+        # handle session connected after reconnecting
+        # http://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkSessions
+        @zk.on_connected do
+          log.info "synapse: ZK client has reconnected #{@name}"
+          # random backoff to avoid checking and refreshing all watchers at the same time
+          sleep rand(10)
+		  now = Time.now
+          # ensure there is only one refresh can happen within a time window
+          if !@last_reconnect_time.nil? && (now - @last_connect_time) < 60
+            log.info "synapse: ZK client skip since last reconnect is too close #{@name}"
+            return
+          end
+          # test-and-set should be thread safe based on per-callback model
+          # https://github.com/zk-ruby/zk/wiki/EventDeliveryModel
+          @last_reconnect_time = now
+          # zookeeper watcher is one-time trigger, and can be lost when disconnected
+          # https://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkWatches
+          # only need reanble watcher on parent path and children list
+          log.info "synapse: ZK client refresh watcher after reconnected #{@name}"
+          if @zk.exists?(@discovery['path'], :watch => true)
+            @zk.children(@discovery['path'], :watch => true)
+          end
+        end
+
         # the path must exist, otherwise watch callbacks will not work
         statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
           create(@discovery['path'])
