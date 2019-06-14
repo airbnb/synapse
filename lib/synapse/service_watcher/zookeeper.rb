@@ -369,15 +369,10 @@ class Synapse::ServiceWatcher
           log.info "synapse: ZK client has reconnected #{@name}"
           # random backoff to avoid checking and refreshing all watchers at the same time
           sleep rand(10)
-          now = Time.now
-          # ensure there is only one refresh can happen within a time window
-          if !@last_reconnect_time.nil? && (now - @last_reconnect_time) < 60
+          unless test_and_set_reconnect_time(Time.now)
             log.info "synapse: ZK client skip since last reconnect is too close #{@name}"
             return
           end
-          # test-and-set should be thread safe based on per-callback model
-          # https://github.com/zk-ruby/zk/wiki/EventDeliveryModel
-          @last_reconnect_time = now
           # zookeeper watcher is one-time trigger, and can be lost when disconnected
           # https://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkWatches
           # only need re-enable watcher on parent path and children list
@@ -397,6 +392,17 @@ class Synapse::ServiceWatcher
       end
     end
 
+    def test_and_set_reconnect_time(now)
+      # ensure there is only one refresh can happen within a time window
+      if !@last_reconnect_time.nil? && (now - @last_reconnect_time) < 60
+        return false
+      end
+      # test-and-set should be thread safe based on per-callback model
+      # https://github.com/zk-ruby/zk/wiki/EventDeliveryModel
+      @last_reconnect_time = now
+      true
+
+    end
     # decode the data at a zookeeper endpoint
     def deserialize_service_instance(data)
       log.debug "synapse: deserializing process data"
