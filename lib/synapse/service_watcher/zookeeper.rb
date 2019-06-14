@@ -380,7 +380,7 @@ class Synapse::ServiceWatcher
           @last_reconnect_time = now
           # zookeeper watcher is one-time trigger, and can be lost when disconnected
           # https://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkWatches
-          # only need reanble watcher on parent path and children list
+          # only need re-enable watcher on parent path and children list
           log.info "synapse: ZK client refresh watcher after reconnected #{@name}"
           if @zk.exists?(@discovery['path'], :watch => true)
             @zk.children(@discovery['path'], :watch => true)
