@@ -359,19 +359,6 @@ class Synapse::ServiceWatcher
           zk_cleanup
         end
 
-        # handle session connected after reconnecting
-        # http://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkSessions
-        @zk.on_connected do
-          log.info "synapse: ZK client has reconnected #{@name}"
-          # random backoff to avoid refresh at the same time
-          sleep rand(10)
-          # zookeeper watcher is one-time trigger, and can be lost when disconnected
-          # https://zookeeper.apache.org/doc/r3.3.5/zookeeperProgrammers.html#ch_zkWatches
-          @watcher.unsubscribe unless @watcher.nil?
-          @watcher = nil
-          watcher_callback.call
-        end
-
         # the path must exist, otherwise watch callbacks will not work
         statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
           create(@discovery['path'])
