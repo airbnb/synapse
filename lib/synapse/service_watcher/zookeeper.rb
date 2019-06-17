@@ -372,7 +372,7 @@ class Synapse::ServiceWatcher
             return
           end
 
-          # random backoff to avoid checking and refreshing all watchers at the same time
+          # random backoff to avoid refreshing all watchers at the same time
           sleep rand(30)
 
           # zookeeper watcher is one-time trigger, and can be lost when disconnected
