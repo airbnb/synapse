@@ -149,17 +149,6 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       subject.send(:watcher_callback).call
     end
 
-    it 'test and set reconnect time' do
-      now = Time.now
-      expect(subject.send(:test_and_set_reconnect_time, now)).to be true
-      now += 10
-      expect(subject.send(:test_and_set_reconnect_time, now)).to be false
-      now += 50
-      expect(subject.send(:test_and_set_reconnect_time, now)).to be true
-      now += 60
-      expect(subject.send(:test_and_set_reconnect_time, now)).to be true
-    end
-
     it 'handles zk consistency issues' do
       expect(subject).to receive(:watch)
       expect(subject).to receive(:discover).and_call_original
