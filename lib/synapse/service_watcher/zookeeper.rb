@@ -2,6 +2,7 @@ require "synapse/service_watcher/base"
 
 require 'thread'
 require 'zk'
+require 'base64'
 
 class Synapse::ServiceWatcher
   class ZookeeperWatcher < BaseWatcher
@@ -176,6 +177,15 @@ class Synapse::ServiceWatcher
         zk_children = @zk.children(@discovery['path'], :watch => true)
         log.info "synapse: set watch for children at #{@discovery['path']}"
         zk_children.each do |id|
+          if @discovery.fetch('use_path_encoding', false)
+            node = parse_child_name(id)
+            if node != nil
+              log.info "synapse: discovered backend with child name #{node} for service #{@name}"
+              new_backends << node
+              next
+            end
+          end
+
           begin
             node = statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
               zk_get_path("#{@discovery['path']}/#{id}")
@@ -203,7 +213,7 @@ class Synapse::ServiceWatcher
             numeric_id = id.split('_').last
             numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
 
-            log.debug "synapse: discovered backend #{name} at #{host}:#{port} for service #{@name}"
+            log.info "synapse: discovered backend with child data at #{host}:#{port} for service #{@name}"
             new_backends << {
               'name' => name, 'host' => host, 'port' => port,
               'id' => numeric_id, 'weight' => weight,
@@ -386,6 +396,16 @@ class Synapse::ServiceWatcher
       labels = decoded['labels'] || nil
 
       return host, port, name, weight, haproxy_server_options, labels
+    end
+
+    def parse_child_name(child_name)
+      numeric_id = child_name[child_name.length-10..child_name.length]
+      child_name = child_name.chomp("_#{numeric_id}")
+      obj = JSON.parse(Base64.urlsafe_decode64(child_name))
+      obj['numeric_id'] = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
+      obj
+    rescue StandardError => e
+      nil
     end
 
     def parse_service_config(data)

@@ -241,6 +241,38 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         end
       end
     end
+
+    context "use_path_encoding" do
+      it 'parse child name with az' do
+        node = {
+          'host' => '127.0.0.1',
+          'port' => '3000',
+          'labels' => {
+            'az' => 'us-east-1a'
+          }
+        }
+        encoded_str = Base64.urlsafe_encode64(JSON(node))
+        node['numeric_id'] = 5
+        expect(subject.send(:parse_child_name, "#{encoded_str}_0000000005")).to eql(node)
+      end
+
+      it 'parse child name without az' do
+        node = {
+          'host' => '127.0.0.1',
+          'port' => '3000',
+        }
+        encoded_str = Base64.urlsafe_encode64(JSON(node))
+        node['numeric_id'] = 5
+        expect(subject.send(:parse_child_name, "#{encoded_str}_0000000005")).to eql(node)
+      end
+
+      it 'parse child name returns nil' do
+        expect(subject.send(:parse_child_name, "i-xxxxxxx_0000000005")).to be nil
+      end
+
+    end
+
+
   end
 
   context 'ZookeeperDnsWatcher' do
