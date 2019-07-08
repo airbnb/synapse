@@ -123,7 +123,14 @@ module Synapse
     def create_service_watchers(services={})
       service_watchers = []
       services.each do |service_name, service_config|
-        service_watchers << ServiceWatcher.create(service_name, service_config, self)
+        if service_config.has_key?('load_test_concurrency')
+          concurrency = service_config['load_test_concurrency']
+          concurrency.times do |i|
+            service_watchers << ServiceWatcher.create("#{service_name}_#{i}", service_config, self)
+          end
+        else
+          service_watchers << ServiceWatcher.create(service_name, service_config, self)
+        end
       end
 
       return service_watchers
