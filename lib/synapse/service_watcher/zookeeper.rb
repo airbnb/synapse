@@ -9,6 +9,12 @@ class Synapse::ServiceWatcher
     NUMBERS_RE = /^\d+$/
     MIN_JITTER = 0
     MAX_JITTER = 120
+    # When creating a znode you can also request that ZooKeeper append a monotonically increasing
+    # counter to the end of path. This counter is unique to the parent znode. The counter has a
+    # format of %010d -- that is 10 digits with 0 (zero) padding (the counter is formatted in this
+    # way to simplify sorting), i.e. "0000000001".
+    # https://zookeeper.apache.org/doc/current/zookeeperProgrammers.html#Sequence+Nodes+--+Unique+Naming
+    SEQUENCE_NODE_COUNTER_LENGTH = 10
 
     @@zk_pool = {}
     @@zk_pool_count = {}
@@ -399,7 +405,7 @@ class Synapse::ServiceWatcher
     end
 
     def parse_child_name(child_name)
-      numeric_id = child_name[child_name.length-10..child_name.length]
+      numeric_id = child_name[child_name.length-SEQUENCE_NODE_COUNTER_LENGTH..child_name.length]
       child_name = child_name.chomp("_#{numeric_id}")
       obj = JSON.parse(Base64.urlsafe_decode64(child_name))
       obj['numeric_id'] = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
