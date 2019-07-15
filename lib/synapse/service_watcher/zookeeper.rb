@@ -185,12 +185,12 @@ class Synapse::ServiceWatcher
 
         new_backends = []
         zk_children = @zk.children(@discovery['path'], :watch => true)
-        log.info "synapse: set watch for children at #{@discovery['path']}"
+        log.debug "synapse: set watch for children at #{@discovery['path']}"
         zk_children.each do |id|
           if id.start_with?('base64_')
             node = parse_child_name(id)
             if node != nil
-              log.info "synapse: discovered backend with child name #{node} for service #{@name}"
+              log.debug "synapse: discovered backend with child name #{node} for service #{@name}"
               new_backends << node
               next
             end
@@ -223,7 +223,7 @@ class Synapse::ServiceWatcher
             numeric_id = id.split('_').last
             numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
 
-            log.info "synapse: discovered backend with child data at #{host}:#{port} for service #{@name}"
+            log.debug "synapse: discovered backend with child data at #{host}:#{port} for service #{@name}"
             new_backends << {
               'name' => name, 'host' => host, 'port' => port,
               'id' => numeric_id, 'weight' => weight,
@@ -288,7 +288,7 @@ class Synapse::ServiceWatcher
           zk_cleanup
         end
       end
-      log.info "synapse: set watch for parent at #{@discovery['path']}"
+      log.debug "synapse: set watch for parent at #{@discovery['path']}"
     end
 
     # handles the event that a watched path has changed in zookeeper

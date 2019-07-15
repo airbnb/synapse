@@ -106,7 +106,7 @@ class Synapse::ServiceWatcher
     def config_for_generator
       Marshal.load( Marshal.dump(@config_for_generator))
     end
-    
+
     def backends
       filtered = backends_filtered_by_labels
 
@@ -219,7 +219,7 @@ class Synapse::ServiceWatcher
     def update_config_for_generator(new_config_for_generator)
       if new_config_for_generator.empty?
         log.info "synapse: no config_for_generator data from #{name} for" \
-              " service #{@name}; keep existing config_for_generator: #{@config_for_generator.inspect}"
+              " service #{@name}; keep existing config_for_generator"
         return false
       else
         log.info "synapse: discovered config_for_generator for service #{@name}"
