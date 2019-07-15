@@ -14,7 +14,11 @@ class Synapse::ServiceWatcher
     # format of %010d -- that is 10 digits with 0 (zero) padding (the counter is formatted in this
     # way to simplify sorting), i.e. "0000000001".
     # https://zookeeper.apache.org/doc/current/zookeeperProgrammers.html#Sequence+Nodes+--+Unique+Naming
-    SEQUENCE_NODE_COUNTER_LENGTH = 10
+    CHILD_NAME_COUNTER_SUFFIX_LENGTH = 10
+    # when zk child name starts with this prefix, try to decode child name to get service discovery
+    # metadata (such as ip, port, labels). If decoding failes with exception, then fallback to
+    # get and parse zk child data
+    CHILD_NAME_ENCODING_PREFIX = 'base64_'
 
     @@zk_pool = {}
     @@zk_pool_count = {}
@@ -183,7 +187,7 @@ class Synapse::ServiceWatcher
         zk_children = @zk.children(@discovery['path'], :watch => true)
         log.info "synapse: set watch for children at #{@discovery['path']}"
         zk_children.each do |id|
-          if @discovery.fetch('use_path_encoding', false)
+          if id.start_with?('base64_')
             node = parse_child_name(id)
             if node != nil
               log.info "synapse: discovered backend with child name #{node} for service #{@name}"
@@ -405,7 +409,8 @@ class Synapse::ServiceWatcher
     end
 
     def parse_child_name(child_name)
-      numeric_id = child_name[child_name.length-SEQUENCE_NODE_COUNTER_LENGTH..child_name.length]
+      child_name = child_name.sub(CHILD_NAME_ENCODING_PREFIX, '')
+      numeric_id = child_name[child_name.length-CHILD_NAME_COUNTER_SUFFIX_LENGTH..child_name.length]
       child_name = child_name.chomp("_#{numeric_id}")
       obj = JSON.parse(Base64.urlsafe_decode64(child_name))
       obj['numeric_id'] = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil

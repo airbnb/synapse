@@ -248,12 +248,13 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
           'host' => '127.0.0.1',
           'port' => '3000',
           'labels' => {
+            'region' => 'us-east-1',
             'az' => 'us-east-1a'
           }
         }
         encoded_str = Base64.urlsafe_encode64(JSON(node))
-        node['numeric_id'] = 5
-        expect(subject.send(:parse_child_name, "#{encoded_str}_0000000005")).to eql(node)
+        node['numeric_id'] = 3
+        expect(subject.send(:parse_child_name, "base64_#{encoded_str}_0000000003")).to eql(node)
       end
 
       it 'parse child name without az' do
@@ -263,7 +264,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         }
         encoded_str = Base64.urlsafe_encode64(JSON(node))
         node['numeric_id'] = 5
-        expect(subject.send(:parse_child_name, "#{encoded_str}_0000000005")).to eql(node)
+        expect(subject.send(:parse_child_name, "base64_#{encoded_str}_0000000005")).to eql(node)
       end
 
       it 'parse child name returns nil' do
