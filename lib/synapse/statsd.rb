@@ -17,6 +17,10 @@ module Synapse
       end
     end
 
+    def statsd_gauge(key, val, tags = [])
+      statsd.gauge(key, val, tags: tags, sample_rate: sample_rate_for(key))
+    end
+
     class << self
       include Logging
 
