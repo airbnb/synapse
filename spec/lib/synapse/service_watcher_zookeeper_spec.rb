@@ -241,6 +241,44 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         end
       end
     end
+
+    context "use_path_encoding" do
+      it 'parse base64 encoded prefix' do
+        node = {
+          'host' => '127.0.0.1',
+          'port' => '3000',
+          'labels' => {
+            'region' => 'us-east-1',
+            'az' => 'us-east-1a'
+          }
+        }
+        encoded_str = Base64.urlsafe_encode64(JSON(node))
+        child_name = "base64_#{encoded_str.length}_#{encoded_str}_0000000003"
+        expect(subject.send(:parse_base64_encoded_prefix, child_name)).to eql(node)
+      end
+
+      it 'parse based64 encoded prefix without labels' do
+        node = {
+          'host' => '127.0.0.1',
+          'port' => '3000',
+        }
+        encoded_str = Base64.urlsafe_encode64(JSON(node))
+        child_name = "base64_#{encoded_str.length}_#{encoded_str}_0000000005"
+        expect(subject.send(:parse_base64_encoded_prefix, child_name)).to eql(node)
+      end
+
+      it 'parse base64 encoded prefix returns nil' do
+        expect(subject.send(:parse_base64_encoded_prefix, "i-xxxxxxx_0000000005")).to be nil
+      end
+
+      it 'parse numeric id suffix' do
+        expect(subject.send(:parse_numeric_id_suffix, "i-xxxxxxx_0000000005")).to be 5
+      end
+
+      it 'parse numeric id suffix returns nil' do
+        expect(subject.send(:parse_numeric_id_suffix, "i-xxxxxxx_60da")).to be nil
+      end
+    end
   end
 
   context 'ZookeeperDnsWatcher' do

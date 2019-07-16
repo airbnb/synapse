@@ -2,12 +2,18 @@ require "synapse/service_watcher/base"
 
 require 'thread'
 require 'zk'
+require 'base64'
+require 'objspace'
 
 class Synapse::ServiceWatcher
   class ZookeeperWatcher < BaseWatcher
     NUMBERS_RE = /^\d+$/
     MIN_JITTER = 0
     MAX_JITTER = 120
+    # when zk child name starts with this prefix, try to decode child name to get service discovery
+    # metadata (such as ip, port, labels). If decoding failes with exception, then fallback to
+    # get and parse zk child data
+    CHILD_NAME_ENCODING_PREFIX = 'base64_'
 
     @@zk_pool = {}
     @@zk_pool_count = {}
@@ -174,8 +180,19 @@ class Synapse::ServiceWatcher
 
         new_backends = []
         zk_children = @zk.children(@discovery['path'], :watch => true)
-        log.info "synapse: set watch for children at #{@discovery['path']}"
+        statsd_gauge('synapse.watcher.zk.children.bytes', ObjectSpace.memsize_of(zk_children), ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}"])
+        log.debug "synapse: set watch for children at #{@discovery['path']}"
         zk_children.each do |id|
+          if id.start_with?(CHILD_NAME_ENCODING_PREFIX)
+            node = parse_base64_encoded_prefix(id)
+            if node != nil
+              log.debug "synapse: discovered backend with child name at #{node['name']} #{node['host']}:#{node['port']} for service #{@name}"
+              node['id'] = parse_numeric_id_suffix(id)
+              new_backends << node
+              next
+            end
+          end
+
           begin
             node = statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
               zk_get_path("#{@discovery['path']}/#{id}")
@@ -199,11 +216,8 @@ class Synapse::ServiceWatcher
             log.error "synapse: skip child due to invalid data in ZK at #{@discovery['path']}/#{id}: #{e}"
             statsd_increment('synapse.watcher.zk.parse_child_failed')
           else
-            # find the numberic id in the node name; used for leader elections if enabled
-            numeric_id = id.split('_').last
-            numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
-
-            log.debug "synapse: discovered backend #{name} at #{host}:#{port} for service #{@name}"
+            numeric_id = parse_numeric_id_suffix(id)
+            log.debug "synapse: discovered backend with child data at #{name} #{host}:#{port} for service #{@name}"
             new_backends << {
               'name' => name, 'host' => host, 'port' => port,
               'id' => numeric_id, 'weight' => weight,
@@ -258,7 +272,7 @@ class Synapse::ServiceWatcher
       statsd_time('synapse.watcher.zk.watch.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
         unless @watcher
           @watcher = @zk.register(@discovery['path'], &watcher_callback)
-          log.info "synapse: register watch at #{@discovery['path']}"
+          log.debug "synapse: register watch at #{@discovery['path']}"
         end
 
         # Verify that we actually set up the watcher.
@@ -268,7 +282,7 @@ class Synapse::ServiceWatcher
           zk_cleanup
         end
       end
-      log.info "synapse: set watch for parent at #{@discovery['path']}"
+      log.debug "synapse: set watch for parent at #{@discovery['path']}"
     end
 
     # handles the event that a watched path has changed in zookeeper
@@ -386,6 +400,25 @@ class Synapse::ServiceWatcher
       labels = decoded['labels'] || nil
 
       return host, port, name, weight, haproxy_server_options, labels
+    end
+
+    # find the encoded metadata in the prefix of child name; used for path encoding if enabled
+    def parse_base64_encoded_prefix(child_name)
+      child_name = child_name.sub(CHILD_NAME_ENCODING_PREFIX, '')
+      length_str = child_name[/\d+_/]
+      length = length_str[0..-1].to_i
+      child_name = child_name.sub(length_str, '')
+      child_name = child_name[0..length-1]
+      JSON.parse(Base64.urlsafe_decode64(child_name))
+    rescue StandardError => e
+      log.error("synapse: parse base64 encoded prefix failed for #{child_name}: #{e}")
+      nil
+    end
+
+    # find the numberic id in suffix of child name; used for leader elections if enabled
+    def parse_numeric_id_suffix(child_name)
+      numeric_id = child_name.split('_').last
+      numeric_id = NUMBERS_RE =~ numeric_id ? numeric_id.to_i : nil
     end
 
     def parse_service_config(data)
