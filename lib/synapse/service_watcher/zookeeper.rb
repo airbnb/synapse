@@ -180,7 +180,7 @@ class Synapse::ServiceWatcher
 
         new_backends = []
         zk_children = @zk.children(@discovery['path'], :watch => true)
-        statsd_gauge('synapse.watcher.zk.children.bytes_received', ObjectSpace.memsize_of(zk_children), ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}"])
+        statsd_gauge('synapse.watcher.zk.children.bytes', ObjectSpace.memsize_of(zk_children), ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}"])
         log.debug "synapse: set watch for children at #{@discovery['path']}"
         zk_children.each do |id|
           if id.start_with?('base64_')
