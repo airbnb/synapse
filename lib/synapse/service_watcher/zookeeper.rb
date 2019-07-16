@@ -183,7 +183,7 @@ class Synapse::ServiceWatcher
         statsd_gauge('synapse.watcher.zk.children.bytes', ObjectSpace.memsize_of(zk_children), ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}"])
         log.debug "synapse: set watch for children at #{@discovery['path']}"
         zk_children.each do |id|
-          if id.start_with?('base64_')
+          if id.start_with?(CHILD_NAME_ENCODING_PREFIX)
             node = parse_base64_encoded_prefix(id)
             if node != nil
               log.debug "synapse: discovered backend with child name at #{node['name']} #{node['host']}:#{node['port']} for service #{@name}"
