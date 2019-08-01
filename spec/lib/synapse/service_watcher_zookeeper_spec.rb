@@ -60,8 +60,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
   end
   let(:service_data_string) { service_data.to_json }
   let(:deserialized_service_data) {
-    [ service_data['host'], service_data['port'], service_data['name'], service_data['weight'],
-      service_data['haproxy_server_options'], service_data['labels'] ]
+    service_data
   }
   let(:config_for_generator_string) { [config_for_generator.to_json] }
   let(:parsed_config_for_generator) do
