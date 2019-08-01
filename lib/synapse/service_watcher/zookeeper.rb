@@ -445,7 +445,7 @@ class Synapse::ServiceWatcher
     end
 
     def create_backend_info(id, node)
-      log.debug "synapse: discovered backend with child #{id} at #{node['name']} #{node['host']}:#{node['port']} for service #{@name}"
+      log.debug "synapse: discovered backend with child #{id} at #{node['host']}:#{node['port']} for service #{@name}"
       node['id'] = parse_numeric_id_suffix(id)
       return {
         'name' => node['name'], 'host' => node['host'], 'port' => node['port'],
