@@ -383,9 +383,13 @@ class Synapse::ServiceWatcher
       log.debug "synapse: deserializing process data"
       decoded = @decode_method.call(data)
 
-      host = decoded['host'] || (raise KeyError, 'instance json data does not have host key')
-      port = decoded['port'] || (raise KeyError, 'instance json data does not have port key')
-      name = decoded['name'] || nil
+      unless decoded.key?('host')
+        raise KeyError, 'instance json data does not have host key'
+      end
+
+      unless decoded.key?('port')
+        raise KeyError, 'instance json data does not have port key'
+      end
 
       return decoded
     end
@@ -429,7 +433,7 @@ class Synapse::ServiceWatcher
         else
           if generator_config.nil? || !generator_config.is_a?(Hash)
             log.warn "synapse: invalid generator config in ZK node at #{@discovery['path']}" \
-            " for generator #{generator_name}"
+              " for generator #{generator_name}"
             new_generator_config[generator_name] = {}
           else
             new_generator_config[generator_name] = generator_config
@@ -450,6 +454,6 @@ class Synapse::ServiceWatcher
         'labels' => node['labels']
       }
     end
-  end
-end
+    end
+      end
 
