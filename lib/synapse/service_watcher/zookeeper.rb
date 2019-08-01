@@ -454,6 +454,6 @@ class Synapse::ServiceWatcher
         'labels' => node['labels']
       }
     end
-    end
-      end
+  end
+end
 
