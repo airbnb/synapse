@@ -186,7 +186,7 @@ class Synapse::ServiceWatcher
           if id.start_with?(CHILD_NAME_ENCODING_PREFIX)
             decoded = parse_base64_encoded_prefix(id)
             if decoded != nil
-              new_backends << get_backend(id, decoded)
+              new_backends << create_backend_info(id, decoded)
               next
             end
           end
@@ -214,7 +214,7 @@ class Synapse::ServiceWatcher
             log.error "synapse: skip child due to invalid data in ZK at #{@discovery['path']}/#{id}: #{e}"
             statsd_increment('synapse.watcher.zk.parse_child_failed')
           else
-            new_backends << get_backend(id, decoded)
+            new_backends << create_backend_info(id, decoded)
           end
         end
 
@@ -440,7 +440,7 @@ class Synapse::ServiceWatcher
       return new_generator_config
     end
 
-    def get_backend(id, node)
+    def create_backend_info(id, node)
       log.debug "synapse: discovered backend with child #{id} at #{node['name']} #{node['host']}:#{node['port']} for service #{@name}"
       node['id'] = parse_numeric_id_suffix(id)
       return {
