@@ -60,8 +60,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
   end
   let(:service_data_string) { service_data.to_json }
   let(:deserialized_service_data) {
-    [ service_data['host'], service_data['port'], service_data['name'], service_data['weight'],
-      service_data['haproxy_server_options'], service_data['labels'] ]
+    service_data
   }
   let(:config_for_generator_string) { [config_for_generator.to_json] }
   let(:parsed_config_for_generator) do
@@ -277,6 +276,31 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
       it 'parse numeric id suffix returns nil' do
         expect(subject.send(:parse_numeric_id_suffix, "i-xxxxxxx_60da")).to be nil
+      end
+
+      it 'parse backend returns correct data with fixed schema' do
+        node = {
+          'name' => 'i-xxxxxxx',
+          'host' => '127.0.0.1',
+          'port' => '3000',
+          'labels' => {
+            'region' => 'us-east-1',
+            'az' => 'us-east-1a'
+          }
+        }
+        backend = {
+          'name' => 'i-xxxxxxx',
+          'host' => '127.0.0.1',
+          'port' => '3000',
+          'labels' => {
+            'region' => 'us-east-1',
+            'az' => 'us-east-1a'
+          },
+          'weight' => nil,
+          'haproxy_server_options' => nil,
+          'id' => 5
+        }
+        expect(subject.send(:create_backend_info, "i-xxxxxxx_0000000005", node)).to eq backend
       end
     end
   end

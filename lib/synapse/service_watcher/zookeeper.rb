@@ -184,11 +184,9 @@ class Synapse::ServiceWatcher
         log.debug "synapse: set watch for children at #{@discovery['path']}"
         zk_children.each do |id|
           if id.start_with?(CHILD_NAME_ENCODING_PREFIX)
-            node = parse_base64_encoded_prefix(id)
-            if node != nil
-              log.debug "synapse: discovered backend with child name at #{node['name']} #{node['host']}:#{node['port']} for service #{@name}"
-              node['id'] = parse_numeric_id_suffix(id)
-              new_backends << node
+            decoded = parse_base64_encoded_prefix(id)
+            if decoded != nil
+              new_backends << create_backend_info(id, decoded)
               next
             end
           end
@@ -211,19 +209,12 @@ class Synapse::ServiceWatcher
 
           begin
             # TODO: Do less munging, or refactor out this processing
-            host, port, name, weight, haproxy_server_options, labels = deserialize_service_instance(node.first)
+            decoded = deserialize_service_instance(node.first)
           rescue StandardError => e
             log.error "synapse: skip child due to invalid data in ZK at #{@discovery['path']}/#{id}: #{e}"
             statsd_increment('synapse.watcher.zk.parse_child_failed')
           else
-            numeric_id = parse_numeric_id_suffix(id)
-            log.debug "synapse: discovered backend with child data at #{name} #{host}:#{port} for service #{@name}"
-            new_backends << {
-              'name' => name, 'host' => host, 'port' => port,
-              'id' => numeric_id, 'weight' => weight,
-              'haproxy_server_options' => haproxy_server_options,
-              'labels' => labels
-            }
+            new_backends << create_backend_info(id, decoded)
           end
         end
 
@@ -392,14 +383,15 @@ class Synapse::ServiceWatcher
       log.debug "synapse: deserializing process data"
       decoded = @decode_method.call(data)
 
-      host = decoded['host'] || (raise KeyError, 'instance json data does not have host key')
-      port = decoded['port'] || (raise KeyError, 'instance json data does not have port key')
-      name = decoded['name'] || nil
-      weight = decoded['weight'] || nil
-      haproxy_server_options = decoded['haproxy_server_options'] || nil
-      labels = decoded['labels'] || nil
+      unless decoded.key?('host')
+        raise KeyError, 'instance json data does not have host key'
+      end
 
-      return host, port, name, weight, haproxy_server_options, labels
+      unless decoded.key?('port')
+        raise KeyError, 'instance json data does not have port key'
+      end
+
+      return decoded
     end
 
     # find the encoded metadata in the prefix of child name; used for path encoding if enabled
@@ -441,7 +433,7 @@ class Synapse::ServiceWatcher
         else
           if generator_config.nil? || !generator_config.is_a?(Hash)
             log.warn "synapse: invalid generator config in ZK node at #{@discovery['path']}" \
-            " for generator #{generator_name}"
+              " for generator #{generator_name}"
             new_generator_config[generator_name] = {}
           else
             new_generator_config[generator_name] = generator_config
@@ -450,6 +442,17 @@ class Synapse::ServiceWatcher
       end
 
       return new_generator_config
+    end
+
+    def create_backend_info(id, node)
+      log.debug "synapse: discovered backend with child #{id} at #{node['host']}:#{node['port']} for service #{@name}"
+      node['id'] = parse_numeric_id_suffix(id)
+      return {
+        'name' => node['name'], 'host' => node['host'], 'port' => node['port'],
+        'id' => node['id'], 'weight' => node['weight'],
+        'haproxy_server_options' => node['haproxy_server_options'],
+        'labels' => node['labels']
+      }
     end
   end
 end
