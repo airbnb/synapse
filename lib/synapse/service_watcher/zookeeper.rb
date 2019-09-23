@@ -19,7 +19,7 @@ class Synapse::ServiceWatcher
     ZK_CONNECTION_ERRORS = [ZK::Exceptions::OperationTimeOut, ZK::Exceptions::ConnectionLoss]
     ZK_MAX_ATTEMPTS = 10
     ZK_BASE_INTERVAL = 3
-    ZK_MAX_INTERVAL = 10
+    ZK_MAX_INTERVAL = 60
 
     @@zk_pool = {}
     @@zk_pool_count = {}
@@ -185,9 +185,18 @@ class Synapse::ServiceWatcher
         log.info "synapse: discovering backends for service #{@name}"
 
         new_backends = []
-        zk_children = @zk.children(@discovery['path'], :watch => true)
+        zk_children = Synapse.with_retry(
+              :max_attempts => ZK_MAX_ATTEMPTS,
+              :base_interval => ZK_BASE_INTERVAL,
+              :max_interval => ZK_MAX_INTERVAL,
+              :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
+            statsd_time('synapse.watcher.zk.children.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+              log.debug "synapse: list children at #{@discovery['path']} for #{attempts} times"
+              @zk.children(@discovery['path'], :watch => true)
+            end
+        end
         statsd_gauge('synapse.watcher.zk.children.bytes', ObjectSpace.memsize_of(zk_children), ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}"])
-        log.debug "synapse: set watch for children at #{@discovery['path']}"
+
         zk_children.each do |id|
           if id.start_with?(CHILD_NAME_ENCODING_PREFIX)
             decoded = parse_base64_encoded_prefix(id)
@@ -204,6 +213,7 @@ class Synapse::ServiceWatcher
               :max_interval => ZK_MAX_INTERVAL,
               :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
               statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+                log.debug "synapse: get child at #{@discovery['path']}/#{id} for #{attempts} times"
                 @zk.get("#{@discovery['path']}/#{id}")
               end
             end
@@ -247,8 +257,14 @@ class Synapse::ServiceWatcher
 
         if discovery_key
           begin
-            node = statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-              zk_get_path(@discovery[discovery_key], :watch => true)
+            node = Synapse.with_retry(
+              :max_attempts => ZK_MAX_ATTEMPTS,
+              :base_interval => ZK_BASE_INTERVAL,
+              :max_interval => ZK_MAX_INTERVAL,
+              :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
+                statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+                  @zk.get(@discovery[discovery_key], :watch => true)
+                end
             end
             new_config_for_generator = parse_service_config(node.first)
           rescue ZK::Exceptions::NoNode => e
