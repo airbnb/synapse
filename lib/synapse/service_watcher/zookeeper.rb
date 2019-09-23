@@ -4,6 +4,7 @@ require 'thread'
 require 'zk'
 require 'base64'
 require 'objspace'
+require 'synapse/with_retry'
 
 class Synapse::ServiceWatcher
   class ZookeeperWatcher < BaseWatcher
@@ -14,6 +15,11 @@ class Synapse::ServiceWatcher
     # metadata (such as ip, port, labels). If decoding failes with exception, then fallback to
     # get and parse zk child data
     CHILD_NAME_ENCODING_PREFIX = 'base64_'
+
+    ZK_CONNECTION_ERRORS = [ZK::Exceptions::OperationTimeOut, ZK::Exceptions::ConnectionLoss]
+    ZK_MAX_ATTEMPTS = 10
+    ZK_BASE_INTERVAL = 3
+    ZK_MAX_INTERVAL = 10
 
     @@zk_pool = {}
     @@zk_pool_count = {}
@@ -192,8 +198,14 @@ class Synapse::ServiceWatcher
           end
 
           begin
-            node = statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-              zk_get_path("#{@discovery['path']}/#{id}")
+            node = Synapse.with_retry(
+              :max_attempts => ZK_MAX_ATTEMPTS,
+              :base_interval => ZK_BASE_INTERVAL,
+              :max_interval => ZK_MAX_INTERVAL,
+              :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
+              statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+                @zk.get("#{@discovery['path']}/#{id}")
+              end
             end
           rescue ZK::Exceptions::NoNode => e
             # This can happen when the registry unregisters a service node between
