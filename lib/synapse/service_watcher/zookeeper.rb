@@ -2,6 +2,7 @@ require "synapse/service_watcher/base"
 
 require 'thread'
 require 'zk'
+require 'zookeeper'
 require 'base64'
 require 'objspace'
 require 'synapse/with_retry'
@@ -16,7 +17,7 @@ class Synapse::ServiceWatcher
     # get and parse zk child data
     CHILD_NAME_ENCODING_PREFIX = 'base64_'
 
-    ZK_CONNECTION_ERRORS = [ZK::Exceptions::OperationTimeOut, ZK::Exceptions::ConnectionLoss]
+    ZK_CONNECTION_ERRORS = [ZK::Exceptions::OperationTimeOut, ZK::Exceptions::ConnectionLoss, ::Zookeeper::Exceptions::NotConnected, ::Zookeeper::Exceptions::ContinuationTimeoutError]
     ZK_MAX_ATTEMPTS = 10
     ZK_BASE_INTERVAL = 3
     ZK_MAX_INTERVAL = 60
