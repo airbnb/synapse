@@ -141,8 +141,6 @@ class Synapse::ServiceWatcher
 
     # helper method that ensures that the discovery path exists
     def create(path)
-      log.debug "synapse: creating ZK path: #{path}"
-
       # recurse if the parent node does not exist
       create File.dirname(path) unless @zk.exists? File.dirname(path)
       @zk.create(path, ignore: :node_exists)
@@ -161,7 +159,7 @@ class Synapse::ServiceWatcher
               :max_interval => ZK_MAX_INTERVAL,
               :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
             statsd_time('synapse.watcher.zk.children.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-              log.debug "synapse: list children at #{@discovery['path']} for #{attempts} times"
+              log.debug "synapse: zk list children at #{@discovery['path']} for #{attempts} times"
               @zk.children(@discovery['path'], :watch => true)
             end
         end
@@ -183,7 +181,7 @@ class Synapse::ServiceWatcher
               :max_interval => ZK_MAX_INTERVAL,
               :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
               statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-                log.debug "synapse: get child at #{@discovery['path']}/#{id} for #{attempts} times"
+                log.debug "synapse: zk get child at #{@discovery['path']}/#{id} for #{attempts} times"
                 @zk.get("#{@discovery['path']}/#{id}")
               end
             end
@@ -233,7 +231,7 @@ class Synapse::ServiceWatcher
               :max_interval => ZK_MAX_INTERVAL,
               :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
                 statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-                  log.debug "synapse: get child at #{@discovery[discovery_key]} for #{attempts} times"
+                  log.debug "synapse: zk get parent at #{@discovery[discovery_key]} for #{attempts} times"
                   @zk.get(@discovery[discovery_key], :watch => true)
                 end
             end
@@ -261,12 +259,26 @@ class Synapse::ServiceWatcher
 
       statsd_time('synapse.watcher.zk.watch.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
         unless @watcher
-          @watcher = @zk.register(@discovery['path'], &watcher_callback)
-          log.debug "synapse: register watch at #{@discovery['path']}"
+          @watcher = with_retry(
+              :max_attempts => ZK_MAX_ATTEMPTS,
+              :base_interval => ZK_BASE_INTERVAL,
+              :max_interval => ZK_MAX_INTERVAL,
+              :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
+                log.debug "synapse: zk register at #{@discovery['path']} for #{attempts} times"
+                @zk.register(@discovery['path'], &watcher_callback)
+            end
         end
 
         # Verify that we actually set up the watcher.
-        unless @zk.exists?(@discovery['path'], :watch => true)
+        existed = with_retry(
+              :max_attempts => ZK_MAX_ATTEMPTS,
+              :base_interval => ZK_BASE_INTERVAL,
+              :max_interval => ZK_MAX_INTERVAL,
+              :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
+          log.debug "synapse: zk exists at #{@discovery['path']} for #{attempts} times"
+          @zk.exists?(@discovery['path'], :watch => true)
+        end
+        unless existed
           log.error "synapse: zookeeper watcher path #{@discovery['path']} does not exist!"
           statsd_increment('synapse.watcher.zk.register_failed')
           zk_cleanup
@@ -368,10 +380,16 @@ class Synapse::ServiceWatcher
         end
 
         # the path must exist, otherwise watch callbacks will not work
-        statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-          create(@discovery['path'])
+        with_retry(
+              :max_attempts => ZK_MAX_ATTEMPTS,
+              :base_interval => ZK_BASE_INTERVAL,
+              :max_interval => ZK_MAX_INTERVAL,
+              :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
+          statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+            log.debug "synapse: zk create path: #{@discovery['path']} for #{attempts} times"
+            create(@discovery['path'])
+          end
         end
-
         # call the callback to bootstrap the process
         watcher_callback.call
       end
