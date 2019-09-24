@@ -5,7 +5,6 @@ require 'zk'
 require 'zookeeper'
 require 'base64'
 require 'objspace'
-require 'synapse/with_retry'
 
 class Synapse::ServiceWatcher
   class ZookeeperWatcher < BaseWatcher
@@ -156,7 +155,7 @@ class Synapse::ServiceWatcher
         log.info "synapse: discovering backends for service #{@name}"
 
         new_backends = []
-        zk_children = Synapse.with_retry(
+        zk_children = with_retry(
               :max_attempts => ZK_MAX_ATTEMPTS,
               :base_interval => ZK_BASE_INTERVAL,
               :max_interval => ZK_MAX_INTERVAL,
@@ -178,7 +177,7 @@ class Synapse::ServiceWatcher
           end
 
           begin
-            node = Synapse.with_retry(
+            node = with_retry(
               :max_attempts => ZK_MAX_ATTEMPTS,
               :base_interval => ZK_BASE_INTERVAL,
               :max_interval => ZK_MAX_INTERVAL,
@@ -228,7 +227,7 @@ class Synapse::ServiceWatcher
 
         if discovery_key
           begin
-            node = Synapse.with_retry(
+            node = with_retry(
               :max_attempts => ZK_MAX_ATTEMPTS,
               :base_interval => ZK_BASE_INTERVAL,
               :max_interval => ZK_MAX_INTERVAL,

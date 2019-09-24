@@ -1,12 +1,14 @@
 require 'spec_helper'
-require 'synapse/with_retry'
+require 'synapse/retry_policy'
 
 describe "test with retry" do
+  include Synapse::RetryPolicy
+
   it "no retry succeed" do
     expected_attemptes = 1
     attempts = 0
     expected_result = "done"
-    result = Synapse.with_retry do
+    result = with_retry do
       attempts += 1
       expected_result
     end
@@ -18,7 +20,7 @@ describe "test with retry" do
     expected_attemptes = 1
     attempts = 0
     expect {
-      Synapse.with_retry do
+      with_retry do
         attempts += 1
         raise StandardError
       end
@@ -30,7 +32,7 @@ describe "test with retry" do
     expected_attemptes = 3
     attempts = 0
     expected_result = "done"
-    result = Synapse.with_retry(:max_attempts => expected_attemptes) do
+    result = with_retry(:max_attempts => expected_attemptes) do
       attempts += 1
       if attempts < expected_attemptes
         raise StandardError
@@ -45,7 +47,7 @@ describe "test with retry" do
     expected_attemptes = 3
     attempts = 0
     expect {
-      Synapse.with_retry(:max_attempts => expected_attemptes) do
+      with_retry(:max_attempts => expected_attemptes) do
         attempts += 1
         raise StandardError
       end
@@ -57,7 +59,7 @@ describe "test with retry" do
     expected_attemptes = 3
     attempts = 0
     expected_result = "done"
-    result = Synapse.with_retry(:max_attempts => expected_attemptes, :retriable_errors => IOError) do
+    result = with_retry(:max_attempts => expected_attemptes, :retriable_errors => IOError) do
       attempts += 1
       if attempts < expected_attemptes
         raise IOError
@@ -72,7 +74,7 @@ describe "test with retry" do
     expected_attemptes = 3
     attempts = 0
     expect {
-      Synapse.with_retry(:max_attempts => expected_attemptes) do
+      with_retry(:max_attempts => expected_attemptes) do
         attempts += 1
         raise IOError
       end
@@ -84,7 +86,7 @@ describe "test with retry" do
     expected_attemptes = 1
     attempts = 0
     expect {
-      Synapse.with_retry(:max_attempts => 3, :retriable_errors => IOError) do
+      with_retry(:max_attempts => 3, :retriable_errors => IOError) do
         attempts += 1
         raise ArgumentError
       end
@@ -95,11 +97,11 @@ describe "test with retry" do
   it "test get retry interval" do
     base_interval = 1
     max_interval = 10
-    expect(Synapse.get_retry_interval(base_interval, max_interval, 1)).to eq(base_interval)
-    expect(Synapse.get_retry_interval(base_interval, max_interval, 2)).to eq(2)
-    expect(Synapse.get_retry_interval(base_interval, max_interval, 3)).to eq(4)
-    expect(Synapse.get_retry_interval(base_interval, max_interval, 4)).to eq(8)
-    expect(Synapse.get_retry_interval(base_interval, max_interval, 5)).to eq(max_interval)
+    expect(get_retry_interval(base_interval, max_interval, 1)).to eq(base_interval)
+    expect(get_retry_interval(base_interval, max_interval, 2)).to eq(2)
+    expect(get_retry_interval(base_interval, max_interval, 3)).to eq(4)
+    expect(get_retry_interval(base_interval, max_interval, 4)).to eq(8)
+    expect(get_retry_interval(base_interval, max_interval, 5)).to eq(max_interval)
   end
 
 
