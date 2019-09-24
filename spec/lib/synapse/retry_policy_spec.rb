@@ -4,7 +4,7 @@ require 'synapse/retry_policy'
 describe "test with retry" do
   include Synapse::RetryPolicy
 
-  it "no retry succeed" do
+  it "default retry succeed" do
     expected_attemptes = 1
     attempts = 0
     expected_result = "done"
@@ -16,7 +16,7 @@ describe "test with retry" do
     expect(attempts).to eq(expected_attemptes)
   end
 
-  it "no retry fail" do
+  it "default retry fail" do
     expected_attemptes = 1
     attempts = 0
     expect {
@@ -28,7 +28,7 @@ describe "test with retry" do
     expect(attempts).to eq(expected_attemptes)
   end
 
-  it "until succeed" do
+  it "retry until succeed" do
     expected_attemptes = 3
     attempts = 0
     expected_result = "done"
@@ -43,7 +43,7 @@ describe "test with retry" do
     expect(attempts).to eq(expected_attemptes)
   end
 
-  it "until reach max attempts" do
+  it "retry until reaching max attempts" do
     expected_attemptes = 3
     attempts = 0
     expect {
@@ -55,7 +55,7 @@ describe "test with retry" do
     expect(attempts).to eq(expected_attemptes)
   end
 
-  it "until succeed with retriable_errors" do
+  it "retry until success with retriable_errors" do
     expected_attemptes = 3
     attempts = 0
     expected_result = "done"
@@ -70,7 +70,7 @@ describe "test with retry" do
     expect(attempts).to eq(expected_attemptes)
   end
 
-  it "until reach max attempts with retriable_errors" do
+  it "retry until reaching max attempts with retriable_errors" do
     expected_attemptes = 3
     attempts = 0
     expect {
@@ -82,7 +82,7 @@ describe "test with retry" do
     expect(attempts).to eq(expected_attemptes)
   end
 
-  it "immediate raise non-retriable error" do
+  it "immediately raise non-retriable error" do
     expected_attemptes = 1
     attempts = 0
     expect {
@@ -94,6 +94,38 @@ describe "test with retry" do
     expect(attempts).to eq(expected_attemptes)
   end
 
+  it "immediately raise argument error with invaid max_attempts" do
+    expected_attemptes = 0
+    attempts = 0
+    expect {
+      with_retry(:max_attempts => -1) do
+        attempts += 1
+      end
+    }.to raise_error(ArgumentError)
+    expect(attempts).to eq(expected_attemptes)
+  end
+
+  it "immediately raise argument error with invaid max_attempts" do
+    expected_attemptes = 0
+    attempts = 0
+    expect {
+      with_retry(:max_attempts => 1, :base_interval => 5, :max_interval => 3) do
+        attempts += 1
+      end
+    }.to raise_error(ArgumentError)
+    expect(attempts).to eq(expected_attemptes)
+  end
+
+  it "immediately raise argument error with missing callback" do
+    expected_attemptes = 0
+    attempts = 0
+    expect {
+      with_retry(:max_attempts => 1, :base_interval => 1, :max_interval => 5)
+    }.to raise_error(ArgumentError)
+    expect(attempts).to eq(expected_attemptes)
+  end
+
+
   it "test get retry interval" do
     base_interval = 1
     max_interval = 10
@@ -104,7 +136,7 @@ describe "test with retry" do
     expect(get_retry_interval(base_interval, max_interval, 5, 0)).to eq(max_interval)
   end
 
-  it "test get retry interval with delay" do
+  it "test get retry interval with elapsed" do
     base_interval = 1
     max_interval = 10
     expect(get_retry_interval(base_interval, max_interval, 1, 2)).to eq(base_interval)
@@ -113,8 +145,6 @@ describe "test with retry" do
     expect(get_retry_interval(base_interval, max_interval, 4, 5)).to eq(3)
     expect(get_retry_interval(base_interval, max_interval, 5, 5)).to eq(max_interval)
   end
-
-
 end
 
 

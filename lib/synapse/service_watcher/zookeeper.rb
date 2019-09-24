@@ -16,7 +16,11 @@ class Synapse::ServiceWatcher
     # get and parse zk child data
     CHILD_NAME_ENCODING_PREFIX = 'base64_'
 
-    ZK_CONNECTION_ERRORS = [ZK::Exceptions::OperationTimeOut, ZK::Exceptions::ConnectionLoss, ::Zookeeper::Exceptions::NotConnected, ::Zookeeper::Exceptions::ContinuationTimeoutError]
+    ZK_RETRIABLE_ERRORS = [
+      ZK::Exceptions::OperationTimeOut,
+      ZK::Exceptions::ConnectionLoss,
+      ::Zookeeper::Exceptions::NotConnected,
+      ::Zookeeper::Exceptions::ContinuationTimeoutError]
     ZK_MAX_ATTEMPTS = 10
     ZK_BASE_INTERVAL = 3
     ZK_MAX_INTERVAL = 60
@@ -157,7 +161,7 @@ class Synapse::ServiceWatcher
               :max_attempts => ZK_MAX_ATTEMPTS,
               :base_interval => ZK_BASE_INTERVAL,
               :max_interval => ZK_MAX_INTERVAL,
-              :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
+              :retriable_errors => ZK_RETRIABLE_ERRORS) do |attempts|
             statsd_time('synapse.watcher.zk.children.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
               log.debug "synapse: zk list children at #{@discovery['path']} for #{attempts} times"
               @zk.children(@discovery['path'], :watch => true)
@@ -179,7 +183,7 @@ class Synapse::ServiceWatcher
               :max_attempts => ZK_MAX_ATTEMPTS,
               :base_interval => ZK_BASE_INTERVAL,
               :max_interval => ZK_MAX_INTERVAL,
-              :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
+              :retriable_errors => ZK_RETRIABLE_ERRORS) do |attempts|
               statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
                 log.debug "synapse: zk get child at #{@discovery['path']}/#{id} for #{attempts} times"
                 @zk.get("#{@discovery['path']}/#{id}")
@@ -229,7 +233,7 @@ class Synapse::ServiceWatcher
               :max_attempts => ZK_MAX_ATTEMPTS,
               :base_interval => ZK_BASE_INTERVAL,
               :max_interval => ZK_MAX_INTERVAL,
-              :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
+              :retriable_errors => ZK_RETRIABLE_ERRORS) do |attempts|
                 statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
                   log.debug "synapse: zk get parent at #{@discovery[discovery_key]} for #{attempts} times"
                   @zk.get(@discovery[discovery_key], :watch => true)
@@ -268,7 +272,7 @@ class Synapse::ServiceWatcher
               :max_attempts => ZK_MAX_ATTEMPTS,
               :base_interval => ZK_BASE_INTERVAL,
               :max_interval => ZK_MAX_INTERVAL,
-              :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
+              :retriable_errors => ZK_RETRIABLE_ERRORS) do |attempts|
           log.debug "synapse: zk exists at #{@discovery['path']} for #{attempts} times"
           @zk.exists?(@discovery['path'], :watch => true)
         end
@@ -350,7 +354,7 @@ class Synapse::ServiceWatcher
         # connection to any given set of zk hosts.
         @@zk_pool_lock.synchronize {
           unless @@zk_pool.has_key?(@zk_hosts)
-            # connecting zookeeper client throws runtime exception under certain network failure condition
+            # connecting to zookeeper could runtime error under certain network failure
             # https://github.com/zk-ruby/zookeeper/blob/80a88e3179fd1d526f7e62a364ab5760f5f5da12/ext/zkrb.c
             @@zk_pool[@zk_hosts] = with_retry(
               :max_attempts => ZK_MAX_ATTEMPTS,
@@ -386,7 +390,7 @@ class Synapse::ServiceWatcher
               :max_attempts => ZK_MAX_ATTEMPTS,
               :base_interval => ZK_BASE_INTERVAL,
               :max_interval => ZK_MAX_INTERVAL,
-              :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
+              :retriable_errors => ZK_RETRIABLE_ERRORS) do |attempts|
           statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
             log.debug "synapse: zk create at #{@discovery['path']} for #{attempts} times"
             create(@discovery['path'])
