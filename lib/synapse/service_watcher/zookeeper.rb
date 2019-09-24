@@ -259,6 +259,7 @@ class Synapse::ServiceWatcher
 
       statsd_time('synapse.watcher.zk.watch.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
         unless @watcher
+          log.debug "synapse: zk register at #{@discovery['path']}"
           @watcher = @zk.register(@discovery['path'], &watcher_callback)
         end
 
@@ -349,8 +350,16 @@ class Synapse::ServiceWatcher
         # connection to any given set of zk hosts.
         @@zk_pool_lock.synchronize {
           unless @@zk_pool.has_key?(@zk_hosts)
-            log.info "synapse: creating pooled connection to #{@zk_hosts}"
-            @@zk_pool[@zk_hosts] = ZK.new(@zk_hosts, :timeout => 5, :thread => :per_callback)
+            # connecting zookeeper client throws runtime exception under certain network failure condition
+            # https://github.com/zk-ruby/zookeeper/blob/80a88e3179fd1d526f7e62a364ab5760f5f5da12/ext/zkrb.c
+            @@zk_pool[@zk_hosts] = with_retry(
+              :max_attempts => ZK_MAX_ATTEMPTS,
+              :base_interval => ZK_BASE_INTERVAL,
+              :max_interval => ZK_MAX_INTERVAL,
+              :retriable_errors => RuntimeError) do |attempts|
+                log.info "synapse: creating pooled connection to #{@zk_hosts} for #{attempts} times"
+                ZK.new(@zk_hosts, :timeout => 5, :thread => :per_callback)
+            end
             @@zk_pool_count[@zk_hosts] = 1
             log.info "synapse: successfully created zk connection to #{@zk_hosts}"
             statsd_increment('synapse.watcher.zk.client.created', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
