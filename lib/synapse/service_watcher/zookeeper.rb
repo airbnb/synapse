@@ -259,14 +259,7 @@ class Synapse::ServiceWatcher
 
       statsd_time('synapse.watcher.zk.watch.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
         unless @watcher
-          @watcher = with_retry(
-              :max_attempts => ZK_MAX_ATTEMPTS,
-              :base_interval => ZK_BASE_INTERVAL,
-              :max_interval => ZK_MAX_INTERVAL,
-              :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
-                log.debug "synapse: zk register at #{@discovery['path']} for #{attempts} times"
-                @zk.register(@discovery['path'], &watcher_callback)
-            end
+          @watcher = @zk.register(@discovery['path'], &watcher_callback)
         end
 
         # Verify that we actually set up the watcher.
@@ -386,7 +379,7 @@ class Synapse::ServiceWatcher
               :max_interval => ZK_MAX_INTERVAL,
               :retriable_errors => ZK_CONNECTION_ERRORS) do |attempts|
           statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-            log.debug "synapse: zk create path: #{@discovery['path']} for #{attempts} times"
+            log.debug "synapse: zk create at #{@discovery['path']} for #{attempts} times"
             create(@discovery['path'])
           end
         end
