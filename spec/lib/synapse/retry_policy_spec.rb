@@ -97,11 +97,21 @@ describe "test with retry" do
   it "test get retry interval" do
     base_interval = 1
     max_interval = 10
-    expect(get_retry_interval(base_interval, max_interval, 1)).to eq(base_interval)
-    expect(get_retry_interval(base_interval, max_interval, 2)).to eq(2)
-    expect(get_retry_interval(base_interval, max_interval, 3)).to eq(4)
-    expect(get_retry_interval(base_interval, max_interval, 4)).to eq(8)
-    expect(get_retry_interval(base_interval, max_interval, 5)).to eq(max_interval)
+    expect(get_retry_interval(base_interval, max_interval, 1, 0)).to eq(base_interval)
+    expect(get_retry_interval(base_interval, max_interval, 2, 0)).to eq(2)
+    expect(get_retry_interval(base_interval, max_interval, 3, 0)).to eq(4)
+    expect(get_retry_interval(base_interval, max_interval, 4, 0)).to eq(8)
+    expect(get_retry_interval(base_interval, max_interval, 5, 0)).to eq(max_interval)
+  end
+
+  it "test get retry interval with delay" do
+    base_interval = 1
+    max_interval = 10
+    expect(get_retry_interval(base_interval, max_interval, 1, 2)).to eq(base_interval)
+    expect(get_retry_interval(base_interval, max_interval, 2, 2)).to eq(1)
+    expect(get_retry_interval(base_interval, max_interval, 3, 2)).to eq(2)
+    expect(get_retry_interval(base_interval, max_interval, 4, 5)).to eq(3)
+    expect(get_retry_interval(base_interval, max_interval, 5, 5)).to eq(max_interval)
   end
 
 

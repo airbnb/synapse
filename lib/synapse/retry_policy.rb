@@ -16,6 +16,7 @@ module Synapse
       end
 
       attempts = 0
+      start_time = Time.now
       begin
         attempts += 1
         return callback.call(attempts)
@@ -23,13 +24,13 @@ module Synapse
         if attempts >= max_attempts
           raise error
         end
-        sleep get_retry_interval(base_interval, max_interval, attempts)
+        sleep get_retry_interval(base_interval, max_interval, attempts, Time.now - start_time)
         retry
       end
     end
 
-    def get_retry_interval(base_interval, max_interval, attempts)
-      [base_interval * (2 ** (attempts - 1)), max_interval].min
+    def get_retry_interval(base_interval, max_interval, attempts, elapsed)
+      [[base_interval * (2 ** (attempts - 1)) - elapsed, base_interval].max, max_interval].min
     end
   end
 end
