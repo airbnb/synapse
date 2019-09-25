@@ -171,6 +171,48 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       end
     end
 
+    context 'retry start' do
+      before :each do
+        discovery['hosts'] = ['127.0.0.1:2181']
+        subject.instance_variable_set(:@zk_retry_max_attempts, 2)
+        subject.instance_variable_set(:@zk_retry_base_interval, 0)
+        subject.instance_variable_set(:@zk_retry_max_interval, 0)
+      end
+
+      it 'with retriable error until succeeded' do
+        expect(ZK).to receive(:new).and_raise(RuntimeError)
+        expect(ZK).to receive(:new).and_return(mock_zk)
+        expect(mock_zk).to receive(:on_expired_session)
+        expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_return(true)
+        expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).once.and_raise(ZK::Exceptions::OperationTimeOut)
+        expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).once.and_return(true)
+        expect(subject).to receive(:watch)
+        expect(subject).to receive(:discover)
+        subject.start
+      end
+
+      it 'with retriable error until new failed' do
+        expect(ZK).to receive(:new).exactly(2).and_raise(RuntimeError)
+        expect { subject.start }.to raise_error(RuntimeError)
+      end
+
+      it 'with retriable error until new failed' do
+        expect(ZK).to receive(:new).and_return(mock_zk)
+        expect(mock_zk).to receive(:on_expired_session)
+        expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
+        expect { subject.start }.to raise_error(ZK::Exceptions::OperationTimeOut)
+      end
+
+      it 'with retriable error until create failed' do
+        expect(ZK).to receive(:new).and_return(mock_zk)
+        expect(mock_zk).to receive(:on_expired_session)
+        expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_return(true)
+        expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
+        expect { subject.start }.to raise_error(ZK::Exceptions::OperationTimeOut)
+      end
+    end
+
+
     it 'responds fail to ping? when the client is not in any of the connected/connecting/associatin state' do
       expect(mock_zk).to receive(:associating?).and_return(false)
       expect(mock_zk).to receive(:connecting?).and_return(false)
