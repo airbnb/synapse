@@ -177,6 +177,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         subject.instance_variable_set(:@zk_retry_max_attempts, 2)
         subject.instance_variable_set(:@zk_retry_base_interval, 0)
         subject.instance_variable_set(:@zk_retry_max_interval, 0)
+        Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
       end
 
       it 'with retriable error until succeeded' do
