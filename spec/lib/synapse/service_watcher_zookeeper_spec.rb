@@ -124,6 +124,53 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       subject.send(:watcher_callback).call
     end
 
+    context 'retry watcher_callback' do
+      before :each do
+        subject.instance_variable_set(:@zk_retry_max_attempts, 2)
+        subject.instance_variable_set(:@zk_retry_base_interval, 0)
+        subject.instance_variable_set(:@zk_retry_max_interval, 0)
+      end
+
+      it 'with retriable error until succeeded' do
+        expect(mock_zk).to receive(:register)
+        expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_raise(ZK::Exceptions::ConnectionLoss)
+        expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_return(true)
+        expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).once.and_raise(ZK::Exceptions::OperationTimeOut)
+        expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).once.and_return(["test_child_1"])
+        expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).once.and_raise(::Zookeeper::Exceptions::ContinuationTimeoutError)
+        expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).once.and_return(config_for_generator_string)
+        expect(mock_zk).to receive(:get).with('some/path/test_child_1').once.and_raise(::Zookeeper::Exceptions::NotConnected)
+        expect(mock_zk).to receive(:get).with('some/path/test_child_1').once.and_return(mock_node)
+        expect(subject).to receive(:set_backends).with([service_data.merge({'id' => 1})], parsed_config_for_generator)
+        subject.instance_variable_set('@zk', mock_zk)
+        subject.send(:watcher_callback).call
+      end
+
+      it 'with retriable error until exists failed' do
+        expect(mock_zk).to receive(:register)
+        expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).exactly(2).and_raise(ZK::Exceptions::ConnectionLoss)
+        subject.instance_variable_set('@zk', mock_zk)
+        expect { subject.send(:watcher_callback).call }.to raise_error(ZK::Exceptions::ConnectionLoss)
+      end
+
+      it 'with retriable error until children failed' do
+        expect(mock_zk).to receive(:register)
+        expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_return(true)
+        expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
+        subject.instance_variable_set('@zk', mock_zk)
+        expect { subject.send(:watcher_callback).call }.to raise_error(ZK::Exceptions::OperationTimeOut)
+      end
+
+      it 'with retriable error until get failed' do
+        expect(mock_zk).to receive(:register)
+        expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_return(true)
+        expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).once.and_return(["test_child_1"])
+        expect(mock_zk).to receive(:get).with('some/path/test_child_1').exactly(2).and_raise(::Zookeeper::Exceptions::NotConnected)
+        subject.instance_variable_set('@zk', mock_zk)
+        expect { subject.send(:watcher_callback).call }.to raise_error(::Zookeeper::Exceptions::NotConnected)
+      end
+    end
+
     it 'responds fail to ping? when the client is not in any of the connected/connecting/associatin state' do
       expect(mock_zk).to receive(:associating?).and_return(false)
       expect(mock_zk).to receive(:connecting?).and_return(false)
