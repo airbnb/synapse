@@ -124,14 +124,14 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       subject.send(:watcher_callback).call
     end
 
-    context 'retry watcher_callback' do
+    context 'watcher_callback' do
       before :each do
         subject.instance_variable_set(:@zk_retry_max_attempts, 2)
         subject.instance_variable_set(:@zk_retry_base_interval, 0)
         subject.instance_variable_set(:@zk_retry_max_interval, 0)
       end
 
-      it 'with retriable error until succeeded' do
+      it 'with retriable error retries until succeeded' do
         expect(mock_zk).to receive(:register)
         expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_raise(ZK::Exceptions::ConnectionLoss)
         expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_return(true)
@@ -146,14 +146,14 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         subject.send(:watcher_callback).call
       end
 
-      it 'with retriable error until exists failed' do
+      it 'exists fails with retriable error retries until failed' do
         expect(mock_zk).to receive(:register)
         expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).exactly(2).and_raise(ZK::Exceptions::ConnectionLoss)
         subject.instance_variable_set('@zk', mock_zk)
         expect { subject.send(:watcher_callback).call }.to raise_error(ZK::Exceptions::ConnectionLoss)
       end
 
-      it 'with retriable error until children failed' do
+      it 'children fails with retriable error retries until failed' do
         expect(mock_zk).to receive(:register)
         expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_return(true)
         expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
@@ -161,7 +161,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         expect { subject.send(:watcher_callback).call }.to raise_error(ZK::Exceptions::OperationTimeOut)
       end
 
-      it 'with retriable error until get failed' do
+      it 'get fails with retriable error retries until failed' do
         expect(mock_zk).to receive(:register)
         expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_return(true)
         expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).once.and_return(["test_child_1"])
@@ -171,7 +171,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       end
     end
 
-    context 'retry start' do
+    context 'start' do
       before :each do
         discovery['hosts'] = ['127.0.0.1:2181']
         subject.instance_variable_set(:@zk_retry_max_attempts, 2)
@@ -180,7 +180,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
       end
 
-      it 'with retriable error until succeeded' do
+      it 'new fails with retriable error retries until succeeded' do
         expect(ZK).to receive(:new).and_raise(RuntimeError)
         expect(ZK).to receive(:new).and_return(mock_zk)
         expect(mock_zk).to receive(:on_expired_session)
@@ -192,19 +192,19 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         subject.start
       end
 
-      it 'with retriable error until new failed' do
+      it 'new fails with retriable error retries until failed' do
         expect(ZK).to receive(:new).exactly(2).and_raise(RuntimeError)
         expect { subject.start }.to raise_error(RuntimeError)
       end
 
-      it 'with retriable error until new failed' do
+      it 'exists fails with retriable error retries until failed' do
         expect(ZK).to receive(:new).and_return(mock_zk)
         expect(mock_zk).to receive(:on_expired_session)
         expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
         expect { subject.start }.to raise_error(ZK::Exceptions::OperationTimeOut)
       end
 
-      it 'with retriable error until create failed' do
+      it 'create fails with retriable error retires until failed' do
         expect(ZK).to receive(:new).and_return(mock_zk)
         expect(mock_zk).to receive(:on_expired_session)
         expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_return(true)
@@ -212,7 +212,6 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         expect { subject.start }.to raise_error(ZK::Exceptions::OperationTimeOut)
       end
     end
-
 
     it 'responds fail to ping? when the client is not in any of the connected/connecting/associatin state' do
       expect(mock_zk).to receive(:associating?).and_return(false)
