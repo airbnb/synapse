@@ -2,6 +2,7 @@ module Synapse
   module RetryPolicy
     def with_retry(options = {}, &callback)
       max_attempts = options[:max_attempts] || 1
+      max_delay = options[:max_delay] || Float::INFINITY
       base_interval = options[:base_interval] || 0
       max_interval = options[:max_interval] || 0
       retriable_errors = Array(options[:retriable_errors] || StandardError)
@@ -21,16 +22,18 @@ module Synapse
         attempts += 1
         return callback.call(attempts)
       rescue *retriable_errors => error
-        if attempts >= max_attempts
+        if attempts >= max_attempts || (Time.now - start_time) >= max_delay
           raise error
         end
-        sleep get_retry_interval(base_interval, max_interval, attempts, Time.now - start_time)
+        sleep get_retry_interval(base_interval, max_interval, attempts)
         retry
       end
     end
 
-    def get_retry_interval(base_interval, max_interval, attempts, elapsed)
-      [[base_interval * (2 ** (attempts - 1)) - elapsed, base_interval].max, max_interval].min
+    def get_retry_interval(base_interval, max_interval, attempts)
+      retry_interval = base_interval * (2 ** (attempts - 1)) # exponetial back-off
+      retry_interval = retry_interval * (0.5 * (1 + rand())) # randomize
+      [[retry_interval, base_interval].max, max_interval].min # regularize
     end
   end
 end
