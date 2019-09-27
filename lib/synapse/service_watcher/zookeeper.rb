@@ -43,9 +43,11 @@ class Synapse::ServiceWatcher
         end
       end
 
-      @zk_retry_max_attempts = @discovery['zk_retry_max_attempts'] || 10
-      @zk_retry_base_interval = @discovery['zk_retry_base_interval'] || 3
-      @zk_retry_max_interval = @discovery['zk_retry_max_interval'] || 60
+      @retry_policy = @discovery['retry_policy'] || {}
+      @retry_policy['max_attempts'] = @retry_policy['max_attempts'] || 10
+      @retry_policy['max_delay'] = @retry_policy['max_delay'] || 600
+      @retry_policy['base_interval'] = @retry_policy['base_interval'] || 0.5
+      @retry_policy['max_interval'] = @retry_policy['max_interval'] || 60
     end
 
     def start
@@ -56,7 +58,7 @@ class Synapse::ServiceWatcher
       @watcher = nil
       @zk = nil
 
-      log.info "synapse: starting ZK watcher #{@name} @ cluster #{@zk_cluster} path: #{@discovery['path']}"
+      log.info "synapse: starting ZK watcher #{@name} @ cluster: #{@zk_cluster} path: #{@discovery['path']} retry policy: #{@retry_policy}"
       zk_connect
     end
 
@@ -158,11 +160,7 @@ class Synapse::ServiceWatcher
         log.info "synapse: discovering backends for service #{@name}"
 
         new_backends = []
-        zk_children = with_retry(
-              :max_attempts => @zk_retry_max_attempts,
-              :base_interval => @zk_retry_base_interval,
-              :max_interval => @zk_retry_max_interval,
-              :retriable_errors => ZK_RETRIABLE_ERRORS) do |attempts|
+        zk_children = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
             statsd_time('synapse.watcher.zk.children.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
               log.debug "synapse: zk list children at #{@discovery['path']} for #{attempts} times"
               @zk.children(@discovery['path'], :watch => true)
@@ -180,11 +178,7 @@ class Synapse::ServiceWatcher
           end
 
           begin
-            node = with_retry(
-              :max_attempts => @zk_retry_max_attempts,
-              :base_interval => @zk_retry_base_interval,
-              :max_interval => @zk_retry_max_interval,
-              :retriable_errors => ZK_RETRIABLE_ERRORS) do |attempts|
+            node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
               statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
                 log.debug "synapse: zk get child at #{@discovery['path']}/#{id} for #{attempts} times"
                 @zk.get("#{@discovery['path']}/#{id}")
@@ -230,11 +224,7 @@ class Synapse::ServiceWatcher
 
         if discovery_key
           begin
-            node = with_retry(
-              :max_attempts => @zk_retry_max_attempts,
-              :base_interval => @zk_retry_base_interval,
-              :max_interval => @zk_retry_max_interval,
-              :retriable_errors => ZK_RETRIABLE_ERRORS) do |attempts|
+            node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
                 statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
                   log.debug "synapse: zk get parent at #{@discovery[discovery_key]} for #{attempts} times"
                   @zk.get(@discovery[discovery_key], :watch => true)
@@ -269,11 +259,7 @@ class Synapse::ServiceWatcher
         end
 
         # Verify that we actually set up the watcher.
-        existed = with_retry(
-              :max_attempts => @zk_retry_max_attempts,
-              :base_interval => @zk_retry_base_interval,
-              :max_interval => @zk_retry_max_interval,
-              :retriable_errors => ZK_RETRIABLE_ERRORS) do |attempts|
+        existed = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
           log.debug "synapse: zk exists at #{@discovery['path']} for #{attempts} times"
           @zk.exists?(@discovery['path'], :watch => true)
         end
@@ -357,11 +343,7 @@ class Synapse::ServiceWatcher
           unless @@zk_pool.has_key?(@zk_hosts)
             # connecting to zookeeper could runtime error under certain network failure
             # https://github.com/zk-ruby/zookeeper/blob/80a88e3179fd1d526f7e62a364ab5760f5f5da12/ext/zkrb.c
-            @@zk_pool[@zk_hosts] = with_retry(
-              :max_attempts => @zk_retry_max_attempts,
-              :base_interval => @zk_retry_base_interval,
-              :max_interval => @zk_retry_max_interval,
-              :retriable_errors => RuntimeError) do |attempts|
+            @@zk_pool[@zk_hosts] = with_retry(@retry_policy.merge({'retriable_errors' => RuntimeError})) do |attempts|
                 log.info "synapse: creating pooled connection to #{@zk_hosts} for #{attempts} times"
                 ZK.new(@zk_hosts, :timeout => 5, :thread => :per_callback)
             end
@@ -387,11 +369,7 @@ class Synapse::ServiceWatcher
         end
 
         # the path must exist, otherwise watch callbacks will not work
-        with_retry(
-              :max_attempts => @zk_retry_max_attempts,
-              :base_interval => @zk_retry_base_interval,
-              :max_interval => @zk_retry_max_interval,
-              :retriable_errors => ZK_RETRIABLE_ERRORS) do |attempts|
+        with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
           statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
             log.debug "synapse: zk create at #{@discovery['path']} for #{attempts} times"
             create(@discovery['path'])

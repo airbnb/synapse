@@ -126,9 +126,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
     context 'watcher_callback' do
       before :each do
-        subject.instance_variable_set(:@zk_retry_max_attempts, 2)
-        subject.instance_variable_set(:@zk_retry_base_interval, 0)
-        subject.instance_variable_set(:@zk_retry_max_interval, 0)
+        subject.instance_variable_set(:@retry_policy, {'max_attempts' => 2, 'base_interval' => 0, 'max_interval' => 0})
       end
 
       it 'with retriable error retries until succeeded' do
@@ -174,9 +172,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     context 'start' do
       before :each do
         discovery['hosts'] = ['127.0.0.1:2181']
-        subject.instance_variable_set(:@zk_retry_max_attempts, 2)
-        subject.instance_variable_set(:@zk_retry_base_interval, 0)
-        subject.instance_variable_set(:@zk_retry_max_interval, 0)
+        subject.instance_variable_set(:@retry_policy, {'max_attempts' => 2, 'base_interval' => 0, 'max_interval' => 0})
         Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
       end
 

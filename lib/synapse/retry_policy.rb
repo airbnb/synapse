@@ -1,11 +1,11 @@
 module Synapse
   module RetryPolicy
     def with_retry(options = {}, &callback)
-      max_attempts = options[:max_attempts] || 1
-      max_delay = options[:max_delay] || Float::INFINITY
-      base_interval = options[:base_interval] || 0
-      max_interval = options[:max_interval] || 0
-      retriable_errors = Array(options[:retriable_errors] || StandardError)
+      max_attempts = options['max_attempts'] || 1
+      max_delay = options['max_delay'] || Float::INFINITY
+      base_interval = options['base_interval'] || 0
+      max_interval = options['max_interval'] || 0
+      retriable_errors = Array(options['retriable_errors'] || StandardError)
       if max_attempts <= 0
         raise ArgumentError, ":max_attempts must be greater than 0"
       end
@@ -15,7 +15,6 @@ module Synapse
       if callback.nil?
         raise ArgumentError, "callback cannot be nil"
       end
-
       attempts = 0
       start_time = Time.now
       begin

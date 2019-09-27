@@ -33,7 +33,7 @@ describe "Synapse::RetryPolicy" do
       expect_attempts = 3
       attempts = 0
       expected_result = "done"
-      result = with_retry(:max_attempts => expect_attempts) do
+      result = with_retry('max_attempts' => expect_attempts) do
         attempts += 1
         if attempts < expect_attempts
           raise StandardError
@@ -48,7 +48,7 @@ describe "Synapse::RetryPolicy" do
       expect_attempts = 3
       attempts = 0
       expect {
-        with_retry(:max_attempts => expect_attempts) do
+        with_retry('max_attempts' => expect_attempts) do
           attempts += 1
           raise StandardError
         end
@@ -60,7 +60,7 @@ describe "Synapse::RetryPolicy" do
       expect_attempts = 1
       attempts = 0
       expect {
-        with_retry(:max_attempts => 3, :max_delay => 0) do
+        with_retry('max_attempts' => 3, 'max_delay' => 0) do
           attempts += 1
           raise StandardError
         end
@@ -72,7 +72,7 @@ describe "Synapse::RetryPolicy" do
       expect_attempts = 3
       attempts = 0
       expected_result = "done"
-      result = with_retry(:max_attempts => expect_attempts, :retriable_errors => IOError) do
+      result = with_retry('max_attempts' => expect_attempts, 'retriable_errors' => IOError) do
         attempts += 1
         if attempts < expect_attempts
           raise IOError
@@ -87,7 +87,7 @@ describe "Synapse::RetryPolicy" do
       expect_attempts = 3
       attempts = 0
       expect {
-        with_retry(:max_attempts => expect_attempts) do
+        with_retry('max_attempts' => expect_attempts) do
           attempts += 1
           raise IOError
         end
@@ -99,7 +99,7 @@ describe "Synapse::RetryPolicy" do
       expect_attempts = 1
       attempts = 0
       expect {
-        with_retry(:max_attempts => 3, :retriable_errors => IOError) do
+        with_retry('max_attempts' => 3, 'retriable_errors' => IOError) do
           attempts += 1
           raise ArgumentError
         end
@@ -111,7 +111,7 @@ describe "Synapse::RetryPolicy" do
       expect_attempts = 0
       attempts = 0
       expect {
-        with_retry(:max_attempts => -1) do
+        with_retry('max_attempts' => -1) do
           attempts += 1
         end
       }.to raise_error(ArgumentError)
@@ -122,7 +122,7 @@ describe "Synapse::RetryPolicy" do
       expect_attempts = 0
       attempts = 0
       expect {
-        with_retry(:max_attempts => 1, :base_interval => 5, :max_interval => 3) do
+        with_retry('max_attempts' => 1, 'base_interval' => 5, 'max_interval' => 3) do
           attempts += 1
         end
       }.to raise_error(ArgumentError)
@@ -133,7 +133,7 @@ describe "Synapse::RetryPolicy" do
       expect_attempts = 0
       attempts = 0
       expect {
-        with_retry(:max_attempts => 1, :base_interval => 1, :max_interval => 5)
+        with_retry('max_attempts' => 1, 'base_interval' => 1, 'max_interval' => 5)
       }.to raise_error(ArgumentError)
       expect(attempts).to eq(expect_attempts)
     end
