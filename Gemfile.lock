@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    synapse (0.17.1)
+    synapse (0.17.2)
       aws-sdk (~> 1.39)
       docker-api (~> 1.7)
       dogstatsd-ruby (~> 3.3.0)
