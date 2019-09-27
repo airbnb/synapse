@@ -7,10 +7,16 @@ module Synapse
       max_interval = options['max_interval'] || 0
       retriable_errors = Array(options['retriable_errors'] || StandardError)
       if max_attempts <= 0
-        raise ArgumentError, ":max_attempts must be greater than 0"
+        raise ArgumentError, "max_attempts must be greater than 0"
+      end
+      if base_interval < 0
+        raise ArgumentError, "base_interval cannot be negative"
+      end
+      if max_interval < 0
+        raise ArgumentError, "max_interval cannot be negative"
       end
       if base_interval > max_interval
-        raise ArgumentError, ":base_interval cannot be greater than :max_interval."
+        raise ArgumentError, "base_interval cannot be greater than max_interval"
       end
       if callback.nil?
         raise ArgumentError, "callback cannot be nil"

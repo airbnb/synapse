@@ -118,7 +118,29 @@ describe "Synapse::RetryPolicy" do
       expect(attempts).to eq(expect_attempts)
     end
 
-    it "immediately raise argument error with invaid max_attempts" do
+    it "immediately raise argument error with invaid base_interval" do
+      expect_attempts = 0
+      attempts = 0
+      expect {
+        with_retry('base_interval' => -1) do
+          attempts += 1
+        end
+      }.to raise_error(ArgumentError)
+      expect(attempts).to eq(expect_attempts)
+    end
+
+    it "immediately raise argument error with invaid max_interval" do
+      expect_attempts = 0
+      attempts = 0
+      expect {
+        with_retry('max_interval' => -1) do
+          attempts += 1
+        end
+      }.to raise_error(ArgumentError)
+      expect(attempts).to eq(expect_attempts)
+    end
+
+    it "immediately raise argument error with invaid base_interval and max_interval" do
       expect_attempts = 0
       attempts = 0
       expect {
