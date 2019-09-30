@@ -180,7 +180,7 @@ class Synapse::ServiceWatcher
           begin
             node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
               statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-                log.info "synapse: zk get child at #{@discovery['path']}/#{id} for #{attempts} times"
+                log.debug "synapse: zk get child at #{@discovery['path']}/#{id} for #{attempts} times"
                 @zk.get("#{@discovery['path']}/#{id}")
               end
             end
