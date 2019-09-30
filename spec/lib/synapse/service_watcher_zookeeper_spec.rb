@@ -97,44 +97,6 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       expect(subject.send(:parse_service_config, config_for_generator_invalid_string)).to eql(parsed_config_for_generator_invalid)
     end
 
-    it 'handle zk get retrun nil success' do
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_return(nil)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_return(nil)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_return(nil)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_return(nil)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_return(mock_node)
-      subject.instance_variable_set('@zk', mock_zk)
-      expect(subject.send(:zk_get_path, 'test/path', :retry_limit => 5, :retry_interval => 0)).to eql mock_node
-    end
-
-    it 'handle zk get retrun nill failure' do
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_return(nil)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_return(nil)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_return(nil)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_return(nil)
-      subject.instance_variable_set('@zk', mock_zk)
-      expect{subject.send(:zk_get_path, 'test/path', :retry_interval => 0)}.to raise_error(RuntimeError)
-    end
-
-    it 'handle zk get timeout success' do
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_raise(ZK::Exceptions::OperationTimeOut)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_raise(ZK::Exceptions::OperationTimeOut)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_raise(ZK::Exceptions::OperationTimeOut)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_raise(ZK::Exceptions::OperationTimeOut)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_return(mock_node)
-      subject.instance_variable_set('@zk', mock_zk)
-      expect(subject.send(:zk_get_path, 'test/path', :retry_limit => 5, :retry_interval => 0)).to eql mock_node
-    end
-
-    it 'handle zk get timeout failure' do
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_raise(ZK::Exceptions::OperationTimeOut)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_raise(ZK::Exceptions::OperationTimeOut)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_raise(ZK::Exceptions::OperationTimeOut)
-      expect(mock_zk).to receive(:get).with('test/path', {}).and_raise(ZK::Exceptions::OperationTimeOut)
-      subject.instance_variable_set('@zk', mock_zk)
-      expect{subject.send(:zk_get_path, 'test/path', :retry_interval => 0)}.to raise_error(RuntimeError)
-    end
-
     it 'reacts to zk push events' do
       expect(subject).to receive(:watch)
       expect(subject).to receive(:discover).and_call_original
@@ -142,7 +104,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).and_return(
         ["test_child_1"]
       )
-      expect(mock_zk).to receive(:get).with('some/path/test_child_1', {}).and_return(mock_node)
+      expect(mock_zk).to receive(:get).with('some/path/test_child_1').and_return(mock_node)
       subject.instance_variable_set('@zk', mock_zk)
       expect(subject).to receive(:set_backends).with([service_data.merge({'id' => 1})], parsed_config_for_generator)
       subject.send(:watcher_callback).call
@@ -155,11 +117,96 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         ["test_child_1"]
       )
       expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).and_return("")
-      expect(mock_zk).to receive(:get).with('some/path/test_child_1', {}).and_raise(ZK::Exceptions::NoNode)
+      expect(mock_zk).to receive(:get).with('some/path/test_child_1').and_raise(ZK::Exceptions::NoNode)
 
       subject.instance_variable_set('@zk', mock_zk)
       expect(subject).to receive(:set_backends).with([],{})
       subject.send(:watcher_callback).call
+    end
+
+    context 'watcher_callback' do
+      before :each do
+        subject.instance_variable_set(:@retry_policy, {'max_attempts' => 2, 'base_interval' => 0, 'max_interval' => 0})
+      end
+
+      it 'with retriable error retries until succeeded' do
+        expect(mock_zk).to receive(:register)
+        expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_raise(ZK::Exceptions::ConnectionLoss)
+        expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_return(true)
+        expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).once.and_raise(ZK::Exceptions::OperationTimeOut)
+        expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).once.and_return(["test_child_1"])
+        expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).once.and_raise(::Zookeeper::Exceptions::ContinuationTimeoutError)
+        expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).once.and_return(config_for_generator_string)
+        expect(mock_zk).to receive(:get).with('some/path/test_child_1').once.and_raise(::Zookeeper::Exceptions::NotConnected)
+        expect(mock_zk).to receive(:get).with('some/path/test_child_1').once.and_return(mock_node)
+        expect(subject).to receive(:set_backends).with([service_data.merge({'id' => 1})], parsed_config_for_generator)
+        subject.instance_variable_set('@zk', mock_zk)
+        subject.send(:watcher_callback).call
+      end
+
+      it 'exists fails with retriable error retries until failed' do
+        expect(mock_zk).to receive(:register)
+        expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).exactly(2).and_raise(ZK::Exceptions::ConnectionLoss)
+        subject.instance_variable_set('@zk', mock_zk)
+        expect { subject.send(:watcher_callback).call }.to raise_error(ZK::Exceptions::ConnectionLoss)
+      end
+
+      it 'children fails with retriable error retries until failed' do
+        expect(mock_zk).to receive(:register)
+        expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_return(true)
+        expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
+        subject.instance_variable_set('@zk', mock_zk)
+        expect { subject.send(:watcher_callback).call }.to raise_error(ZK::Exceptions::OperationTimeOut)
+      end
+
+      it 'get fails with retriable error retries until failed' do
+        expect(mock_zk).to receive(:register)
+        expect(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_return(true)
+        expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).once.and_return(["test_child_1"])
+        expect(mock_zk).to receive(:get).with('some/path/test_child_1').exactly(2).and_raise(::Zookeeper::Exceptions::NotConnected)
+        subject.instance_variable_set('@zk', mock_zk)
+        expect { subject.send(:watcher_callback).call }.to raise_error(::Zookeeper::Exceptions::NotConnected)
+      end
+    end
+
+    context 'start' do
+      before :each do
+        discovery['hosts'] = ['127.0.0.1:2181']
+        subject.instance_variable_set(:@retry_policy, {'max_attempts' => 2, 'base_interval' => 0, 'max_interval' => 0})
+        Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
+      end
+
+      it 'new fails with retriable error retries until succeeded' do
+        expect(ZK).to receive(:new).and_raise(RuntimeError)
+        expect(ZK).to receive(:new).and_return(mock_zk)
+        expect(mock_zk).to receive(:on_expired_session)
+        expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_return(true)
+        expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).once.and_raise(ZK::Exceptions::OperationTimeOut)
+        expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).once.and_return(true)
+        expect(subject).to receive(:watch)
+        expect(subject).to receive(:discover)
+        subject.start
+      end
+
+      it 'new fails with retriable error retries until failed' do
+        expect(ZK).to receive(:new).exactly(2).and_raise(RuntimeError)
+        expect { subject.start }.to raise_error(RuntimeError)
+      end
+
+      it 'exists fails with retriable error retries until failed' do
+        expect(ZK).to receive(:new).and_return(mock_zk)
+        expect(mock_zk).to receive(:on_expired_session)
+        expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
+        expect { subject.start }.to raise_error(ZK::Exceptions::OperationTimeOut)
+      end
+
+      it 'create fails with retriable error retires until failed' do
+        expect(ZK).to receive(:new).and_return(mock_zk)
+        expect(mock_zk).to receive(:on_expired_session)
+        expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_return(true)
+        expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
+        expect { subject.start }.to raise_error(ZK::Exceptions::OperationTimeOut)
+      end
     end
 
     it 'responds fail to ping? when the client is not in any of the connected/connecting/associatin state' do
@@ -213,7 +260,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).and_return(
           ["test_child_1"]
         )
-        expect(mock_zk).to receive(:get).with('some/path/test_child_1', {}).and_raise(ZK::Exceptions::NoNode)
+        expect(mock_zk).to receive(:get).with('some/path/test_child_1').and_raise(ZK::Exceptions::NoNode)
 
         subject.instance_variable_set('@zk', mock_zk)
         expect(subject).to receive(:set_backends).with([],{})

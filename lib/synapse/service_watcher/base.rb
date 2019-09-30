@@ -1,5 +1,6 @@
 require 'synapse/log'
 require 'synapse/statsd'
+require 'synapse/retry_policy'
 require 'set'
 require 'hashdiff'
 
@@ -7,6 +8,7 @@ class Synapse::ServiceWatcher
   class BaseWatcher
     include Synapse::Logging
     include Synapse::StatsD
+    include Synapse::RetryPolicy
 
     LEADER_WARN_INTERVAL = 30
 
