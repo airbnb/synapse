@@ -2,7 +2,7 @@ module Synapse
   module RetryPolicy
     def with_retry(options = {}, &callback)
       max_attempts = options['max_attempts'] || 1
-      max_delay = options['max_delay'] || Float::INFINITY
+      max_delay = options['max_delay'] || 3600
       base_interval = options['base_interval'] || 0
       max_interval = options['max_interval'] || 0
       retriable_errors = Array(options['retriable_errors'] || StandardError)
