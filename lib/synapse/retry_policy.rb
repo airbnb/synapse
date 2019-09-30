@@ -1,5 +1,7 @@
 module Synapse
   module RetryPolicy
+    include Synapse::StatsD
+
     def with_retry(options = {}, &callback)
       max_attempts = options['max_attempts'] || 1
       max_delay = options['max_delay'] || 3600
@@ -27,9 +29,15 @@ module Synapse
         attempts += 1
         return callback.call(attempts)
       rescue *retriable_errors => error
-        if attempts >= max_attempts || (Time.now - start_time) >= max_delay
+        if attempts >= max_attempts
+          statsd_increment('synapse.retry', ['op:raise_max_attempts'])
           raise error
         end
+        if (Time.now - start_time) >= max_delay
+          statsd_increment('synapse.retry', ['op:raise_max_delay'])
+          raise error
+        end
+        statsd_increment('synapse.retry', ['op:retry_after_sleep'])
         sleep get_retry_interval(base_interval, max_interval, attempts)
         retry
       end
