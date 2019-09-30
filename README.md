@@ -227,7 +227,7 @@ It takes the following mandatory arguments:
 * `method`: zookeeper
 * `path`: the zookeeper path where ephemeral nodes will be created for each available service server
 * `hosts`: the list of zookeeper servers to query
-* `retry_policy`: the retry policy (exponential back-off) when connectting to zookeeper servers and making network calls: `max_attempts` maximum number of all attempts (including original attempt), `max_delay` maxmimum delay for all attempts (including original attempt), `base_interval` retry interval for first retry attempt, `max_interval` maximum interval for each retry attempt
+* `retry_policy`: the retry policy (exponential back-off) when connecting to zookeeper servers and making network calls: `max_attempts` maximum number of all attempts (including original attempt), `max_delay` maxmimum delay in seconds for all attempts (including original attempt), `base_interval` retry interval in seconds for first retry attempt, `max_interval` maximum interval in seconds for each retry attempt. By default the retry policy is disabled.
 
 The watcher assumes that each node under `path` represents a service server.
 
