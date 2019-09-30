@@ -162,7 +162,7 @@ class Synapse::ServiceWatcher
         new_backends = []
         zk_children = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
             statsd_time('synapse.watcher.zk.children.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-              log.debug "synapse: zk list children at #{@discovery['path']} for #{attempts} times"
+              log.info "synapse: zk list children at #{@discovery['path']} for #{attempts} times"
               @zk.children(@discovery['path'], :watch => true)
             end
         end
@@ -180,7 +180,7 @@ class Synapse::ServiceWatcher
           begin
             node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
               statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-                log.debug "synapse: zk get child at #{@discovery['path']}/#{id} for #{attempts} times"
+                log.info "synapse: zk get child at #{@discovery['path']}/#{id} for #{attempts} times"
                 @zk.get("#{@discovery['path']}/#{id}")
               end
             end
@@ -226,7 +226,7 @@ class Synapse::ServiceWatcher
           begin
             node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
                 statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-                  log.debug "synapse: zk get parent at #{@discovery[discovery_key]} for #{attempts} times"
+                  log.info "synapse: zk get parent at #{@discovery[discovery_key]} for #{attempts} times"
                   @zk.get(@discovery[discovery_key], :watch => true)
                 end
             end
@@ -260,7 +260,7 @@ class Synapse::ServiceWatcher
 
         # Verify that we actually set up the watcher.
         existed = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
-          log.debug "synapse: zk exists at #{@discovery['path']} for #{attempts} times"
+          log.info "synapse: zk exists at #{@discovery['path']} for #{attempts} times"
           @zk.exists?(@discovery['path'], :watch => true)
         end
         unless existed
@@ -335,8 +335,6 @@ class Synapse::ServiceWatcher
 
     def zk_connect
       statsd_time('synapse.watcher.zk.connect.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-        log.info "synapse: zookeeper watcher connecting to ZK at #{@zk_hosts}"
-
         # Ensure that all Zookeeper watcher re-use a single zookeeper
         # connection to any given set of zk hosts.
         @@zk_pool_lock.synchronize {
@@ -371,7 +369,7 @@ class Synapse::ServiceWatcher
         # the path must exist, otherwise watch callbacks will not work
         with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
           statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-            log.debug "synapse: zk create at #{@discovery['path']} for #{attempts} times"
+            log.info "synapse: zk create at #{@discovery['path']} for #{attempts} times"
             create(@discovery['path'])
           end
         end
