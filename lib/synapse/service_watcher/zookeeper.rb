@@ -362,7 +362,7 @@ class Synapse::ServiceWatcher
         # the path must exist, otherwise watch callbacks will not work
         existed = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
             log.info "synapse: zk exists at #{@discovery['path']} for #{attempts} times"
-            exists(@discovery['path'])
+            @zk.exists?(@discovery['path'])
         end
 
         unless existed
