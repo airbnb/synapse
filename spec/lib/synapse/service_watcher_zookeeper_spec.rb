@@ -180,7 +180,9 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         expect(ZK).to receive(:new).and_raise(RuntimeError)
         expect(ZK).to receive(:new).and_return(mock_zk)
         expect(mock_zk).to receive(:on_expired_session)
-        expect(mock_zk).to receive(:exists?).with('some/path').and_return(true)
+        expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_return(true)
+        expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).once.and_raise(ZK::Exceptions::OperationTimeOut)
+        expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).once.and_return(true)
         expect(subject).to receive(:watch)
         expect(subject).to receive(:discover)
         subject.start
@@ -194,7 +196,15 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       it 'exists fails with retriable error retries until failed' do
         expect(ZK).to receive(:new).and_return(mock_zk)
         expect(mock_zk).to receive(:on_expired_session)
-        expect(mock_zk).to receive(:exists?).with('some/path').exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
+        expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
+        expect { subject.start }.to raise_error(ZK::Exceptions::OperationTimeOut)
+      end
+
+      it 'create fails with retriable error retires until failed' do
+        expect(ZK).to receive(:new).and_return(mock_zk)
+        expect(mock_zk).to receive(:on_expired_session)
+        expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_return(true)
+        expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
         expect { subject.start }.to raise_error(ZK::Exceptions::OperationTimeOut)
       end
     end

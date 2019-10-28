@@ -146,6 +146,13 @@ class Synapse::ServiceWatcher
       result
     end
 
+    # helper method that ensures that the discovery path exists
+    def create(path)
+      # recurse if the parent node does not exist
+      create File.dirname(path) unless @zk.exists? File.dirname(path)
+      @zk.create(path, ignore: :node_exists)
+    end
+
     # find the current backends at the discovery path
     def discover
       statsd_increment('synapse.watcher.zk.discovery', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"])
@@ -360,14 +367,11 @@ class Synapse::ServiceWatcher
         end
 
         # the path must exist, otherwise watch callbacks will not work
-        existed = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
-            log.info "synapse: zk exists at #{@discovery['path']} for #{attempts} times"
-            @zk.exists?(@discovery['path'])
-        end
-
-        unless existed
-          log.warn "synapse zk path #{@discovery['path']} does not exist, skip bootstrap"
-          return
+        with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
+          statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+            log.info "synapse: zk create at #{@discovery['path']} for #{attempts} times"
+            create(@discovery['path'])
+          end
         end
         # call the callback to bootstrap the process
         watcher_callback.call
