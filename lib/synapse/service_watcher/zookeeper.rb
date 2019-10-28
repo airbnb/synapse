@@ -368,9 +368,11 @@ class Synapse::ServiceWatcher
 
         # the path must exist, otherwise watch callbacks will not work
         with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
-          statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-            log.info "synapse: zk create at #{@discovery['path']} for #{attempts} times"
-            create(@discovery['path'])
+          unless @zk.exists?(@discovery['path'])
+            statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+              log.info "synapse: zk create at #{@discovery['path']} for #{attempts} times"
+              create(@discovery['path'])
+            end
           end
         end
         # call the callback to bootstrap the process
