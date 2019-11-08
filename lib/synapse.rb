@@ -6,7 +6,7 @@ require 'synapse/log'
 require 'synapse/statsd'
 require 'synapse/config_generator'
 require 'synapse/service_watcher'
-
+require 'synapse/version'
 
 module Synapse
   class Synapse
@@ -62,7 +62,7 @@ module Synapse
         loop do
           @service_watchers.each do |w|
             alive = w.ping?
-            statsd_increment('synapse.watcher.ping.count', ["watcher_name:#{w.name}", "ping_result:#{alive ? "success" : "failure"}"])
+            statsd_increment('synapse.watcher.ping.count', ["watcher_name:#{w.name}", "ping_result:#{alive ? "success" : "failure"}", "synapse_version:#{VERSION}"])
             raise "synapse: service watcher #{w.name} failed ping!" unless alive
           end
 
