@@ -54,9 +54,17 @@ class Synapse::ServiceWatcher
           [ pair[1].rpartition("/").first, pair[0].rpartition(":").last ]
         end
       elsif ports.is_a?(Array)
-        # New style API, ports is an array of hashes, with numeric values (or nil if no ports forwarded)
+      # New style API, ports is an array of hashes, with numeric values (or nil if no ports forwarded)
+      # Check to see if we are using addressable IP addresses.  If so, we don't need the 'PublicPort' as the 'PrivatePort' is available
         pairs = ports.collect do |v|
-          [v['PrivatePort'].to_s, v['PublicPort'].to_s]
+          addressable = @discovery['addressable_ip']
+          # If addressable is true, just use the 'private port'
+          if addressable == "true"
+            [v['PrivatePort'].to_s,v['PrivatePort'].to_s]
+          # otherwise, we will want to use the public port on the docker host
+          else
+            [v['PrivatePort'].to_s, v['PublicPort'].to_s]
+          end
         end
       end
       Hash[pairs]
@@ -80,12 +88,41 @@ class Synapse::ServiceWatcher
             and cnt["Ports"].has_key?(@discovery["container_port"].to_s()) \
             and cnt["Ports"][@discovery["container_port"].to_s()].length > 0
         end
-        cnts.map do |cnt|
-          {
-            'name' => server['name'],
-            'host' => server['host'],
-            'port' => cnt["Ports"][@discovery["container_port"].to_s()]
-          }
+
+        # Check to see if we are using an addressable IP
+        addressable = @discovery['addressable_ip']
+        # If so, then we need to inspect the containers and get the IP Address and Port
+        if addressable == "true"
+          cnts.map do |cnt|
+            id = cnt['Id']
+            request = '/containers/' + id + '/json'
+            begin
+              Docker.url = "http://#{server['host']}:#{server['port'] || 4243}"
+              response = Docker::Util.parse_json('[' + Docker.connection.get(request, {})+ ']')
+            rescue => an_error
+              log.warn "synapse: error inspecting container : #{an_error.inspect}"
+              next []
+            end
+        
+            # Nothing to loop through here, so just look at the response and get what we want
+            {
+              'name' => response[0]['Config']['Hostname'],
+              'host' => response[0]['NetworkSettings']['IPAddress'],
+              'port' => cnt['Ports'][@discovery['container_port'].to_s()]
+            }
+
+          end
+
+        # If the IP isn't addressable, then we pick our host and server from the config and use the Private Port.
+        else
+          cnts.map do |cnt|
+            id = cnt['Id']
+            {
+              'name' => server['name'],
+              'host' => server['host'],
+              'port' => cnt["Ports"][@discovery["container_port"].to_s()]
+            }
+          end
         end
       end
       backends.flatten
