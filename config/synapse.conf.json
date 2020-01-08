@@ -54,6 +54,8 @@
   },
   "haproxy": {
     "reload_command": "sudo service haproxy reload",
+    "check_command": "haproxy -c -f /etc/haproxy/haproxy-candidate.cfg",
+    "candidate_config_file_path": "/etc/haproxy/haproxy-candidate.cfg",
     "config_file_path": "/etc/haproxy/haproxy.cfg",
     "socket_file_path": "/var/haproxy/stats.sock",
     "do_writes": false,

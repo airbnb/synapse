@@ -1319,11 +1319,30 @@ class Synapse::ConfigGenerator
       if old_config == new_config
         return false
       else
-        tmp_file_path = "#{opts['config_file_path']}.tmp"
-        File.write(tmp_file_path, new_config)
-        FileUtils.mv(tmp_file_path, opts['config_file_path'])
+        candidate_file_path = opts['candidate_config_file_path']
+        File.write(candidate_file_path, new_config)
+
+        unless check_config?
+          return false
+        end
+
+        FileUtils.mv(candidate_file_path, opts['config_file_path'])
         return true
       end
+    end
+
+    # check that the full configuration is valid after it is written
+    # This does more than validate_haproxy_stanza because it checks the
+    # entirety of the configuration using haproxy itself.
+    def check_config?
+      res = `#{opts['check_command']}`.chomp
+      success = $?.success?
+      unless success
+        log.error "invalid generated HAProxy config (checked via #{opts['check_command']}): #{res}"
+      end
+
+      statds_increment("synapse.haproxy.check_config", ["success:#{success}", ])
+      return success
     end
 
     # restarts haproxy if the time is right
