@@ -6,6 +6,7 @@ require 'socket'
 require 'digest/sha1'
 require 'set'
 require 'hashdiff'
+require 'open3'
 
 class Synapse::ConfigGenerator
   class Haproxy < BaseGenerator
@@ -813,10 +814,12 @@ class Synapse::ConfigGenerator
 
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
+      @opts['do_checks'] = false unless @opts.key?('do_checks')
       @opts['do_reloads'] = true unless @opts.key?('do_reloads')
       req_pairs = {
         'do_writes' => 'config_file_path',
         'do_socket' => 'socket_file_path',
+        'do_checks' => 'check_command',
         'do_reloads' => 'reload_command'
       }
 
@@ -1335,13 +1338,17 @@ class Synapse::ConfigGenerator
     # This does more than validate_haproxy_stanza because it checks the
     # entirety of the configuration using haproxy itself.
     def check_config?
-      res = `#{opts['check_command']}`.chomp
-      success = $?.success?
+      unless opts['do_checks']
+        return true
+      end
+
+      res, exit_code = Open3.capture2e(opts['check_command'])
+      success = exit_code.success?
       unless success
         log.error "invalid generated HAProxy config (checked via #{opts['check_command']}): #{res}"
       end
 
-      statds_increment("synapse.haproxy.check_config", ["success:#{success}", ])
+      statsd_increment("synapse.haproxy.check_config", ["success:#{success}"])
       return success
     end
 

@@ -59,6 +59,7 @@
     "config_file_path": "/etc/haproxy/haproxy.cfg",
     "socket_file_path": "/var/haproxy/stats.sock",
     "do_writes": false,
+    "do_checks": false,
     "do_reloads": false,
     "do_socket": false,
     "global": [
