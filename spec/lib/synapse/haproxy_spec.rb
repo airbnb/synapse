@@ -784,6 +784,92 @@ describe Synapse::ConfigGenerator::Haproxy do
     end
   end
 
+  describe '#write_config' do
+    before {
+      config['haproxy']['config_file_path'] = 'config_file'
+      config['haproxy']['candidate_config_file_path'] = 'candidate_config_file'
+
+      allow(File).to receive(:read).with('config_file').and_return('haproxy-config')
+      allow(File).to receive(:read).with('candidate_config_file').and_return('candidate-haproxy-config')
+    }
+
+    context 'when config changes' do
+      it 'writes candidate config' do
+        allow(FileUtils).to receive(:mv)
+        allow(subject).to receive(:check_config?).and_return(true)
+
+        expect(File).to receive(:write).with('candidate_config_file', 'new-config')
+        subject.write_config('new-config')
+      end
+
+      it 'checks config command' do
+        allow(FileUtils).to receive(:mv)
+        allow(File).to receive(:write).with('candidate_config_file', 'new-config')
+
+        expect(subject).to receive(:check_config?).and_return(true)
+        subject.write_config('new-config')
+      end
+
+      context 'when config file does not exist' do
+        before {
+          allow(File).to receive(:read).with('config_file').and_raise(Errno::ENOENT)
+          allow(subject).to receive(:check_config?).and_return(true)
+        }
+
+        it 'writes the new config' do
+          expect(File).to receive(:write).with('candidate_config_file', 'haproxy-config')
+          expect(FileUtils).to receive(:mv).with('candidate_config_file', 'config_file')
+          expect(subject.write_config('haproxy-config')).to eq(true)
+        end
+      end
+
+      context 'when config check succeeds' do
+        before {
+          expect(subject).to receive(:check_config?).and_return(true)
+        }
+
+        it 'moves the candidate file to normal location' do
+          allow(File).to receive(:write).with('candidate_config_file', 'new-config')
+          expect(FileUtils).to receive(:mv).with('candidate_config_file', 'config_file')
+          expect(subject.write_config('new-config')).to eq(true)
+        end
+      end
+
+      context 'when config check fails' do
+        before {
+          expect(subject).to receive(:check_config?).and_return(false)
+          allow(File).to receive(:write).with('candidate_config_file', 'new-config')
+        }
+
+        it 'does not move the candidate file to production location' do
+          expect(FileUtils).not_to receive(:mv)
+          expect(subject.write_config('new-config')).to eq(false)
+        end
+      end
+    end
+
+    context 'when config does not change' do
+      it 'returns false' do
+        expect(subject.write_config('haproxy-config')).to eq(false)
+      end
+
+      it 'does not write the candidate config' do
+        expect(File).not_to receive(:write)
+        subject.write_config('haproxy-config')
+      end
+
+      it 'does not move the candidate file' do
+        expect(FileUtils).not_to receive(:mv)
+        subject.write_config('haproxy-config')
+      end
+
+      it 'does not check config command' do
+        expect(subject).not_to receive(:check_config?)
+        subject.write_config('haproxy-config')
+      end
+    end
+  end
+
   describe '#check_config?' do
     let(:exit_success) { double }
     let(:exit_fail) { double }
