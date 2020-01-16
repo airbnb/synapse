@@ -1345,10 +1345,12 @@ class Synapse::ConfigGenerator
       res, exit_code = Open3.capture2e(opts['check_command'])
       success = exit_code.success?
       unless success
-        log.error "invalid generated HAProxy config (checked via #{opts['check_command']}): #{res}"
+        log.error "synapse: invalid generated HAProxy config (checked via #{opts['check_command']}): #{res};\nexited with #{exit_code.exitstatus}"
       end
 
       statsd_increment("synapse.haproxy.check_config", ["success:#{success}"])
+      log.info "synapse: checked HAProxy config located at #{opts['candidate_config_file_path']}; status: #{success}"
+
       return success
     end
 
