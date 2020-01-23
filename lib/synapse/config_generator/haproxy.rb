@@ -1342,13 +1342,16 @@ class Synapse::ConfigGenerator
         return true
       end
 
+      # capture2e runs a shell command and captures both stdout/stderr streams.
+      # It returns the combined streams (res) and the exit code (exit_code).
+      # See: https://docs.ruby-lang.org/en/2.0.0/Open3.html#method-i-capture2e.
       res, exit_code = Open3.capture2e(opts['check_command'])
       success = exit_code.success?
       unless success
-        log.error "synapse: invalid generated HAProxy config (checked via #{opts['check_command']}): #{res};\nexited with #{exit_code.exitstatus}"
+        log.error "synapse: invalid generated HAProxy config (checked via #{opts['check_command']}): exited with #{exit_code.exitstatus}: #{res}"
       end
 
-      statsd_increment("synapse.haproxy.check_config", ["success:#{success}"])
+      statsd_increment("synapse.haproxy.check_config", ["status:#{success}"])
       log.info "synapse: checked HAProxy config located at #{opts['candidate_config_file_path']}; status: #{success}"
 
       return success
