@@ -362,10 +362,13 @@ listen on 127.0.0.3:443) allows /etc/hosts entries to point to services.
 
 The top level `haproxy` section of the config file has the following options:
 
-* `reload_command`: the command Synapse will run to reload HAProxy
-* `config_file_path`: where Synapse will write the HAProxy config file
-* `do_writes`: whether or not the config file will be written (default to `true`)
+* `do_checks`: whether or not Synapse will validate HAProxy config prior to writing it (default to `false`)
+* `check_command`: the command Synapse will run to validate HAProxy config
+* `candidate_config_file_path`: the path to write the pre-validated (candidate) HAProxy config to for the check command
 * `do_reloads`: whether or not Synapse will reload HAProxy (default to `true`)
+* `reload_command`: the command Synapse will run to reload HAProxy
+* `do_writes`: whether or not the config file will be written (default to `true`)
+* `config_file_path`: where Synapse will write the HAProxy config file
 * `do_socket`: whether or not Synapse will use the HAProxy socket commands to prevent reloads (default to `true`)
 * `socket_file_path`: where to find the haproxy stats socket. can be a list (if using `nbproc`)
 * `global`: options listed here will be written into the `global` section of the HAProxy config

@@ -254,14 +254,16 @@ describe Synapse::ConfigGenerator::Haproxy do
       req_pairs = {
         'do_writes' => 'config_file_path',
         'do_socket' => 'socket_file_path',
-        'do_reloads' => 'reload_command'
+        'do_reloads' => 'reload_command',
+        'do_checks' => 'check_command',
       }
       valid_conf = {
         'global' => [],
         'defaults' => [],
         'do_reloads' => false,
         'do_socket' => false,
-        'do_writes' => false
+        'do_writes' => false,
+        'do_checks' => false,
       }
 
       req_pairs.each do |key, value|
@@ -273,7 +275,7 @@ describe Synapse::ConfigGenerator::Haproxy do
 
     end
 
-    it 'properly defaults do_writes, do_socket, do_reloads, use_nerve_weights' do
+    it 'properly defaults do_writes, do_socket, do_checks, do_reloads, use_nerve_weights' do
       conf = {
         'global' => [],
         'defaults' => [],
@@ -287,6 +289,7 @@ describe Synapse::ConfigGenerator::Haproxy do
       expect(haproxy.opts['do_writes']).to eql(true)
       expect(haproxy.opts['do_socket']).to eql(true)
       expect(haproxy.opts['do_reloads']).to eql(true)
+      expect(haproxy.opts['do_checks']).to eql(false)
       expect(haproxy.opts['use_nerve_weights']).to eql(nil)
     end
 
@@ -408,7 +411,10 @@ describe Synapse::ConfigGenerator::Haproxy do
 
     context 'if we support config writes' do
       include_context 'generate_config is stubbed out'
-      before { config['haproxy']['do_writes'] = true }
+      before {
+        config['haproxy']['do_writes'] = true
+        config['haproxy']['do_checks'] = false
+      }
 
       it 'writes the new config' do
         expect(subject).to receive(:write_config).with(new_config)
@@ -778,7 +784,147 @@ describe Synapse::ConfigGenerator::Haproxy do
     end
   end
 
+  describe '#write_config' do
+    before {
+      config['haproxy']['config_file_path'] = 'config_file'
+      config['haproxy']['candidate_config_file_path'] = 'candidate_config_file'
 
+      allow(File).to receive(:read).with('config_file').and_return('haproxy-config')
+      allow(File).to receive(:read).with('candidate_config_file').and_return('candidate-haproxy-config')
+    }
+
+    context 'when config changes' do
+      it 'writes candidate config' do
+        allow(FileUtils).to receive(:mv)
+        allow(subject).to receive(:check_config?).and_return(true)
+
+        expect(File).to receive(:write).with('candidate_config_file', 'new-config')
+        subject.write_config('new-config')
+      end
+
+      it 'checks config command' do
+        allow(FileUtils).to receive(:mv)
+        allow(File).to receive(:write).with('candidate_config_file', 'new-config')
+
+        expect(subject).to receive(:check_config?).and_return(true)
+        subject.write_config('new-config')
+      end
+
+      context 'when config file does not exist' do
+        before {
+          allow(File).to receive(:read).with('config_file').and_raise(Errno::ENOENT)
+          allow(subject).to receive(:check_config?).and_return(true)
+        }
+
+        it 'writes the new config' do
+          expect(File).to receive(:write).with('candidate_config_file', 'haproxy-config')
+          expect(FileUtils).to receive(:mv).with('candidate_config_file', 'config_file')
+          expect(subject.write_config('haproxy-config')).to eq(true)
+        end
+      end
+
+      context 'when config check succeeds' do
+        before {
+          expect(subject).to receive(:check_config?).and_return(true)
+        }
+
+        it 'moves the candidate file to normal location' do
+          allow(File).to receive(:write).with('candidate_config_file', 'new-config')
+          expect(FileUtils).to receive(:mv).with('candidate_config_file', 'config_file')
+          expect(subject.write_config('new-config')).to eq(true)
+        end
+      end
+
+      context 'when config check fails' do
+        before {
+          expect(subject).to receive(:check_config?).and_return(false)
+          allow(File).to receive(:write).with('candidate_config_file', 'new-config')
+        }
+
+        it 'does not move the candidate file to production location' do
+          expect(FileUtils).not_to receive(:mv)
+          expect(subject.write_config('new-config')).to eq(false)
+        end
+      end
+    end
+
+    context 'when config does not change' do
+      it 'returns false' do
+        expect(subject.write_config('haproxy-config')).to eq(false)
+      end
+
+      it 'does not write the candidate config' do
+        expect(File).not_to receive(:write)
+        subject.write_config('haproxy-config')
+      end
+
+      it 'does not move the candidate file' do
+        expect(FileUtils).not_to receive(:mv)
+        subject.write_config('haproxy-config')
+      end
+
+      it 'does not check config command' do
+        expect(subject).not_to receive(:check_config?)
+        subject.write_config('haproxy-config')
+      end
+    end
+  end
+
+  describe '#check_config?' do
+    let(:exit_success) { double }
+    let(:exit_fail) { double }
+
+    before {
+      allow(exit_success).to receive(:success?).and_return(true)
+      allow(exit_success).to receive(:exitstatus).and_return(0)
+
+      allow(exit_fail).to receive(:success?).and_return(false)
+      allow(exit_fail).to receive(:exitstatus).and_return(1)
+
+      config['haproxy']['do_checks'] = true
+      config['haproxy']['check_command'] = 'haproxy_check_mock'
+    }
+
+    it 'calls the supplied command' do
+      expect(Open3).to receive(:capture2e).with("haproxy_check_mock").and_return(["success", exit_success])
+      subject.check_config?
+    end
+
+    context 'when check command succeeds' do
+      before {
+        expect(Open3).to receive(:capture2e).and_return(["haproxy check succeeded", exit_success])
+      }
+
+      it 'returns true' do
+        expect(subject.check_config?).to eq(true)
+      end
+    end
+
+    context 'when check command fails' do
+      before {
+        expect(Open3).to receive(:capture2e).and_return(["haproxy check failed", exit_fail])
+      }
+
+      it 'returns true' do
+        expect(subject.check_config?).to eq(false)
+      end
+    end
+
+    context 'when do_checks is false' do
+      before {
+        config['haproxy']['do_checks'] = false
+      }
+
+      it 'always returns true' do
+        expect(subject.check_config?).to eq(true)
+      end
+
+      it 'does not call command' do
+        expect(Open3).not_to receive(:capture2e)
+        subject.check_config?
+      end
+    end
+  end
 
   it 'generates frontend stanza ' do
     mockConfig = []

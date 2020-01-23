@@ -53,12 +53,15 @@
     }
   },
   "haproxy": {
-    "reload_command": "sudo service haproxy reload",
-    "config_file_path": "/etc/haproxy/haproxy.cfg",
-    "socket_file_path": "/var/haproxy/stats.sock",
-    "do_writes": false,
+    "do_checks": false,
+    "candidate_config_file_path": "/etc/haproxy/haproxy-candidate.cfg",
+    "check_command": "haproxy -c -f /etc/haproxy/haproxy-candidate.cfg",
     "do_reloads": false,
+    "reload_command": "sudo service haproxy reload",
+    "do_writes": false,
+    "config_file_path": "/etc/haproxy/haproxy.cfg",
     "do_socket": false,
+    "socket_file_path": "/var/haproxy/stats.sock",
     "global": [
       "daemon",
       "user haproxy",

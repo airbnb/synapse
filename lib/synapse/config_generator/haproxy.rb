@@ -6,6 +6,7 @@ require 'socket'
 require 'digest/sha1'
 require 'set'
 require 'hashdiff'
+require 'open3'
 
 class Synapse::ConfigGenerator
   class Haproxy < BaseGenerator
@@ -813,10 +814,12 @@ class Synapse::ConfigGenerator
 
       @opts['do_writes'] = true unless @opts.key?('do_writes')
       @opts['do_socket'] = true unless @opts.key?('do_socket')
+      @opts['do_checks'] = false unless @opts.key?('do_checks')
       @opts['do_reloads'] = true unless @opts.key?('do_reloads')
       req_pairs = {
         'do_writes' => 'config_file_path',
         'do_socket' => 'socket_file_path',
+        'do_checks' => 'check_command',
         'do_reloads' => 'reload_command'
       }
 
@@ -1319,11 +1322,39 @@ class Synapse::ConfigGenerator
       if old_config == new_config
         return false
       else
-        tmp_file_path = "#{opts['config_file_path']}.tmp"
-        File.write(tmp_file_path, new_config)
-        FileUtils.mv(tmp_file_path, opts['config_file_path'])
+        candidate_file_path = opts['candidate_config_file_path']
+        File.write(candidate_file_path, new_config)
+
+        unless check_config?
+          return false
+        end
+
+        FileUtils.mv(candidate_file_path, opts['config_file_path'])
         return true
       end
+    end
+
+    # check that the full configuration is valid after it is written
+    # This does more than validate_haproxy_stanza because it checks the
+    # entirety of the configuration using haproxy itself.
+    def check_config?
+      unless opts['do_checks']
+        return true
+      end
+
+      # capture2e runs a shell command and captures both stdout/stderr streams.
+      # It returns the combined streams (res) and the exit code (exit_code).
+      # See: https://docs.ruby-lang.org/en/2.0.0/Open3.html#method-i-capture2e.
+      res, exit_code = Open3.capture2e(opts['check_command'])
+      success = exit_code.success?
+      unless success
+        log.error "synapse: invalid generated HAProxy config (checked via #{opts['check_command']}): exited with #{exit_code.exitstatus}: #{res}"
+      end
+
+      statsd_increment("synapse.haproxy.check_config", ["status:#{success}"])
+      log.info "synapse: checked HAProxy config located at #{opts['candidate_config_file_path']}; status: #{success}"
+
+      return success
     end
 
     # restarts haproxy if the time is right
