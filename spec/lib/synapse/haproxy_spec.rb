@@ -272,7 +272,47 @@ describe Synapse::ConfigGenerator::Haproxy do
         expect{Synapse::ConfigGenerator::Haproxy.new(conf)}.
           to raise_error(ArgumentError, "the `#{value}` option is required when `#{key}` is true")
       end
+    end
 
+    context 'when do_checks is true' do
+      let(:invalid_conf) {
+        {
+          'global' => [],
+          'defaults' => [],
+          'do_reloads' => false,
+          'do_socket' => false,
+          'do_writes' => false,
+          'do_checks' => true,
+        }
+      }
+      let(:conf_additions) {
+        {
+          'check_command' => 'haproxy -c -f /etc/haproxy/haproxy-candidate.cfg',
+          'candidate_config_file_path' => '/etc/haproxy/haproxy-candidate.cfg',
+        }
+      }
+
+      context 'when check parameters are not set together' do
+        it 'raises an error' do
+          conf_additions.each do |key, value|
+            conf = invalid_conf.clone
+            conf[key] = value
+            expect{Synapse::ConfigGenerator::Haproxy.new(conf)}.
+              to raise_error(ArgumentError)
+          end
+        end
+      end
+
+      context 'when check parameters are set together' do
+        it 'does not raise an error' do
+          conf = invalid_conf.clone
+          conf_additions.each do |key, value|
+            conf[key] = value
+          end
+
+          expect{Synapse::ConfigGenerator::Haproxy.new(conf)}.not_to raise_error
+        end
+      end
     end
 
     it 'properly defaults do_writes, do_socket, do_checks, do_reloads, use_nerve_weights' do
@@ -883,6 +923,7 @@ describe Synapse::ConfigGenerator::Haproxy do
 
       config['haproxy']['do_checks'] = true
       config['haproxy']['check_command'] = 'haproxy_check_mock'
+      config['haproxy']['candidate_config_file_path'] = 'candidate-haproxy-config-file'
     }
 
     it 'calls the supplied command' do
