@@ -833,6 +833,20 @@ describe Synapse::ConfigGenerator::Haproxy do
       allow(File).to receive(:read).with('candidate_config_file').and_return('candidate-haproxy-config')
     }
 
+    context 'when candidate_config_file_path is not set' do
+      before {
+        config['haproxy'].delete('candidate_config_file_path')
+        config['haproxy']['do_checks'] = false
+      }
+
+      it 'still succeeds' do
+        allow(FileUtils).to receive(:mv)
+
+        expect(File).to receive(:write).with('config_file.tmp', 'new-config')
+        expect{subject.write_config('new-config')}.not_to raise_error
+      end
+    end
+
     context 'when config changes' do
       it 'writes candidate config' do
         allow(FileUtils).to receive(:mv)

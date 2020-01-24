@@ -831,6 +831,9 @@ class Synapse::ConfigGenerator
         end
       end
 
+      # Default candidate_config_file_path so that write_config can do atomic writes.
+      @opts['candidate_config_file_path'] = "#{@opts['config_file_path']}.tmp" unless @opts.key?('candidate_config_file_path')
+
       # socket_file_path can be a string or a list
       # lets make a new option which is always a list (plural)
       @opts['socket_file_paths'] = [@opts['socket_file_path']].flatten
