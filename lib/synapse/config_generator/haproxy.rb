@@ -816,18 +816,23 @@ class Synapse::ConfigGenerator
       @opts['do_socket'] = true unless @opts.key?('do_socket')
       @opts['do_checks'] = false unless @opts.key?('do_checks')
       @opts['do_reloads'] = true unless @opts.key?('do_reloads')
-      req_pairs = {
-        'do_writes' => 'config_file_path',
-        'do_socket' => 'socket_file_path',
-        'do_checks' => 'check_command',
-        'do_reloads' => 'reload_command'
+      req_groups = {
+        'do_writes' => ['config_file_path'],
+        'do_socket' => ['socket_file_path'],
+        'do_checks' => ['check_command', 'candidate_config_file_path'],
+        'do_reloads' => ['reload_command'],
       }
 
-      req_pairs.each do |cond, req|
-        if @opts[cond]
-          raise ArgumentError, "the `#{req}` option is required when `#{cond}` is true" unless @opts[req]
+      req_groups.each do |cond, reqs|
+        reqs.each do |req_config|
+          if @opts[cond]
+            raise ArgumentError, "the `#{req_config}` option is required when `#{cond}` is true" unless @opts[req_config]
+          end
         end
       end
+
+      # Default candidate_config_file_path so that write_config can do atomic writes.
+      @opts['candidate_config_file_path'] = "#{@opts['config_file_path']}.tmp" unless @opts.key?('candidate_config_file_path')
 
       # socket_file_path can be a string or a list
       # lets make a new option which is always a list (plural)
