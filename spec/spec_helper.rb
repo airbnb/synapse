@@ -4,6 +4,25 @@
 # loaded once.
 #
 # See http://rubydoc.info/gems/rspec-core/RSpec/Core/Configuration
+if ENV["CODE_COVERAGE"] == "true"
+  # SimpleCov must be started before anything else is loaded.
+  require "simplecov"
+  require "simplecov-json"
+
+  SimpleCov.start do
+    # Any not-loaded files matching this glob will be counted as having 0% coverage.
+    track_files "lib/**/*.rb"
+
+    # SimpleCov won't track coverage in files whose paths match these strings.
+    add_filter [
+      "/spec/",
+      "/version.rb", # Loads in advance with `bundle exec`.
+    ]
+
+    formatter SimpleCov::Formatter::JSONFormatter
+  end
+end
+
 require "#{File.dirname(__FILE__)}/../lib/synapse"
 require 'pry'
 require 'support/configuration'
