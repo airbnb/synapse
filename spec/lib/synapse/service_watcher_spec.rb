@@ -165,8 +165,32 @@ describe Synapse::ServiceWatcher do
         expect{ subject }.not_to raise_error
       end
     end
+
+    context 'with method => multi' do
+      let(:discovery_config) {
+        {
+          'method' => 'multi',
+          'watchers' => {'primary' => {
+                           'method' => 'zookeeper',
+                           'hosts' => 'localhost:2181',
+                           'path' => '/smartstack',
+                         },
+                         'secondary' => {
+                           'method' => 'ec2tag',
+                           'tag_name' => 'footag',
+                           'tag_value' => 'barvalue',
+                           'aws_access_key_id' => 'bogus',
+                           'aws_secret_access_key' => 'morebogus',
+                           'aws_region' => 'evenmorebogus',
+                         }}
+        }
+      }
+
+      it 'creates watcher correctly' do
+        expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect{ subject }.not_to raise_error
+      end
+    end
   end
-
 end
-
 
