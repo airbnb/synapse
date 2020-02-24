@@ -93,11 +93,11 @@ describe Synapse::ServiceWatcher::MultiWatcher do
       it 'creates the requested watchers' do
         expect(Synapse::ServiceWatcher::ZookeeperWatcher)
           .to receive(:new)
-          .with({'name' => 'test', 'haproxy' => {}, 'discovery' => zk_discovery}, mock_synapse)
+          .with({'name' => 'test', 'haproxy' => {}, 'discovery' => zk_discovery}, nil, mock_synapse)
           .and_call_original
         expect(Synapse::ServiceWatcher::DnsWatcher)
           .to receive(:new)
-          .with({'name' => 'test', 'haproxy' => {}, 'discovery' => dns_discovery}, mock_synapse)
+          .with({'name' => 'test', 'haproxy' => {}, 'discovery' => dns_discovery}, nil, mock_synapse)
           .and_call_original
 
         expect {
@@ -148,7 +148,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
     it 'calls ping? on all watchers' do
       watchers = subject.instance_variable_get(:@watchers).values
       watchers.each do |w|
-        expect(w).to receive(:ping?)
+        expect(w).to receive(:ping?).and_return true
       end
 
       expect {
