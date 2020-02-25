@@ -14,11 +14,16 @@ class Synapse::ServiceWatcher
 
     attr_reader :name, :revision
 
-    def initialize(opts={}, synapse)
+    def initialize(opts={}, reconfigure_callback=nil, synapse)
       super()
 
       @synapse = synapse
       @revision = 0
+      @reconfigure_callback = if reconfigure_callback.nil?
+                                lambda { synapse.reconfigure! }
+                              else
+                                reconfigure_callback
+                              end
 
       # set required service parameters
       %w{name discovery}.each do |req|
@@ -241,7 +246,7 @@ class Synapse::ServiceWatcher
     # can be overridden in subclasses.
     def reconfigure!
       @revision += 1
-      @synapse.reconfigure!
+      @reconfigure_callback.call
     end
   end
 end
