@@ -30,7 +30,12 @@ describe Synapse::ServiceWatcher::MultiWatcher do
   end
 
   let(:valid_discovery) do
-    {'method' => 'multi', 'watchers' => {
+    {'method' => 'multi',
+     'resolver' => {
+       'method' => 's3_toggle',
+       'default' => 'primary',
+     },
+     'watchers' => {
        'primary' => zk_discovery,
        'secondary' => dns_discovery,
      },

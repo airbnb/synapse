@@ -39,7 +39,7 @@ class Synapse::ServiceWatcher
         merged_config = Marshal.load(Marshal.dump(opts))
         merged_config['discovery'] = watcher_config
 
-        discovery_method = config['method']
+        discovery_method = watcher_config['method']
         watcher = Synapse::ServiceWatcher.load_watcher(discovery_method,
                                                        merged_config,
                                                        @child_notification_callback,
@@ -69,6 +69,11 @@ class Synapse::ServiceWatcher
       @watchers.values.all? do |w|
         w.ping?
       end
+    end
+
+    def backends
+      # TODO: return the resolved backends
+      return [{'host' => 'abc', 'port' => 1234, 'name' => 'i-test'}]
     end
 
     private
