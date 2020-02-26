@@ -22,15 +22,21 @@ describe Synapse::ServiceWatcher::BaseWatcher do
     args
   end
 
-  context "can construct normally" do
+  context "with normal arguments" do
     let(:args) { testargs }
-    it('can at least construct') { expect { subject }.not_to raise_error }
+
+    it 'can construct properly' do
+      expect { subject }.not_to raise_error
+    end
   end
 
   ['name', 'discovery'].each do |to_remove|
     context "without #{to_remove} argument" do
       let(:args) { remove_arg to_remove }
-      it('gots bang') { expect { subject }.to raise_error(ArgumentError, "missing required option #{to_remove}") }
+
+      it 'raises error' do
+        expect { subject }.to raise_error(ArgumentError, "missing required option #{to_remove}")
+      end
     end
   end
 

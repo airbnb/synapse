@@ -38,6 +38,10 @@ describe Synapse::ServiceWatcher do
   end
 
   context 'service watcher dispatch' do
+    let (:base_config) {{
+      'method' => 'base',
+    }}
+
     let (:zookeeper_config) {{
       'method' => 'zookeeper',
       'hosts' => 'localhost:2181',
@@ -72,31 +76,42 @@ describe Synapse::ServiceWatcher do
       'application_name' => 'foobar',
     }}
 
+    it 'creates base correctly' do
+      expect {
+        subject.create('test', replace_discovery(base_config), mock_synapse)
+      }.not_to raise_error
+    end
+
     it 'creates zookeeper correctly' do
       expect {
         subject.create('test', replace_discovery(zookeeper_config), mock_synapse)
       }.not_to raise_error
     end
+
     it 'creates dns correctly' do
       expect {
         subject.create('test', replace_discovery(dns_config), mock_synapse)
       }.not_to raise_error
     end
+
     it 'creates docker correctly' do
       expect {
         subject.create('test', replace_discovery(docker_config), mock_synapse)
       }.not_to raise_error
     end
+
     it 'creates ec2tag correctly' do
       expect {
         subject.create('test', replace_discovery(ec2_config), mock_synapse)
       }.not_to raise_error
     end
+
     it 'creates zookeeper_dns correctly' do
       expect {
         subject.create('test', replace_discovery(zookeeper_dns_config), mock_synapse)
       }.not_to raise_error
     end
+
     it 'creates marathon correctly' do
       expect {
         subject.create('test', replace_discovery(marathon_config), mock_synapse)
