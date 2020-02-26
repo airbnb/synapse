@@ -28,6 +28,13 @@ describe Synapse::ServiceWatcher::BaseWatcher do
     it 'can construct properly' do
       expect { subject }.not_to raise_error
     end
+
+    it 'properly sets instance variables' do
+      # ensure that synapse is not mistaken for reconfigure_callback
+      expect(subject.instance_variable_get(:@synapse)).to eq(mocksynapse)
+      expect(subject.instance_variable_get(:@reconfigure_callback).nil?).to eq(false)
+      expect(subject.instance_variable_get(:@reconfigure_callback)).not_to eq(mocksynapse)
+    end
   end
 
   ['name', 'discovery'].each do |to_remove|
@@ -50,7 +57,7 @@ describe Synapse::ServiceWatcher::BaseWatcher do
     end
   end
 
-  context 'set_backends test' do
+  describe "set_backends" do
     default_servers = [
       {'name' => 'default_server1', 'host' => 'default_server1', 'port' => 123},
       {'name' => 'default_server2', 'host' => 'default_server2', 'port' => 123}
@@ -233,6 +240,55 @@ describe Synapse::ServiceWatcher::BaseWatcher do
         it 'returns only backends that match all labels' do
           expect(subject.backends).to contain_exactly(*matching_labeled_backends)
         end
+      end
+    end
+  end
+
+  describe "reconfigure!" do
+    let(:args) { testargs }
+
+    context "without custom callback" do
+      subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse) }
+
+      it "calls synapse reconfigure" do
+        expect(mocksynapse).to receive(:reconfigure!).exactly(:once)
+        subject.send(:reconfigure!)
+      end
+
+      it "increments revision" do
+        allow(mocksynapse).to receive(:reconfigure!)
+        expect{subject.send(:reconfigure!)}.to change{subject.revision}.by 1
+      end
+    end
+
+    context "with explicit nil custom callback" do
+      subject { Synapse::ServiceWatcher::BaseWatcher.new(args, nil, mocksynapse) }
+
+      it "calls synapse reconfigure" do
+        expect(mocksynapse).to receive(:reconfigure!).exactly(:once)
+        subject.send(:reconfigure!)
+      end
+
+      it "increments revision" do
+        allow(mocksynapse).to receive(:reconfigure!).exactly(:once)
+        expect{subject.send(:reconfigure!)}.to change{subject.revision}.by 1
+      end
+    end
+
+    context "with custom callback" do
+      let(:cb) { lambda {} }
+      subject { Synapse::ServiceWatcher::BaseWatcher.new(args, cb, mocksynapse) }
+
+      it "calls custom callback" do
+        expect(mocksynapse).not_to receive(:reconfigure!)
+        expect(cb).to receive(:call).exactly(:once)
+
+        subject.send(:reconfigure!)
+      end
+
+      it "increments revision" do
+        allow(cb).to receive(:call).exactly(:once)
+        expect{subject.send(:reconfigure!)}.to change{subject.revision}.by 1
       end
     end
   end

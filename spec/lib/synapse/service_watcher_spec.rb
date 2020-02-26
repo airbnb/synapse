@@ -17,19 +17,17 @@ describe Synapse::ServiceWatcher do
         'port' => '8080',
         'server_port_override' => '8081',
       },
-      'discovery' => {
-        'method' => 'test'
-      }
+      'discovery' => discovery_config,
     }
   end
 
-  def replace_discovery(new_value)
-    args = config.clone
-    args['discovery'] = new_value
-    args
+  let(:discovery_config) do
+    {}
   end
 
   context 'bogus arguments' do
+    let(:discovery_config) {{'method' => 'bogus'}}
+
     it 'complains if discovery method is bogus' do
       expect {
         subject.create('test', config, mock_synapse)
@@ -38,84 +36,122 @@ describe Synapse::ServiceWatcher do
   end
 
   context 'service watcher dispatch' do
-    let (:base_config) {{
-      'method' => 'base',
-    }}
+    subject {
+      Synapse::ServiceWatcher.create('test', config, mock_synapse)
+    }
+    
+    context 'with method => base' do
+      let(:discovery_config) {
+        {
+          'method' => 'base',
+        }
+      }
 
-    let (:zookeeper_config) {{
-      'method' => 'zookeeper',
-      'hosts' => 'localhost:2181',
-      'path' => '/smartstack',
-    }}
-    let (:dns_config) {{
-      'method' => 'dns',
-      'servers' => ['localhost'],
-    }}
-    let (:docker_config) {{
-      'method' => 'docker',
-      'servers' => 'localhost',
-      'image_name' => 'servicefoo',
-      'container_port' => 1234,
-    }}
-    let (:ec2_config) {{
-      'method' => 'ec2tag',
-      'tag_name' => 'footag',
-      'tag_value' => 'barvalue',
-      'aws_access_key_id' => 'bogus',
-      'aws_secret_access_key' => 'morebogus',
-      'aws_region' => 'evenmorebogus',
-    }}
-    let (:zookeeper_dns_config) {{
-      'method' => 'zookeeper_dns',
-      'hosts' => 'localhost:2181',
-      'path' => '/smartstack',
-    }}
-    let (:marathon_config) {{
-      'method' => 'marathon',
-      'marathon_api_url' => 'localhost:12345',
-      'application_name' => 'foobar',
-    }}
+      it 'creates watcher correctly' do
+        expect(Synapse::ServiceWatcher::BaseWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect { subject }.not_to raise_error
+      end
 
-    it 'creates base correctly' do
-      expect {
-        subject.create('test', replace_discovery(base_config), mock_synapse)
-      }.not_to raise_error
+      it 'passes custom callback' do
+        cb = lambda { }
+        expect(cb).to receive(:call).exactly(:once)
+
+        watcher = Synapse::ServiceWatcher.create('test', config, cb, mock_synapse)
+        watcher.send(:reconfigure!)
+      end
     end
 
-    it 'creates zookeeper correctly' do
-      expect {
-        subject.create('test', replace_discovery(zookeeper_config), mock_synapse)
-      }.not_to raise_error
+    context 'with method => zookeeper' do
+      let(:discovery_config) {
+        {
+          'method' => 'zookeeper',
+          'hosts' => 'localhost:2181',
+          'path' => '/smartstack',
+        }
+      }
+
+      it 'creates watcher correctly' do
+        expect(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect { subject }.not_to raise_error
+      end
     end
 
-    it 'creates dns correctly' do
-      expect {
-        subject.create('test', replace_discovery(dns_config), mock_synapse)
-      }.not_to raise_error
+    context 'with method => dns' do
+      let(:discovery_config) {
+        {
+          'method' => 'dns',
+          'servers' => ['localhost'],
+        }
+      }
+
+      it 'creates watcher correctly' do
+        expect(Synapse::ServiceWatcher::DnsWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect{ subject }.not_to raise_error
+      end
     end
 
-    it 'creates docker correctly' do
-      expect {
-        subject.create('test', replace_discovery(docker_config), mock_synapse)
-      }.not_to raise_error
+    context 'with method => docker' do
+      let(:discovery_config) {
+        {
+          'method' => 'docker',
+          'servers' => 'localhost',
+          'image_name' => 'servicefoo',
+          'container_port' => 1234,
+        }
+      }
+
+      it 'creates watcher correctly' do
+        expect(Synapse::ServiceWatcher::DockerWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect{ subject }.not_to raise_error
+      end
     end
 
-    it 'creates ec2tag correctly' do
-      expect {
-        subject.create('test', replace_discovery(ec2_config), mock_synapse)
-      }.not_to raise_error
+    context 'with method => ec2tag' do
+      let(:discovery_config) {
+        {
+          'method' => 'ec2tag',
+          'tag_name' => 'footag',
+          'tag_value' => 'barvalue',
+          'aws_access_key_id' => 'bogus',
+          'aws_secret_access_key' => 'morebogus',
+          'aws_region' => 'evenmorebogus',
+        }
+      }
+
+      it 'creates watcher correctly' do
+        expect(Synapse::ServiceWatcher::Ec2tagWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect{ subject }.not_to raise_error
+      end
     end
 
-    it 'creates zookeeper_dns correctly' do
-      expect {
-        subject.create('test', replace_discovery(zookeeper_dns_config), mock_synapse)
-      }.not_to raise_error
+    context 'with method => zookeeper_dns' do
+      let(:discovery_config) {
+        {
+          'method' => 'zookeeper_dns',
+          'hosts' => 'localhost:2181',
+          'path' => '/smartstack',
+        }
+      }
+
+      it 'creates watcher correctly' do
+        expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect{ subject }.not_to raise_error
+      end
     end
 
-    it 'creates marathon correctly' do
-      expect {
-        subject.create('test', replace_discovery(marathon_config), mock_synapse)
-      }.not_to raise_error
+    context 'with method => marathon' do
+      let(:discovery_config) {
+        {
+          'method' => 'marathon',
+          'marathon_api_url' => 'localhost:12345',
+          'application_name' => 'foobar',
+        }
+      }
+
+      it 'creates watcher correctly' do
+        expect(Synapse::ServiceWatcher::MarathonWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect{ subject }.not_to raise_error
+      end
     end
   end
 
