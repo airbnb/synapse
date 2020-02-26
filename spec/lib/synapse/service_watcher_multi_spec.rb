@@ -47,6 +47,14 @@ describe Synapse::ServiceWatcher::MultiWatcher do
     }
   end
 
+  let(:new_hosts) do
+    [{
+      'host' => 'test',
+      'port' => 1234,
+      'name' => 'i-test',
+    }]
+  end
+
   describe '.initialize' do
     subject {
       Synapse::ServiceWatcher::MultiWatcher
@@ -179,7 +187,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
         }.not_to raise_error
       end
 
-      it 'has sets @watchers to each watcher' do
+      it 'sets @watchers to each watcher' do
         multi_watcher = subject.new(config, mock_synapse)
         watchers = multi_watcher.instance_variable_get(:@watchers)
 
@@ -228,6 +236,41 @@ describe Synapse::ServiceWatcher::MultiWatcher do
       expect {
         subject.ping?
       }.not_to raise_error
+    end
+  end
+
+  describe "reconfigure!" do
+    it "only calls synapse reconfigure from parent" do
+      expect(mock_synapse).to receive(:reconfigure!).exactly(:once)
+      subject.send(:reconfigure!)
+    end
+  end
+
+  describe "children watchers" do
+    describe ".reconfigure!" do
+      it "does not call synapse reconfigure" do
+        expect(mock_synapse).not_to receive(:reconfigure!)
+
+        watchers = subject.instance_variable_get(:@watchers).values
+        watchers.each do |w|
+          w.send(:reconfigure!)
+        end
+      end
+
+      it "notifies parent"
+    end
+
+    describe "set_backends" do
+      it "does not call synapse reconfigure" do
+        expect(mock_synapse).not_to receive(:reconfigure!)
+
+        watchers = subject.instance_variable_get(:@watchers).values
+        watchers.each do |w|
+          w.send(:set_backends, new_hosts)
+        end
+      end
+
+      it "notifies parent"
     end
   end
 end
