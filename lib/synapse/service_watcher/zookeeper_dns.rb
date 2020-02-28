@@ -51,11 +51,11 @@ class Synapse::ServiceWatcher
       # Overrides the discovery_servers method on the parent class
       attr_accessor :discovery_servers
 
-      def initialize(opts={}, parent=nil, synapse, message_queue)
+      def initialize(opts={}, reconfigure_callback=nil, parent=nil, synapse, message_queue)
         @message_queue = message_queue
         @parent = parent
 
-        super(opts, synapse)
+        super(opts, reconfigure_callback, synapse)
       end
 
       def stop
@@ -113,8 +113,8 @@ class Synapse::ServiceWatcher
     end
 
     class Zookeeper < Synapse::ServiceWatcher::ZookeeperWatcher
-      def initialize(opts={}, parent=nil, synapse, message_queue)
-        super(opts, synapse)
+      def initialize(opts={}, reconfigure_callback=nil, parent=nil, synapse, message_queue)
+        super(opts, reconfigure_callback, synapse)
 
         @message_queue = message_queue
         @parent = parent
