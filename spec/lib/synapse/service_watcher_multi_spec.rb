@@ -175,11 +175,15 @@ describe Synapse::ServiceWatcher::MultiWatcher do
       it 'creates the requested watchers' do
         expect(Synapse::ServiceWatcher::ZookeeperWatcher)
           .to receive(:new)
-          .with({'name' => 'test', 'haproxy' => {}, 'discovery' => zk_discovery}, nil, mock_synapse)
+          .with({'name' => 'test', 'haproxy' => {}, 'discovery' => zk_discovery},
+                  duck_type(:call),
+                  mock_synapse)
           .and_call_original
         expect(Synapse::ServiceWatcher::DnsWatcher)
           .to receive(:new)
-          .with({'name' => 'test', 'haproxy' => {}, 'discovery' => dns_discovery}, nil, mock_synapse)
+          .with({'name' => 'test', 'haproxy' => {}, 'discovery' => dns_discovery},
+                 duck_type(:call),
+                 mock_synapse)
           .and_call_original
 
         expect {
@@ -239,13 +243,6 @@ describe Synapse::ServiceWatcher::MultiWatcher do
     end
   end
 
-  describe "reconfigure!" do
-    it "only calls synapse reconfigure from parent" do
-      expect(mock_synapse).to receive(:reconfigure!).exactly(:once)
-      subject.send(:reconfigure!)
-    end
-  end
-
   describe "children watchers" do
     describe ".reconfigure!" do
       it "does not call synapse reconfigure" do
@@ -257,7 +254,15 @@ describe Synapse::ServiceWatcher::MultiWatcher do
         end
       end
 
-      it "notifies parent"
+      it "notifies multi-watcher" do
+        watchers = subject.instance_variable_get(:@watchers).values
+        callable = subject.instance_variable_get(:@child_notification_callback)
+
+        expect(callable).to receive(:call).exactly(watchers.length).and_call_original
+        watchers.each do |w|
+          w.send(:reconfigure!)
+        end
+      end
     end
 
     describe "set_backends" do
@@ -270,7 +275,15 @@ describe Synapse::ServiceWatcher::MultiWatcher do
         end
       end
 
-      it "notifies parent"
+      it "notifies multi-watcher" do
+        watchers = subject.instance_variable_get(:@watchers).values
+        callable = subject.instance_variable_get(:@child_notification_callback)
+
+        expect(callable).to receive(:call).exactly(watchers.length).and_call_original
+        watchers.each do |w|
+          w.send(:reconfigure!)
+        end
+      end
     end
   end
 end

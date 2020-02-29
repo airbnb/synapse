@@ -28,6 +28,9 @@ class Synapse::ServiceWatcher
     def initialize(opts={}, reconfigure_callback=nil, synapse)
       super(opts, reconfigure_callback, synapse)
 
+      # The instance variable allows for testing that the function is
+      # actually called.
+      @child_notification_callback = method(:child_callback)
       @watchers = {}
       watcher_config = @discovery['watchers'] || {}
 
@@ -36,8 +39,11 @@ class Synapse::ServiceWatcher
         merged_config = Marshal.load(Marshal.dump(opts))
         merged_config['discovery'] = watcher_config
 
-        discovery_method = watcher_config['method']
-        watcher = Synapse::ServiceWatcher.load_watcher(discovery_method, merged_config, synapse)
+        discovery_method = config['method']
+        watcher = Synapse::ServiceWatcher.load_watcher(discovery_method,
+                                                       merged_config,
+                                                       @child_notification_callback,
+                                                       synapse)
 
         @watchers[watcher_name] = watcher
       end
@@ -66,6 +72,11 @@ class Synapse::ServiceWatcher
     end
 
     private
+
+    def child_callback
+      # TODO: call set_backends when we receive an update with the resolved
+      # backends.
+    end
 
     def validate_discovery_opts
       raise ArgumentError, "invalid discovery method '#{@discovery['method']}' for multi watcher" \
