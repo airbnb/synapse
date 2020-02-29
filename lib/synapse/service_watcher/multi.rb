@@ -11,6 +11,20 @@ class Synapse::ServiceWatcher
   #     (That is, method => zookeeper means a Zookeeper watcher will be created, so
   #     the rest of the options will be passed to the ZookeeperWatcher class).
   class MultiWatcher < BaseWatcher
+    # Resolves the discovery and discovery_multi configuration into a single
+    # hash that can be passed to this class.
+    def self.merge_discovery(discovery_multi, discovery)
+      # deep clone the object first
+      opts = Marshal.load(Marshal.dump(discovery_multi))
+      opts['method'] = 'multi' unless opts.has_key?('method')
+      opts['watchers'] ||= {}
+
+      raise ArgumentError, "multi watcher config already has primary watcher defined" if opts['watchers'].has_key?('primary')
+      opts['watchers']['primary'] = discovery
+
+      return opts
+    end
+
     def initialize(opts={}, reconfigure_callback=nil, synapse)
       super(opts, reconfigure_callback, synapse)
 
@@ -22,6 +36,10 @@ class Synapse::ServiceWatcher
         # Merge (deep-cloned) top-level config with the discovery configuration.
         merged_config = Marshal.load(Marshal.dump(opts))
         merged_config['discovery'] = config
+
+        unless config.is_a?(Hash)
+          raise ArgumentError, "Child watcher is not a hash for watcher #{name}"
+        end
 
         unless config.has_key?('method')
           raise ArgumentError, "Discovery method not included in config for watcher #{name}"
