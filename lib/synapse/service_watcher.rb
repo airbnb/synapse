@@ -1,10 +1,12 @@
 require "synapse/log"
 require "synapse/service_watcher/base"
+require "synapse/service_watcher/multi"
 
 module Synapse
   class ServiceWatcher
     # the method which actually dispatches watcher creation requests
     def self.create(name, opts, reconfigure_callback = nil, synapse)
+      opts = self.resolve_multi_config(opts)
       opts['name'] = name
 
       raise ArgumentError, "Missing discovery method when trying to create watcher" \
@@ -26,6 +28,16 @@ module Synapse
                 end
 
       return watcher.new(opts, reconfigure_callback, synapse)
+    end
+
+    private
+    def self.resolve_multi_config(opts)
+      if opts.has_key?('discovery_multi')
+        multi = opts.delete('discovery_multi')
+        opts['discovery'] = MultiWatcher.merge_discovery(multi, opts['discovery'])
+      end
+
+      return opts
     end
   end
 end
