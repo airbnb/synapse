@@ -85,6 +85,36 @@ describe Synapse::ServiceWatcher::MultiWatcher do
       end
     end
 
+    context 'with invalid child watcher definition' do
+      let(:discovery) {
+        {'method' => 'multi', 'watchers' => {
+           'secondary' => {
+             'method' => 'bogus',
+           }
+         }}
+      }
+
+      it 'raises an error' do
+        expect {
+          subject.new(config, mock_synapse)
+        }.to raise_error ArgumentError
+      end
+    end
+
+    context 'with invalid child watcher type' do
+      let(:discovery) {
+        {'method' => 'multi', 'watchers' => {
+           'child' => 'not_a_hash'
+         }}
+      }
+
+      it 'raises an error' do
+        expect {
+          subject.new(config, mock_synapse)
+        }.to raise_error ArgumentError
+      end
+    end
+
     context 'with valid configuration' do
       let(:discovery) do
         valid_discovery
