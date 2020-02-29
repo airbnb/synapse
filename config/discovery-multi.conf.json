@@ -1,0 +1,93 @@
+{
+  "services": {
+    "service1": {
+      "discovery": {
+	"method": "zookeeper",
+	"path": "/services/service1",
+	"discovery_jitter": 25,
+	"hosts": [
+	  "localhost:2181",
+	  "localhost:2182",
+	  "localhost:2183"
+	]
+      },
+      "discovery_multi": {
+	"resolver": {
+	  "method": "fallback"
+	},
+	"watchers": {
+	  "secondary": {
+	    "method": "zookeeper",
+	    "path": "/services/service1",
+	    "discovery_jitter": 5,
+	    "hosts": [
+	      "localhost:2184",
+	      "localhost:2185",
+	      "localhost:2186"
+	    ]
+	  }
+	}
+      },
+      "haproxy": {
+	"port": 3213,
+	"server_options": "check inter 2s rise 3 fall 2",
+	"bind_options": "ssl no-sslv3 crt /path/to/cert/example.pem ciphers ECDHE-ECDSA-CHACHA20-POLY1305",
+	"listen": [
+	  "mode http",
+	  "option httpchk /health",
+	  "http-check expect string OK"
+	]
+      }
+    }
+  },
+  "haproxy": {
+    "do_checks": false,
+    "candidate_config_file_path": "/etc/haproxy/haproxy-candidate.cfg",
+    "check_command": "haproxy -c -f /etc/haproxy/haproxy-candidate.cfg",
+    "do_reloads": false,
+    "reload_command": "sudo service haproxy reload",
+    "do_writes": false,
+    "config_file_path": "/etc/haproxy/haproxy.cfg",
+    "do_socket": false,
+    "socket_file_path": "/var/haproxy/stats.sock",
+    "global": [
+      "daemon",
+      "user haproxy",
+      "group haproxy",
+      "maxconn 4096",
+      "log     127.0.0.1 local0",
+      "log     127.0.0.1 local1 notice",
+      "stats   socket /var/haproxy/stats.sock mode 666 level admin"
+    ],
+    "defaults": [
+      "log      global",
+      "option   dontlognull",
+      "maxconn  2000",
+      "retries  3",
+      "timeout  connect 5s",
+      "timeout  client  1m",
+      "timeout  server  1m",
+      "option   redispatch",
+      "balance  roundrobin"
+    ],
+    "extra_sections": {
+      "listen stats :3212": [
+	"mode http",
+	"stats enable",
+	"stats uri /",
+	"stats refresh 5s"
+      ]
+    }
+  },
+  "statsd": {
+    "host": "localhost",
+    "port": 8125,
+    "sample_rate": {
+      "synapse.watcher.ping.count": 0.1,
+      "synapse.watcher.zk.discovery": 0.7,
+      "synapse.watcher.zk.discovery.elapsed_time": 0.7,
+      "synapse.watcher.zk.get.elapsed_time": 0.5,
+      "synapse.watcher.zk.watch.elapsed_time": 0.7
+    }
+  }
+}
