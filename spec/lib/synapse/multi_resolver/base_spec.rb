@@ -3,29 +3,13 @@ require 'synapse/service_watcher/multi/resolver/base'
 require 'synapse/service_watcher/base/base'
 
 describe Synapse::ServiceWatcher::MultiWatcher::Resolver::BaseResolver do
-  let(:mocksynapse) do
-    mock_synapse = instance_double(Synapse::Synapse)
-    mockgenerator = Synapse::ConfigGenerator::BaseGenerator.new()
-    allow(mock_synapse).to receive(:available_generators).and_return({
-      'haproxy' => mockgenerator
-    })
-    mock_synapse
-  end
-
   let(:opts) {
     {'method' => 'base'}
   }
 
-  let(:base_watcher_opts) {
-    {'name' => 'test',
-     'discovery' => {
-       'method' => 'base',
-     }}
-  }
-
   let(:watchers) {
     [
-      Synapse::ServiceWatcher::BaseWatcher.new(base_watcher_opts, mocksynapse)
+      instance_double(Synapse::ServiceWatcher::BaseWatcher)
     ]
   }
 
