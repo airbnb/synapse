@@ -10,7 +10,7 @@ configuration (HAProxy, files, etc ...) state. See the
 registrations Synapse understands.
 
 ```ruby
-require "synapse/service_watcher/base"
+require "synapse/service_watcher/base/base"
 
 class Synapse::ServiceWatcher
   class MyWatcher < BaseWatcher
@@ -44,8 +44,8 @@ the watcher configuration.  Every watcher is passed configuration with the
 `method` key, e.g. `zookeeper` or `ec2tag`.
 
 #### Class Location
-Synapse expects to find your class at `synapse/service_watcher/#{method}`. You
-must make your watcher available at that path, and Synapse can "just work" and
+Synapse expects to find your class at `synapse/service_watcher/#{method}/#{method}`.
+You must make your watcher available at that path, and Synapse can "just work" and
 find it.
 
 #### Class Name

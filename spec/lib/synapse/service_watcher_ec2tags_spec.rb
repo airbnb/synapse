@@ -1,5 +1,5 @@
 require 'spec_helper'
-require 'synapse/service_watcher/ec2tag'
+require 'synapse/service_watcher/ec2tag/ec2tag'
 require 'logging'
 
 class Synapse::ServiceWatcher::Ec2tagWatcher

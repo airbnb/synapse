@@ -1,5 +1,5 @@
 require 'spec_helper'
-require 'synapse/service_watcher/marathon'
+require 'synapse/service_watcher/marathon/marathon'
 
 describe Synapse::ServiceWatcher::MarathonWatcher do
   let(:mocksynapse) do
