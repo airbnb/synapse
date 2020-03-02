@@ -1,5 +1,6 @@
 require "synapse/service_watcher/base/base"
 require "synapse/service_watcher/multi/resolver"
+
 require "synapse/log"
 require "synapse/statsd"
 
