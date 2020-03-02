@@ -71,7 +71,12 @@ class Synapse::ServiceWatcher
       raise ArgumentError, "invalid discovery method '#{@discovery['method']}' for multi watcher" \
         unless @discovery['method'] == 'multi'
 
+      raise ArgumentError, "watchers not defined" unless @discovery.has_key?('watchers')
       raise ArgumentError, "watcher config is empty" if @discovery['watchers'].empty?
+
+      raise ArgumentError, "resolver not defined" unless @discovery.has_key?('resolver')
+      raise ArgumentError, "resolver config is empty" if @discovery['resolver'].empty?
+      raise ArgumentError, "resolver method undefined" unless @discovery['resolver'].has_key?('method')
 
       @discovery['watchers'].each do |watcher_name, watcher_config|
         unless watcher_config.is_a?(Hash)
