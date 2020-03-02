@@ -1,6 +1,6 @@
 require 'spec_helper'
-require 'synapse/service_watcher/zookeeper'
-require 'synapse/service_watcher/zookeeper_dns'
+require 'synapse/service_watcher/zookeeper/zookeeper'
+require 'synapse/service_watcher/zookeeper_dns/zookeeper_dns'
 
 describe Synapse::ServiceWatcher::ZookeeperWatcher do
   let(:mock_synapse) do

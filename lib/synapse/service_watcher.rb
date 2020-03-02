@@ -1,6 +1,6 @@
 require "synapse/log"
-require "synapse/service_watcher/base"
-require "synapse/service_watcher/multi"
+require "synapse/service_watcher/base/base"
+require "synapse/service_watcher/multi/multi"
 
 module Synapse
   class ServiceWatcher
@@ -21,7 +21,7 @@ module Synapse
     def self.load_watcher(discovery_method, opts, synapse, reconfigure_callback)
       watcher = begin
         method = discovery_method.downcase
-        require "synapse/service_watcher/#{method}"
+        require "synapse/service_watcher/#{method}/#{method}"
         # zookeeper_dns => ZookeeperDnsWatcher, ec2tag => Ec2tagWatcher, etc ...
         method_class  = method.split('_').map{|x| x.capitalize}.join.concat('Watcher')
         self.const_get("#{method_class}")

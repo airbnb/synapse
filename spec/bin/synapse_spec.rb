@@ -1,6 +1,6 @@
 require 'spec_helper'
 require 'tempfile'
-require 'synapse/service_watcher/multi'
+require 'synapse/service_watcher/multi/multi'
 
 describe 'parseconfig' do
   it 'parses a templated config' do

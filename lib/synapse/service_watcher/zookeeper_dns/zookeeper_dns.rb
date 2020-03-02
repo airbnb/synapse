@@ -1,6 +1,6 @@
-require 'synapse/service_watcher/base'
-require 'synapse/service_watcher/dns'
-require 'synapse/service_watcher/zookeeper'
+require 'synapse/service_watcher/base/base'
+require 'synapse/service_watcher/dns/dns'
+require 'synapse/service_watcher/zookeeper/zookeeper'
 
 require 'thread'
 
