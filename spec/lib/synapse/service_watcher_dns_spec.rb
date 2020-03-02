@@ -1,5 +1,5 @@
 require 'spec_helper'
-require 'synapse/service_watcher/dns'
+require 'synapse/service_watcher/dns/dns'
 
 describe Synapse::ServiceWatcher::DnsWatcher do
   let(:mock_synapse) do

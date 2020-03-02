@@ -1,5 +1,5 @@
 require 'spec_helper'
-require 'synapse/service_watcher/docker'
+require 'synapse/service_watcher/docker/docker'
 
 class Synapse::ServiceWatcher::DockerWatcher
   attr_reader :check_interval, :watcher, :synapse

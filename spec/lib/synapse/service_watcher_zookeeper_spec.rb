@@ -2,9 +2,9 @@ require 'spec_helper'
 require 'active_support/all'
 require 'active_support/testing/time_helpers'
 
-require 'synapse/service_watcher/zookeeper'
-require 'synapse/service_watcher/zookeeper_dns'
-require 'synapse/service_watcher/zookeeper_poll'
+require 'synapse/service_watcher/zookeeper/zookeeper'
+require 'synapse/service_watcher/zookeeper_dns/zookeeper_dns'
+require 'synapse/service_watcher/zookeeper_poll/zookeeper_poll'
 
 describe Synapse::ServiceWatcher::ZookeeperWatcher do
   let(:mock_synapse) do

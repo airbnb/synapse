@@ -1,5 +1,5 @@
-require 'synapse/service_watcher/base'
-require 'synapse/service_watcher/zookeeper'
+require 'synapse/service_watcher/base/base'
+require 'synapse/service_watcher/zookeeper/zookeeper'
 
 require 'zk'
 require 'thread'
