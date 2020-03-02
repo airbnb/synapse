@@ -29,26 +29,17 @@ class Synapse::ServiceWatcher
       super(opts, reconfigure_callback, synapse)
 
       @watchers = {}
-
       watcher_config = @discovery['watchers'] || {}
 
-      watcher_config.each do |name, config|
+      watcher_config.each do |watcher_name, watcher_config|
         # Merge (deep-cloned) top-level config with the discovery configuration.
         merged_config = Marshal.load(Marshal.dump(opts))
-        merged_config['discovery'] = config
+        merged_config['discovery'] = watcher_config
 
-        unless config.is_a?(Hash)
-          raise ArgumentError, "Child watcher is not a hash for watcher #{name}"
-        end
-
-        unless config.has_key?('method')
-          raise ArgumentError, "Discovery method not included in config for watcher #{name}"
-        end
-
-        discovery_method = config['method']
+        discovery_method = watcher_config['method']
         watcher = Synapse::ServiceWatcher.load_watcher(discovery_method, merged_config, synapse)
 
-        @watchers[name] = watcher
+        @watchers[watcher_name] = watcher
       end
     end
 
@@ -81,6 +72,16 @@ class Synapse::ServiceWatcher
         unless @discovery['method'] == 'multi'
 
       raise ArgumentError, "watcher config is empty" if @discovery['watchers'].empty?
+
+      @discovery['watchers'].each do |watcher_name, watcher_config|
+        unless watcher_config.is_a?(Hash)
+          raise ArgumentError, "Child watcher is not a hash for watcher #{watcher_name}"
+        end
+
+        unless watcher_config.has_key?('method')
+          raise ArgumentError, "Discovery method not included in config for watcher #{watcher_name}"
+        end
+      end
     end
   end
 end
