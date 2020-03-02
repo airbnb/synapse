@@ -33,6 +33,9 @@ describe Synapse::ServiceWatcher::MultiWatcher do
     {'method' => 'multi', 'watchers' => {
        'primary' => zk_discovery,
        'secondary' => dns_discovery,
+     },
+     'resolver' => {
+       'method' => 'fallback',
      }}
   end
 
@@ -64,6 +67,18 @@ describe Synapse::ServiceWatcher::MultiWatcher do
     context 'with empty watcher configuration' do
       let(:discovery) do
         {'method' => 'multi', 'watchers' => {}}
+      end
+
+      it 'raises an error' do
+        expect {
+          subject.new(config, mock_synapse)
+        }.to raise_error ArgumentError
+      end
+    end
+
+    context 'with undefined watchers' do
+      let(:discovery) do
+        {'method' => 'muli'}
       end
 
       it 'raises an error' do
@@ -107,6 +122,35 @@ describe Synapse::ServiceWatcher::MultiWatcher do
            'child' => 'not_a_hash'
          }}
       }
+
+      it 'raises an error' do
+        expect {
+          subject.new(config, mock_synapse)
+        }.to raise_error ArgumentError
+      end
+    end
+
+    context 'with undefined resolver' do
+      let(:discovery) do
+        {'method' => 'multi', 'watchers' => {
+           'child' => zk_discovery
+         }}
+      end
+
+      it 'raises an error' do
+        expect {
+          subject.new(config, mock_synapse)
+        }.to raise_error ArgumentError
+      end
+    end
+
+    context 'with empty resolver' do
+      let(:discovery) do
+        {'method' => 'multi', 'watchers' => {
+           'child' => zk_discovery
+         },
+        'resolver' => {}}
+      end
 
       it 'raises an error' do
         expect {
