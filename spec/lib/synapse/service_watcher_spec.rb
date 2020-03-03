@@ -30,7 +30,7 @@ describe Synapse::ServiceWatcher do
 
     it 'raises an error' do
       expect {
-        subject.create('test', config, mock_synapse, lambda {})
+        subject.create('test', config, mock_synapse, -> {})
       }.to raise_error(ArgumentError)
     end
   end
@@ -45,7 +45,7 @@ describe Synapse::ServiceWatcher do
 
   context 'service watcher dispatch' do
     let(:default_callback) {
-      lambda {}
+      -> {}
     }
 
     subject {
@@ -65,7 +65,7 @@ describe Synapse::ServiceWatcher do
       end
 
       it 'passes custom callback' do
-        cb = lambda { }
+        cb = -> { }
         expect(cb).to receive(:call).exactly(:once)
 
         watcher = Synapse::ServiceWatcher.create('test', config, mock_synapse, cb)

@@ -13,7 +13,7 @@ describe Synapse::ServiceWatcher::BaseWatcher do
     })
     mock_synapse
   end
-  subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse, lambda {} ) }
+  subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse, -> {} ) }
   let(:testargs) { { 'name' => 'foo', 'discovery' => { 'method' => 'base' }, 'haproxy' => {} }}
 
   def remove_arg(name)
@@ -264,7 +264,7 @@ describe Synapse::ServiceWatcher::BaseWatcher do
     end
 
     context "with custom callback" do
-      let(:cb) { lambda {} }
+      let(:cb) { -> {} }
       subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse, cb) }
 
       it "calls custom callback" do

@@ -15,7 +15,7 @@ describe Synapse::ServiceWatcher::DockerWatcher do
     })
     mock_synapse
   end
-  subject { Synapse::ServiceWatcher::DockerWatcher.new(testargs, mocksynapse, lambda {}) }
+  subject { Synapse::ServiceWatcher::DockerWatcher.new(testargs, mocksynapse, -> {}) }
   let(:testargs) { { 'name' => 'foo', 'discovery' => { 'method' => 'docker', 'servers' => [{'host' => 'server1.local', 'name' => 'mainserver'}], 'image_name' => 'mycool/image', 'container_port' => 6379 }, 'haproxy' => {} }}
   before(:each) do
     allow(subject.log).to receive(:warn)

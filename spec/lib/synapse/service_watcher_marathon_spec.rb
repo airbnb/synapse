@@ -29,7 +29,7 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
   end
   let(:marathon_response) { { 'tasks' => [] } }
 
-  subject { described_class.new(config, mocksynapse, lambda {}) }
+  subject { described_class.new(config, mocksynapse, -> {}) }
 
   before do
     allow(subject.log).to receive(:warn)
