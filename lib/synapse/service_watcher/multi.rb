@@ -25,8 +25,8 @@ class Synapse::ServiceWatcher
       return opts
     end
 
-    def initialize(opts={}, reconfigure_callback=nil, synapse)
-      super(opts, reconfigure_callback, synapse)
+    def initialize(opts={}, synapse, reconfigure_callback)
+      super(opts, synapse, reconfigure_callback)
 
       @watchers = {}
       watcher_config = @discovery['watchers']
@@ -37,7 +37,7 @@ class Synapse::ServiceWatcher
         merged_config['discovery'] = watcher_config
 
         discovery_method = watcher_config['method']
-        watcher = Synapse::ServiceWatcher.load_watcher(discovery_method, merged_config, synapse)
+        watcher = Synapse::ServiceWatcher.load_watcher(discovery_method, merged_config, synapse, -> { synapse.reconfigure! })
 
         @watchers[watcher_name] = watcher
       end
