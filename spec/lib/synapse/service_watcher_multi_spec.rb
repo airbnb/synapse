@@ -2,6 +2,7 @@ require 'spec_helper'
 require 'synapse/service_watcher/multi/multi'
 require 'synapse/service_watcher/zookeeper/zookeeper'
 require 'synapse/service_watcher/dns/dns'
+require 'synapse/service_watcher/multi/resolver/base'
 
 describe Synapse::ServiceWatcher::MultiWatcher do
   let(:mock_synapse) do
@@ -24,7 +25,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
   end
 
   let (:zk_discovery) do
-    {'method' => 'zookeeper', 'hosts' => 'localhost:2181', 'path' => '/smartstack'}
+    {'method' => 'zookeeper', 'hosts' => ['localhost:2181'], 'path' => '/smartstack'}
   end
 
   let (:dns_discovery) do
@@ -32,12 +33,13 @@ describe Synapse::ServiceWatcher::MultiWatcher do
   end
 
   let(:valid_discovery) do
-    {'method' => 'multi', 'watchers' => {
+    {'method' => 'multi',
+     'watchers' => {
        'primary' => zk_discovery,
        'secondary' => dns_discovery,
      },
      'resolver' => {
-       'method' => 'fallback',
+       'method' => 'base',
      }}
   end
 
@@ -181,7 +183,18 @@ describe Synapse::ServiceWatcher::MultiWatcher do
         }.not_to raise_error
       end
 
-      it 'has sets @watchers to each watcher' do
+      it 'creates the requested resolver' do
+        expect(Synapse::ServiceWatcher::Resolver::BaseResolver)
+          .to receive(:new)
+          .with({'method' => 'base'},
+                [ instance_of(Synapse::ServiceWatcher::ZookeeperWatcher),
+                  instance_of(Synapse::ServiceWatcher::DnsWatcher)])
+          .and_call_original
+
+        expect { subject.new(config, mock_synapse) }.not_to raise_error
+      end
+
+      it 'sets @watchers to each watcher' do
         multi_watcher = subject.new(config, mock_synapse, reconfigure_callback)
         watchers = multi_watcher.instance_variable_get(:@watchers)
 
@@ -190,6 +203,13 @@ describe Synapse::ServiceWatcher::MultiWatcher do
 
         expect(watchers['primary']).to be_instance_of(Synapse::ServiceWatcher::ZookeeperWatcher)
         expect(watchers['secondary']).to be_instance_of(Synapse::ServiceWatcher::DnsWatcher)
+      end
+
+      it 'sets @resolver to the requested resolver type' do
+        watcher = subject.new(config, mock_synapse)
+        resolver = watcher.instance_variable_get(:@resolver)
+
+        expect(resolver).to be_instance_of(Synapse::ServiceWatcher::Resolver::BaseResolver)
       end
     end
   end
@@ -201,9 +221,18 @@ describe Synapse::ServiceWatcher::MultiWatcher do
         expect(w).to receive(:start)
       end
 
-      expect {
-        subject.start
-      }.not_to raise_error
+      expect { subject.start }.not_to raise_error
+    end
+
+    it 'starts resolver' do
+      resolver = subject.instance_variable_get(:@resolver)
+      watchers = subject.instance_variable_get(:@watchers).values
+      watchers.each do |w|
+        allow(w).to receive(:start)
+      end
+
+      expect(resolver).to receive(:start)
+      expect { subject.start }.not_to raise_error
     end
   end
 
@@ -214,22 +243,38 @@ describe Synapse::ServiceWatcher::MultiWatcher do
         expect(w).to receive(:stop)
       end
 
-      expect {
-        subject.stop
-      }.not_to raise_error
+      expect { subject.stop }.not_to raise_error
+    end
+
+    it 'stops resolver' do
+      resolver = subject.instance_variable_get(:@resolver)
+      watchers = subject.instance_variable_get(:@watchers).values
+      watchers.each do |w|
+        allow(w).to receive(:stop)
+      end
+
+      expect(resolver).to receive(:stop)
+      expect { subject.stop }.not_to raise_error
     end
   end
 
   describe ".ping?" do
-    it 'calls ping? on all watchers' do
-      watchers = subject.instance_variable_get(:@watchers).values
-      watchers.each do |w|
-        expect(w).to receive(:ping?).and_return true
-      end
+    context 'when resolver returns false' do
+      it 'returns false' do
+        resolver = subject.instance_variable_get(:@resolver)
+        allow(resolver).to receive(:ping?).and_return(false)
 
-      expect {
-        subject.ping?
-      }.not_to raise_error
+        expect(subject.ping?).to eq(false)
+      end
+    end
+
+    context 'when resolver returns true' do
+      it 'returns true' do
+        resolver = subject.instance_variable_get(:@resolver)
+        allow(resolver).to receive(:ping?).and_return(true)
+
+        expect(subject.ping?).to eq(true)
+      end
     end
   end
 end

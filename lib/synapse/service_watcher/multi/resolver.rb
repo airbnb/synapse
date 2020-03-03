@@ -1,4 +1,4 @@
-class Synapse::ServiceWatcher::MultiWatcher
+class Synapse::ServiceWatcher
   class Resolver
     def self.load_resolver(opts, watchers)
       raise ArgumentError, "resolver method not provided" unless opts.has_key?('method')
