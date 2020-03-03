@@ -19,7 +19,7 @@ class Synapse::ServiceWatcher
       opts['method'] ||= 'multi'
       opts['watchers'] ||= {}
 
-      raise ArgumentError, "multi watcher config already has primary watcher defined" if opts['watchers'].has_key?('primary')
+      log.warn "multi-watcher: config for primary watcher is always ignored" if opts['watchers'].has_key?('primary')
       opts['watchers']['primary'] = discovery
 
       return opts
