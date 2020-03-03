@@ -25,10 +25,18 @@ describe Synapse::ServiceWatcher do
     {}
   end
 
-  context 'bogus arguments' do
+  context 'with bogus method' do
     let(:discovery_config) {{'method' => 'bogus'}}
 
-    it 'complains if discovery method is bogus' do
+    it 'raises an error' do
+      expect {
+        subject.create('test', config, mock_synapse, lambda {})
+      }.to raise_error(ArgumentError)
+    end
+  end
+
+  context 'without reconfigure callback' do
+    it 'raises an error' do
       expect {
         subject.create('test', config, mock_synapse)
       }.to raise_error(ArgumentError)
@@ -36,10 +44,14 @@ describe Synapse::ServiceWatcher do
   end
 
   context 'service watcher dispatch' do
-    subject {
-      Synapse::ServiceWatcher.create('test', config, mock_synapse)
+    let(:default_callback) {
+      lambda {}
     }
-    
+
+    subject {
+      Synapse::ServiceWatcher.create('test', config, mock_synapse, default_callback)
+    }
+
     context 'with method => base' do
       let(:discovery_config) {
         {
@@ -48,7 +60,7 @@ describe Synapse::ServiceWatcher do
       }
 
       it 'creates watcher correctly' do
-        expect(Synapse::ServiceWatcher::BaseWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect(Synapse::ServiceWatcher::BaseWatcher).to receive(:new).exactly(:once).with(config, mock_synapse, default_callback)
         expect { subject }.not_to raise_error
       end
 
@@ -56,7 +68,7 @@ describe Synapse::ServiceWatcher do
         cb = lambda { }
         expect(cb).to receive(:call).exactly(:once)
 
-        watcher = Synapse::ServiceWatcher.create('test', config, cb, mock_synapse)
+        watcher = Synapse::ServiceWatcher.create('test', config, mock_synapse, cb)
         watcher.send(:reconfigure!)
       end
     end
@@ -71,7 +83,7 @@ describe Synapse::ServiceWatcher do
       }
 
       it 'creates watcher correctly' do
-        expect(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).exactly(:once).with(config, mock_synapse, default_callback)
         expect { subject }.not_to raise_error
       end
     end
@@ -85,7 +97,7 @@ describe Synapse::ServiceWatcher do
       }
 
       it 'creates watcher correctly' do
-        expect(Synapse::ServiceWatcher::DnsWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect(Synapse::ServiceWatcher::DnsWatcher).to receive(:new).exactly(:once).with(config, mock_synapse, default_callback)
         expect{ subject }.not_to raise_error
       end
     end
@@ -101,7 +113,7 @@ describe Synapse::ServiceWatcher do
       }
 
       it 'creates watcher correctly' do
-        expect(Synapse::ServiceWatcher::DockerWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect(Synapse::ServiceWatcher::DockerWatcher).to receive(:new).exactly(:once).with(config, mock_synapse, default_callback)
         expect{ subject }.not_to raise_error
       end
     end
@@ -119,7 +131,7 @@ describe Synapse::ServiceWatcher do
       }
 
       it 'creates watcher correctly' do
-        expect(Synapse::ServiceWatcher::Ec2tagWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect(Synapse::ServiceWatcher::Ec2tagWatcher).to receive(:new).exactly(:once).with(config, mock_synapse, default_callback)
         expect{ subject }.not_to raise_error
       end
     end
@@ -134,7 +146,7 @@ describe Synapse::ServiceWatcher do
       }
 
       it 'creates watcher correctly' do
-        expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher).to receive(:new).exactly(:once).with(config, mock_synapse, default_callback)
         expect{ subject }.not_to raise_error
       end
     end
@@ -149,7 +161,7 @@ describe Synapse::ServiceWatcher do
       }
 
       it 'creates watcher correctly' do
-        expect(Synapse::ServiceWatcher::MarathonWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect(Synapse::ServiceWatcher::MarathonWatcher).to receive(:new).exactly(:once).with(config, mock_synapse, default_callback)
         expect{ subject }.not_to raise_error
       end
     end

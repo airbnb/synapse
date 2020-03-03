@@ -26,8 +26,8 @@ class Synapse::ServiceWatcher
     @@zk_pool_count = {}
     @@zk_pool_lock = Mutex.new
 
-    def initialize(opts={}, reconfigure_callback=nil, synapse)
-      super(opts, reconfigure_callback, synapse)
+    def initialize(opts={}, synapse, reconfigure_callback)
+      super(opts, synapse, reconfigure_callback)
 
       # Alternative deserialization support. By default we use nerve
       # deserialization, but we also support serverset registries

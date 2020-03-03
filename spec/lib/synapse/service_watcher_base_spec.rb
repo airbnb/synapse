@@ -13,7 +13,7 @@ describe Synapse::ServiceWatcher::BaseWatcher do
     })
     mock_synapse
   end
-  subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse) }
+  subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse, lambda {} ) }
   let(:testargs) { { 'name' => 'foo', 'discovery' => { 'method' => 'base' }, 'haproxy' => {} }}
 
   def remove_arg(name)
@@ -44,6 +44,14 @@ describe Synapse::ServiceWatcher::BaseWatcher do
       it 'raises error' do
         expect { subject }.to raise_error(ArgumentError, "missing required option #{to_remove}")
       end
+    end
+  end
+
+  context "without reconfigure callback" do
+    it "raises an error" do
+      expect {
+        Synapse::ServiceWatcher::BaseWatcher.new(testargs, mocksynapse)
+      }.to raise_error(ArgumentError)
     end
   end
 
@@ -247,37 +255,17 @@ describe Synapse::ServiceWatcher::BaseWatcher do
   describe "reconfigure!" do
     let(:args) { testargs }
 
-    context "without custom callback" do
+    context "with explicit nil custom callback" do
       subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse) }
 
-      it "calls synapse reconfigure" do
-        expect(mocksynapse).to receive(:reconfigure!).exactly(:once)
-        subject.send(:reconfigure!)
-      end
-
-      it "increments revision" do
-        allow(mocksynapse).to receive(:reconfigure!)
-        expect{subject.send(:reconfigure!)}.to change{subject.revision}.by 1
-      end
-    end
-
-    context "with explicit nil custom callback" do
-      subject { Synapse::ServiceWatcher::BaseWatcher.new(args, nil, mocksynapse) }
-
-      it "calls synapse reconfigure" do
-        expect(mocksynapse).to receive(:reconfigure!).exactly(:once)
-        subject.send(:reconfigure!)
-      end
-
-      it "increments revision" do
-        allow(mocksynapse).to receive(:reconfigure!).exactly(:once)
-        expect{subject.send(:reconfigure!)}.to change{subject.revision}.by 1
+      it "raises an error" do
+        expect { subject }.to raise_error(ArgumentError)
       end
     end
 
     context "with custom callback" do
       let(:cb) { lambda {} }
-      subject { Synapse::ServiceWatcher::BaseWatcher.new(args, cb, mocksynapse) }
+      subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse, cb) }
 
       it "calls custom callback" do
         expect(mocksynapse).not_to receive(:reconfigure!)

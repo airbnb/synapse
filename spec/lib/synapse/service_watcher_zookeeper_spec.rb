@@ -84,7 +84,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       node_double
     end
 
-    subject { Synapse::ServiceWatcher::ZookeeperWatcher.new(config, mock_synapse) }
+    subject { Synapse::ServiceWatcher::ZookeeperWatcher.new(config, mock_synapse, lambda {}) }
     it 'decodes data correctly' do
       expect(subject.send(:deserialize_service_instance, service_data_string)).to eql(deserialized_service_data)
     end
@@ -357,7 +357,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
   context 'ZookeeperDnsWatcher' do
     let(:discovery) { { 'method' => 'zookeeper_dns', 'hosts' => 'somehost','path' => 'some/path' } }
     let(:message_queue) { [] }
-    subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher::Zookeeper.new(config, mock_synapse, message_queue) }
+    subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher::Zookeeper.new(config, mock_synapse, lambda {}, message_queue) }
     it 'decodes data correctly' do
       expect(subject.send(:deserialize_service_instance, service_data_string)).to eql(deserialized_service_data)
     end
