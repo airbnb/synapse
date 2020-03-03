@@ -14,8 +14,10 @@ describe Synapse::ServiceWatcher::MultiWatcher do
   end
 
   subject {
-    Synapse::ServiceWatcher::MultiWatcher.new(config, mock_synapse)
+    Synapse::ServiceWatcher::MultiWatcher.new(config, mock_synapse, reconfigure_callback)
   }
+
+  let(:reconfigure_callback) { -> {} }
 
   let(:discovery) do
     valid_discovery
@@ -59,7 +61,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
 
       it 'raises an error' do
         expect {
-          subject.new(config, mock_synapse)
+          subject.new(config, mock_synapse, reconfigure_callback)
         }.to raise_error ArgumentError
       end
     end
@@ -71,7 +73,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
 
       it 'raises an error' do
         expect {
-          subject.new(config, mock_synapse)
+          subject.new(config, mock_synapse, reconfigure_callback)
         }.to raise_error ArgumentError
       end
     end
@@ -83,7 +85,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
 
       it 'raises an error' do
         expect {
-          subject.new(config, mock_synapse)
+          subject.new(config, mock_synapse, reconfigure_callback)
         }.to raise_error ArgumentError
       end
     end
@@ -95,7 +97,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
 
       it 'raises an error' do
         expect {
-          subject.new(config, mock_synapse)
+          subject.new(config, mock_synapse, reconfigure_callback)
         }.to raise_error ArgumentError
       end
     end
@@ -111,7 +113,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
 
       it 'raises an error' do
         expect {
-          subject.new(config, mock_synapse)
+          subject.new(config, mock_synapse, reconfigure_callback)
         }.to raise_error ArgumentError
       end
     end
@@ -125,7 +127,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
 
       it 'raises an error' do
         expect {
-          subject.new(config, mock_synapse)
+          subject.new(config, mock_synapse, reconfigure_callback)
         }.to raise_error ArgumentError
       end
     end
@@ -139,7 +141,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
 
       it 'raises an error' do
         expect {
-          subject.new(config, mock_synapse)
+          subject.new(config, mock_synapse, reconfigure_callback)
         }.to raise_error ArgumentError
       end
     end
@@ -154,7 +156,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
 
       it 'raises an error' do
         expect {
-          subject.new(config, mock_synapse)
+          subject.new(config, mock_synapse, reconfigure_callback)
         }.to raise_error ArgumentError
       end
     end
@@ -167,20 +169,20 @@ describe Synapse::ServiceWatcher::MultiWatcher do
       it 'creates the requested watchers' do
         expect(Synapse::ServiceWatcher::ZookeeperWatcher)
           .to receive(:new)
-          .with({'name' => 'test', 'haproxy' => {}, 'discovery' => zk_discovery}, nil, mock_synapse)
+          .with({'name' => 'test', 'haproxy' => {}, 'discovery' => zk_discovery}, mock_synapse, duck_type(:call))
           .and_call_original
         expect(Synapse::ServiceWatcher::DnsWatcher)
           .to receive(:new)
-          .with({'name' => 'test', 'haproxy' => {}, 'discovery' => dns_discovery}, nil, mock_synapse)
+          .with({'name' => 'test', 'haproxy' => {}, 'discovery' => dns_discovery}, mock_synapse, duck_type(:call))
           .and_call_original
 
         expect {
-          subject.new(config, mock_synapse)
+          subject.new(config, mock_synapse, reconfigure_callback)
         }.not_to raise_error
       end
 
       it 'has sets @watchers to each watcher' do
-        multi_watcher = subject.new(config, mock_synapse)
+        multi_watcher = subject.new(config, mock_synapse, reconfigure_callback)
         watchers = multi_watcher.instance_variable_get(:@watchers)
 
         expect(watchers.has_key?('primary'))
