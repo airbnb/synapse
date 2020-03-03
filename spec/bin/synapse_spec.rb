@@ -92,7 +92,7 @@ describe 'parseconfig' do
                  "http-check expect string OK",
                ]
              },
-            "name" => "service1"}, nil, instance_of(Synapse::Synapse))
+            "name" => "service1"}, instance_of(Synapse::Synapse), duck_type(:call))
 
     stub_const 'ENV', ENV.to_hash.merge(
       {"SYNAPSE_CONFIG" => "#{File.dirname(__FILE__)}/../../config/discovery-multi.conf.json"})

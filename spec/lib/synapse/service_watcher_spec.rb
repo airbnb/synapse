@@ -190,7 +190,7 @@ describe Synapse::ServiceWatcher do
       }
 
       it 'creates watcher correctly' do
-        expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(config, nil, mock_synapse)
+        expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(config, mock_synapse, default_callback)
         expect{ subject }.not_to raise_error
       end
     end
@@ -247,7 +247,7 @@ describe Synapse::ServiceWatcher do
       }
 
       it 'creates watcher correctly' do
-        expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, nil, mock_synapse)
+        expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, mock_synapse, default_callback)
         expect{ subject }.not_to raise_error
       end
 
@@ -274,7 +274,7 @@ describe Synapse::ServiceWatcher do
 
         context 'to multi' do
           it 'creates watcher properly' do
-            expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, nil, mock_synapse)
+            expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, mock_synapse, default_callback)
             expect{ subject }.not_to raise_error
           end
         end
@@ -284,7 +284,7 @@ describe Synapse::ServiceWatcher do
         let(:watchers) {{}}
 
         it 'creates watcher properly' do
-          expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, nil, mock_synapse)
+          expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, mock_synapse, default_callback)
           expect{ subject }.not_to raise_error
         end
       end
@@ -293,7 +293,7 @@ describe Synapse::ServiceWatcher do
         let(:discovery) { nil }
 
         it 'creates watcher properly' do
-          expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, nil, mock_synapse)
+          expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, mock_synapse, default_callback)
           expect{ subject }.not_to raise_error
         end
       end
