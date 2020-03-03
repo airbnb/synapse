@@ -16,14 +16,14 @@ module Synapse
 
     def self.load_watcher(discovery_method, opts, reconfigure_callback = nil, synapse)
       watcher = begin
-                  method = discovery_method.downcase
-                  require "synapse/service_watcher/#{method}"
-                  # zookeeper_dns => ZookeeperDnsWatcher, ec2tag => Ec2tagWatcher, etc ...
-                  method_class  = method.split('_').map{|x| x.capitalize}.join.concat('Watcher')
-                  self.const_get("#{method_class}")
-                rescue Exception => e
-                  raise ArgumentError, "Specified a discovery method of #{discovery_method}, which could not be found: #{e}"
-                end
+        method = discovery_method.downcase
+        require "synapse/service_watcher/#{method}"
+        # zookeeper_dns => ZookeeperDnsWatcher, ec2tag => Ec2tagWatcher, etc ...
+        method_class  = method.split('_').map{|x| x.capitalize}.join.concat('Watcher')
+        self.const_get("#{method_class}")
+      rescue Exception => e
+        raise ArgumentError, "Specified a discovery method of #{discovery_method}, which could not be found: #{e}"
+      end
 
       return watcher.new(opts, reconfigure_callback, synapse)
     end

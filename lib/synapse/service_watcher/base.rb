@@ -20,10 +20,10 @@ class Synapse::ServiceWatcher
       @synapse = synapse
       @revision = 0
       @reconfigure_callback = if reconfigure_callback.nil?
-                                lambda { synapse.reconfigure! }
-                              else
-                                reconfigure_callback
-                              end
+        lambda { synapse.reconfigure! }
+      else
+        reconfigure_callback
+      end
 
       # set required service parameters
       %w{name discovery}.each do |req|
