@@ -1,7 +1,7 @@
 require "synapse/log"
 require "synapse/statsd"
 
-class Synapse::ServiceWatcher::MultiWatcher::Resolver
+class Synapse::ServiceWatcher::Resolver
   class BaseResolver
     include Synapse::Logging
     include Synapse::StatsD

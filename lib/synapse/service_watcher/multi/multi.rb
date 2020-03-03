@@ -1,4 +1,5 @@
 require "synapse/service_watcher/base/base"
+require "synapse/service_watcher/multi/resolver"
 require "synapse/log"
 require "synapse/statsd"
 
@@ -48,6 +49,9 @@ class Synapse::ServiceWatcher
 
         @watchers[watcher_name] = watcher
       end
+
+      @resolver = Synapse::ServiceWatcher::Resolver.load_resolver(@discovery['resolver'],
+                                                                  @watchers.values)
     end
 
     def start
@@ -57,6 +61,8 @@ class Synapse::ServiceWatcher
       @watchers.values.each do |w|
         w.start
       end
+
+      @resolver.start
     end
 
     def stop
@@ -66,12 +72,16 @@ class Synapse::ServiceWatcher
       @watchers.values.each do |w|
         w.stop
       end
+
+      @resolver.stop
     end
 
     def ping?
-      @watchers.values.all? do |w|
-        w.ping?
-      end
+      return @resolver.ping?
+    end
+
+    def backends
+      return @resolver.backends
     end
 
     private

@@ -2,7 +2,7 @@ require 'spec_helper'
 require 'synapse/service_watcher/multi/resolver/base'
 require 'synapse/service_watcher/base/base'
 
-describe Synapse::ServiceWatcher::MultiWatcher::Resolver::BaseResolver do
+describe Synapse::ServiceWatcher::Resolver::BaseResolver do
   let(:opts) {
     {'method' => 'base'}
   }
@@ -14,7 +14,7 @@ describe Synapse::ServiceWatcher::MultiWatcher::Resolver::BaseResolver do
   }
 
   subject {
-    Synapse::ServiceWatcher::MultiWatcher::Resolver::BaseResolver.new(opts, watchers)
+    Synapse::ServiceWatcher::Resolver::BaseResolver.new(opts, watchers)
   }
 
   describe "#initialize" do

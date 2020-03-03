@@ -3,8 +3,8 @@ require 'synapse/service_watcher/base/base'
 require 'synapse/service_watcher/multi/resolver'
 require 'synapse/service_watcher/multi/resolver/base'
 
-describe Synapse::ServiceWatcher::MultiWatcher::Resolver do
-  subject { Synapse::ServiceWatcher::MultiWatcher::Resolver }
+describe Synapse::ServiceWatcher::Resolver do
+  subject { Synapse::ServiceWatcher::Resolver }
 
   let(:watchers) {
     [
@@ -15,7 +15,7 @@ describe Synapse::ServiceWatcher::MultiWatcher::Resolver do
   describe ".load_resolver" do
     let(:config) { {'method' => 'base'} }
     subject {
-      Synapse::ServiceWatcher::MultiWatcher::Resolver
+      Synapse::ServiceWatcher::Resolver
     }
 
     context 'with method => base' do
