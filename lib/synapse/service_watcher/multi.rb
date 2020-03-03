@@ -16,7 +16,7 @@ class Synapse::ServiceWatcher
     def self.merge_discovery(discovery_multi, discovery)
       # deep clone the object first
       opts = Marshal.load(Marshal.dump(discovery_multi))
-      opts['method'] = 'multi' unless opts.has_key?('method')
+      opts['method'] ||= 'multi'
       opts['watchers'] ||= {}
 
       raise ArgumentError, "multi watcher config already has primary watcher defined" if opts['watchers'].has_key?('primary')
@@ -29,7 +29,7 @@ class Synapse::ServiceWatcher
       super(opts, reconfigure_callback, synapse)
 
       @watchers = {}
-      watcher_config = @discovery['watchers'] || {}
+      watcher_config = @discovery['watchers']
 
       watcher_config.each do |watcher_name, watcher_config|
         # Merge (deep-cloned) top-level config with the discovery configuration.
@@ -80,11 +80,11 @@ class Synapse::ServiceWatcher
 
       @discovery['watchers'].each do |watcher_name, watcher_config|
         unless watcher_config.is_a?(Hash)
-          raise ArgumentError, "Child watcher is not a hash for watcher #{watcher_name}"
+          raise ArgumentError, "child watcher is not a hash for watcher #{watcher_name}"
         end
 
         unless watcher_config.has_key?('method')
-          raise ArgumentError, "Discovery method not included in config for watcher #{watcher_name}"
+          raise ArgumentError, "discovery method not included in config for watcher #{watcher_name}"
         end
       end
     end
