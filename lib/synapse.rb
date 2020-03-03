@@ -122,14 +122,16 @@ module Synapse
     private
     def create_service_watchers(services={})
       service_watchers = []
+      reconfigure_callback = -> { reconfigure! }
+
       services.each do |service_name, service_config|
         if service_config.has_key?('load_test_concurrency')
           concurrency = service_config['load_test_concurrency']
           concurrency.times do |i|
-            service_watchers << ServiceWatcher.create("#{service_name}_#{i}", service_config, self, method(:reconfigure!))
+            service_watchers << ServiceWatcher.create("#{service_name}_#{i}", service_config, self, reconfigure_callback)
           end
         else
-          service_watchers << ServiceWatcher.create(service_name, service_config, self, method(:reconfigure!))
+          service_watchers << ServiceWatcher.create(service_name, service_config, self, reconfigure_callback)
         end
       end
 
