@@ -262,7 +262,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
     context 'when resolver returns false' do
       it 'returns false' do
         resolver = subject.instance_variable_get(:@resolver)
-        allow(resolver).to receive(:ping?).and_return(false)
+        allow(resolver).to receive(:healthy?).and_return(false)
 
         expect(subject.ping?).to eq(false)
       end
@@ -271,7 +271,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
     context 'when resolver returns true' do
       it 'returns true' do
         resolver = subject.instance_variable_get(:@resolver)
-        allow(resolver).to receive(:ping?).and_return(true)
+        allow(resolver).to receive(:healthy?).and_return(true)
 
         expect(subject.ping?).to eq(true)
       end
