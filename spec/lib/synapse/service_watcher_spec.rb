@@ -300,10 +300,12 @@ describe Synapse::ServiceWatcher do
 
       context 'with primary already set' do
         let(:watchers) {
-          {'primary' => discovery}
+          {'primary' => 'should_throw_error_if_used'}
         }
-        it 'raises an error' do
-          expect{ subject }.to raise_error(ArgumentError)
+
+        it 'ignores primary' do
+          expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, mock_synapse, default_callback)
+          expect{ subject }.not_to raise_error
         end
       end
 
