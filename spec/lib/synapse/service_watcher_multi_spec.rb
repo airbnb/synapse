@@ -258,6 +258,20 @@ describe Synapse::ServiceWatcher::MultiWatcher do
     end
   end
 
+  describe ".backends" do
+    it "calls resolver.merged_backends" do
+      resolver = subject.instance_variable_get(:@resolver)
+      expect(resolver).to receive(:merged_backends)
+      subject.backends
+    end
+
+    it "returns resolver.merged_backends result" do
+      resolver = subject.instance_variable_get(:@resolver)
+      allow(resolver).to receive(:merged_backends).and_return(["test-a", "test-b"])
+      expect(subject.backends).to eq(["test-a", "test-b"])
+    end
+  end
+
   describe ".ping?" do
     context 'when resolver returns false' do
       it 'returns false' do
