@@ -71,11 +71,11 @@ class Synapse::ServiceWatcher
       log.warn "synapse: multi watcher exiting"
       statsd_increment("synapse.watcher.multi.stop")
 
+      @resolver.stop
+
       @watchers.values.each do |w|
         w.stop
       end
-
-      @resolver.stop
     end
 
     def ping?
