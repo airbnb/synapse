@@ -13,6 +13,8 @@ class Synapse::ServiceWatcher
   #     method, and be of the same format as the method type expects.
   #     (That is, method => zookeeper means a Zookeeper watcher will be created, so
   #     the rest of the options will be passed to the ZookeeperWatcher class).
+  #   resolver => hash. Resolver hash must include method, and be of the same format
+  #     as the method type expects.
   class MultiWatcher < BaseWatcher
     extend Synapse::Logging
     include Synapse::StatsD
