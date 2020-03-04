@@ -1,4 +1,6 @@
 require "synapse/service_watcher/base"
+require "synapse/log"
+require "synapse/statsd"
 
 class Synapse::ServiceWatcher
   # MultiWatcher allows using multiple watchers to obtain service discovery data
@@ -11,6 +13,9 @@ class Synapse::ServiceWatcher
   #     (That is, method => zookeeper means a Zookeeper watcher will be created, so
   #     the rest of the options will be passed to the ZookeeperWatcher class).
   class MultiWatcher < BaseWatcher
+    extend Synapse::Logging
+    include Synapse::StatsD
+
     # Resolves the discovery and discovery_multi configuration into a single
     # hash that can be passed to this class.
     def self.merge_discovery(discovery_multi, discovery)
@@ -37,6 +42,8 @@ class Synapse::ServiceWatcher
         merged_config['discovery'] = watcher_config
 
         discovery_method = watcher_config['method']
+
+        log.info "synapse multi-watcher creating child watcher #{watcher_name} of type #{discovery_method}"
         watcher = Synapse::ServiceWatcher.load_watcher(discovery_method, merged_config, synapse, -> { synapse.reconfigure! })
 
         @watchers[watcher_name] = watcher
@@ -45,6 +52,7 @@ class Synapse::ServiceWatcher
 
     def start
       log.info "synapse: starting multi watcher"
+      statsd_increment("synapse.watcher.multi.start")
 
       @watchers.values.each do |w|
         w.start
@@ -53,6 +61,7 @@ class Synapse::ServiceWatcher
 
     def stop
       log.warn "synapse: multi watcher exiting"
+      statsd_increment("synapse.watcher.multi.stop")
 
       @watchers.values.each do |w|
         w.stop

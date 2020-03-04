@@ -4,6 +4,8 @@ require "synapse/service_watcher/multi"
 
 module Synapse
   class ServiceWatcher
+    extend Synapse::Logging
+
     # the method which actually dispatches watcher creation requests
     def self.create(name, opts, synapse, reconfigure_callback)
       opts = self.try_resolve_multi_config(opts)
@@ -35,6 +37,8 @@ module Synapse
       if opts.has_key?('discovery_multi')
         multi = opts.delete('discovery_multi')
         opts['discovery'] = MultiWatcher.merge_discovery(multi, opts['discovery'])
+
+        log.info "synapse: merged discovery_multi and discovery configurations"
       end
 
       return opts
