@@ -11,7 +11,7 @@ class Synapse::ServiceWatcher::Resolver
 
       log.info "creating base resolver"
 
-      raise ArgumentError, "BaseResolver expects method to be base" unless opts['method'] == 'base'
+      raise ArgumentError, "base resolver expects method to be base" unless opts['method'] == 'base'
       raise ArgumentError, "no watchers provided" unless watchers.length > 0
 
       @opts = opts

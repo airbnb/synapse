@@ -9,7 +9,7 @@ class Synapse::ServiceWatcher
                    method_class  = method.split('_').map{|x| x.capitalize}.join.concat('Resolver')
                    self.const_get("#{method_class}")
                  rescue Exception => e
-                   raise ArgumentError, "Specified a resolver method of #{method}, which could not be found: #{e}"
+                   raise ArgumentError, "specified a resolver method of #{method}, which could not be found: #{e}"
                  end
 
       return resolver.new(opts, watchers)
