@@ -21,11 +21,11 @@ class Synapse::ServiceWatcher::MultiWatcher::Resolver
 	     # stop resolver
 	  end
 
-	  def backends
+	  def merged_backends
 	     # return a single list of backends
 	  end
 
-	  def ping?
+	  def healthy?
 	     # return whether or not the watchers are healthy
 	  end
    end

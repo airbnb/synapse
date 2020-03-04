@@ -79,11 +79,11 @@ class Synapse::ServiceWatcher
     end
 
     def ping?
-      return @resolver.ping?
+      return @resolver.healthy?
     end
 
     def backends
-      return @resolver.backends
+      return @resolver.merged_backends
     end
 
     private

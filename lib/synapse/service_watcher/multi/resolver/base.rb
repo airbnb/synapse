@@ -29,12 +29,12 @@ class Synapse::ServiceWatcher::Resolver
     end
 
     # should be overridden in child classes
-    def backends
+    def merged_backends
       return []
     end
 
     # should be overridden in child classes
-    def ping?
+    def healthy?
       return true
     end
   end

@@ -55,15 +55,15 @@ describe Synapse::ServiceWatcher::Resolver::BaseResolver do
     end
   end
 
-  describe "#backends" do
+  describe "#merged_backends" do
     it 'returns an empty list by default' do
-      expect(subject.backends).to eq([])
+      expect(subject.merged_backends).to eq([])
     end
   end
 
-  describe "#ping?" do
+  describe "#healthy?" do
     it 'returns true by default' do
-      expect(subject.ping?).to eq(true)
+      expect(subject.healthy?).to eq(true)
     end
   end
 end
