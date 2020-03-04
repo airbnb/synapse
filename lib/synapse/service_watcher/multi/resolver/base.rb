@@ -13,6 +13,9 @@ class Synapse::ServiceWatcher::Resolver
 
       raise ArgumentError, "BaseResolver expects method to be base" unless opts['method'] == 'base'
       raise ArgumentError, "no watchers provided" unless watchers.length > 0
+
+      @opts = opts
+      @watchers = watchers
     end
 
     # should be overridden in child classes

@@ -53,7 +53,7 @@ class Synapse::ServiceWatcher
       end
 
       @resolver = Synapse::ServiceWatcher::Resolver.load_resolver(@discovery['resolver'],
-                                                                  @watchers.values)
+                                                                  @watchers)
     end
 
     def start
