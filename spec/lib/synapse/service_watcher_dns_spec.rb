@@ -35,7 +35,7 @@ describe Synapse::ServiceWatcher::DnsWatcher do
     ]
   end
 
-  subject { Synapse::ServiceWatcher::DnsWatcher.new(config, mock_synapse) }
+  subject { Synapse::ServiceWatcher::DnsWatcher.new(config, mock_synapse, -> {}) }
 
   it 'only resolves hostnames' do
     resolver = instance_double("Resolv::DNS")

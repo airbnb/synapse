@@ -13,7 +13,7 @@ describe Synapse::ServiceWatcher::BaseWatcher do
     })
     mock_synapse
   end
-  subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse) }
+  subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse, -> {} ) }
   let(:testargs) { { 'name' => 'foo', 'discovery' => { 'method' => 'base' }, 'haproxy' => {} }}
 
   def remove_arg(name)
@@ -22,15 +22,36 @@ describe Synapse::ServiceWatcher::BaseWatcher do
     args
   end
 
-  context "can construct normally" do
+  context "with normal arguments" do
     let(:args) { testargs }
-    it('can at least construct') { expect { subject }.not_to raise_error }
+
+    it 'can construct properly' do
+      expect { subject }.not_to raise_error
+    end
+
+    it 'properly sets instance variables' do
+      # ensure that synapse is not mistaken for reconfigure_callback
+      expect(subject.instance_variable_get(:@synapse)).to eq(mocksynapse)
+      expect(subject.instance_variable_get(:@reconfigure_callback).nil?).to eq(false)
+      expect(subject.instance_variable_get(:@reconfigure_callback)).not_to eq(mocksynapse)
+    end
   end
 
   ['name', 'discovery'].each do |to_remove|
     context "without #{to_remove} argument" do
       let(:args) { remove_arg to_remove }
-      it('gots bang') { expect { subject }.to raise_error(ArgumentError, "missing required option #{to_remove}") }
+
+      it 'raises error' do
+        expect { subject }.to raise_error(ArgumentError, "missing required option #{to_remove}")
+      end
+    end
+  end
+
+  context "without reconfigure callback" do
+    it "raises an error" do
+      expect {
+        Synapse::ServiceWatcher::BaseWatcher.new(testargs, mocksynapse)
+      }.to raise_error(ArgumentError)
     end
   end
 
@@ -44,7 +65,7 @@ describe Synapse::ServiceWatcher::BaseWatcher do
     end
   end
 
-  context 'set_backends test' do
+  describe "set_backends" do
     default_servers = [
       {'name' => 'default_server1', 'host' => 'default_server1', 'port' => 123},
       {'name' => 'default_server2', 'host' => 'default_server2', 'port' => 123}
@@ -227,6 +248,35 @@ describe Synapse::ServiceWatcher::BaseWatcher do
         it 'returns only backends that match all labels' do
           expect(subject.backends).to contain_exactly(*matching_labeled_backends)
         end
+      end
+    end
+  end
+
+  describe "reconfigure!" do
+    let(:args) { testargs }
+
+    context "with explicit nil custom callback" do
+      subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse) }
+
+      it "raises an error" do
+        expect { subject }.to raise_error(ArgumentError)
+      end
+    end
+
+    context "with custom callback" do
+      let(:cb) { -> {} }
+      subject { Synapse::ServiceWatcher::BaseWatcher.new(args, mocksynapse, cb) }
+
+      it "calls custom callback" do
+        expect(mocksynapse).not_to receive(:reconfigure!)
+        expect(cb).to receive(:call).exactly(:once)
+
+        subject.send(:reconfigure!)
+      end
+
+      it "increments revision" do
+        allow(cb).to receive(:call).exactly(:once)
+        expect{subject.send(:reconfigure!)}.to change{subject.revision}.by 1
       end
     end
   end

@@ -39,7 +39,7 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
     allow(mock_synapse).to receive(:reconfigure!).and_return(true)
     mock_synapse
   end
-  subject { Synapse::ServiceWatcher::Ec2tagWatcher.new(basic_config, mock_synapse) }
+  subject { Synapse::ServiceWatcher::Ec2tagWatcher.new(basic_config, mock_synapse, -> {}) }
 
   let(:basic_config) do
     { 'name' => 'ec2tagtest',
@@ -103,27 +103,27 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
     context 'when missing arguments' do
       it 'does not break if aws_region is missing' do
         expect {
-          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_region'), mock_synapse)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_region'), mock_synapse, -> {})
         }.not_to raise_error
       end
       it 'does not break if aws_access_key_id is missing' do
         expect {
-          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_access_key_id'), mock_synapse)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_access_key_id'), mock_synapse, -> {})
         }.not_to raise_error
       end
       it 'does not break if aws_secret_access_key is missing' do
         expect {
-          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_secret_access_key'), mock_synapse)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_discovery_arg('aws_secret_access_key'), mock_synapse, -> {})
         }.not_to raise_error
       end
       it 'complains if server_port_override and backend_port_override are missing' do
         expect {
-          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_haproxy_arg('server_port_override'), mock_synapse)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(remove_haproxy_arg('server_port_override'), mock_synapse, -> {})
         }.to raise_error(ArgumentError, /Missing backend_port_override/)
       end
       it 'does not break if backend_port_override is set' do
         expect {
-          Synapse::ServiceWatcher::Ec2tagWatcher.new(munge_arg('backend_port_override', 1234), mock_synapse)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(munge_arg('backend_port_override', 1234), mock_synapse, -> {})
         }.not_to raise_error
       end
     end
@@ -131,7 +131,7 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
     context 'invalid data' do
       it 'complains if the haproxy server_port_override is not a number' do
         expect {
-          Synapse::ServiceWatcher::Ec2tagWatcher.new(munge_haproxy_arg('server_port_override', '80deadbeef'), mock_synapse)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(munge_haproxy_arg('server_port_override', '80deadbeef'), mock_synapse, -> {})
         }.to raise_error(ArgumentError, /Invalid backend_port_override/)
       end
       it 'complains if the backend_port_override is not a number' do
@@ -139,7 +139,7 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
         expect(config['haproxy']['backend_port_override']).to eq(nil)
         config = munge_arg('backend_port_override', '80deadbeef')
         expect {
-          Synapse::ServiceWatcher::Ec2tagWatcher.new(config, mock_synapse)
+          Synapse::ServiceWatcher::Ec2tagWatcher.new(config, mock_synapse, -> {})
         }.to raise_error(ArgumentError, /Invalid backend_port_override/)
       end
 
