@@ -187,8 +187,8 @@ describe Synapse::ServiceWatcher::MultiWatcher do
         expect(Synapse::ServiceWatcher::Resolver::BaseResolver)
           .to receive(:new)
           .with({'method' => 'base'},
-                [ instance_of(Synapse::ServiceWatcher::ZookeeperWatcher),
-                  instance_of(Synapse::ServiceWatcher::DnsWatcher)])
+                {'primary' => instance_of(Synapse::ServiceWatcher::ZookeeperWatcher),
+                  'secondary' => instance_of(Synapse::ServiceWatcher::DnsWatcher)})
           .and_call_original
 
         expect { subject.new(config, mock_synapse, reconfigure_callback) }.not_to raise_error
