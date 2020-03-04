@@ -191,7 +191,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
                   instance_of(Synapse::ServiceWatcher::DnsWatcher)])
           .and_call_original
 
-        expect { subject.new(config, mock_synapse) }.not_to raise_error
+        expect { subject.new(config, mock_synapse, reconfigure_callback) }.not_to raise_error
       end
 
       it 'sets @watchers to each watcher' do
@@ -206,7 +206,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
       end
 
       it 'sets @resolver to the requested resolver type' do
-        watcher = subject.new(config, mock_synapse)
+        watcher = subject.new(config, mock_synapse, reconfigure_callback)
         resolver = watcher.instance_variable_get(:@resolver)
 
         expect(resolver).to be_instance_of(Synapse::ServiceWatcher::Resolver::BaseResolver)
