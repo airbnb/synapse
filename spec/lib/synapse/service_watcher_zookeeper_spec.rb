@@ -76,7 +76,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
   end
 
   describe 'ZookeeperWatcher' do
-    let(:discovery) { { 'method' => 'zookeeper', 'hosts' => 'somehost', 'path' => 'some/path' } }
+    let(:discovery) { { 'method' => 'zookeeper', 'hosts' => ['somehost'], 'path' => 'some/path' } }
     let(:mock_zk) { double(ZK) }
     let(:mock_node) do
       node_double = double()
@@ -245,6 +245,24 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       end
     end
 
+    describe 'zk_connect' do
+      it 'calls provided block' do
+        allow(ZK).to receive(:new).and_return(mock_zk)
+        allow(mock_zk).to receive(:on_expired_session)
+        allow(mock_zk).to receive(:exists?).and_return(true)
+        allow(subject).to receive(:watch)
+        allow(subject).to receive(:discover)
+
+        expect { |b| subject.send(:zk_connect, &b) }.to yield_control
+      end
+    end
+
+    describe 'zk_teardown' do
+      it 'calls provided block' do
+        expect { |b| subject.send(:zk_teardown, &b) }.to yield_control
+      end
+    end
+
     it 'responds fail to ping? when the client is not in any of the connected/connecting/associatin state' do
       expect(mock_zk).to receive(:associating?).and_return(false)
       expect(mock_zk).to receive(:connecting?).and_return(false)
@@ -289,7 +307,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     end
 
     describe "generator_config_path" do
-      let(:discovery) { { 'method' => 'zookeeper', 'hosts' => 'somehost', 'path' => 'some/path', 'generator_config_path' => generator_config_path } }
+      let(:discovery) { { 'method' => 'zookeeper', 'hosts' => ['somehost'], 'path' => 'some/path', 'generator_config_path' => generator_config_path } }
       before :each do
         expect(subject).to receive(:watch)
         expect(subject).to receive(:discover).and_call_original
@@ -389,7 +407,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
   end
 
   describe 'ZookeeperDnsWatcher' do
-    let(:discovery) { { 'method' => 'zookeeper_dns', 'hosts' => 'somehost','path' => 'some/path' } }
+    let(:discovery) { { 'method' => 'zookeeper_dns', 'hosts' => ['somehost'],'path' => 'some/path' } }
     let(:message_queue) { [] }
     subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher::Zookeeper.new(config, mock_synapse, -> {}, message_queue) }
     it 'decodes data correctly' do

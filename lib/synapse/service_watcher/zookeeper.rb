@@ -48,23 +48,29 @@ class Synapse::ServiceWatcher
       @retry_policy['max_delay'] = @retry_policy['max_delay'] || 600
       @retry_policy['base_interval'] = @retry_policy['base_interval'] || 0.5
       @retry_policy['max_interval'] = @retry_policy['max_interval'] || 60
-    end
 
-    def start
       zk_host_list = @discovery['hosts'].sort
       @zk_cluster = host_list_to_cluster(zk_host_list)
       @zk_hosts = zk_host_list.join(',')
 
-      @watcher = nil
       @zk = nil
+    end
+
+    def start
+      @watcher = nil
 
       log.info "synapse: starting ZK watcher #{@name} @ cluster: #{@zk_cluster} path: #{@discovery['path']} retry policy: #{@retry_policy}"
-      zk_connect
+      zk_connect do
+        watcher_callback.call
+      end
     end
 
     def stop
       log.warn "synapse: zookeeper watcher exiting"
-      zk_cleanup
+      zk_teardown do
+        @watcher.unsubscribe unless @watcher.nil?
+        @watcher = nil
+      end
     end
 
     def ping?
@@ -198,7 +204,7 @@ class Synapse::ServiceWatcher
         unless existed
           log.error "synapse: zookeeper watcher path #{@discovery['path']} does not exist!"
           statsd_increment('synapse.watcher.zk.register_failed')
-          zk_cleanup
+          stop
         end
       end
       log.debug "synapse: set watch for parent at #{@discovery['path']}"
@@ -318,12 +324,11 @@ class Synapse::ServiceWatcher
       return new_config_for_generator
     end
 
-    def zk_cleanup
+    def zk_teardown(&teardown)
       log.info "synapse: zookeeper watcher cleaning up"
 
       begin
-        @watcher.unsubscribe unless @watcher.nil?
-        @watcher = nil
+        teardown.call
       ensure
         @@zk_pool_lock.synchronize {
           if @@zk_pool.has_key?(@zk_hosts)
@@ -345,7 +350,7 @@ class Synapse::ServiceWatcher
       log.info "synapse: zookeeper watcher cleaned up successfully"
     end
 
-    def zk_connect
+    def zk_connect(&bootstrap)
       statsd_time('synapse.watcher.zk.connect.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
         # Ensure that all Zookeeper watcher re-use a single zookeeper
         # connection to any given set of zk hosts.
@@ -375,7 +380,7 @@ class Synapse::ServiceWatcher
         @zk.on_expired_session do
           statsd_increment('synapse.watcher.zk.session.expired', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
           log.warn "synapse: ZK client session expired #{@name}"
-          zk_cleanup
+          stop
         end
 
         # the path must exist, otherwise watch callbacks will not work
@@ -387,8 +392,8 @@ class Synapse::ServiceWatcher
             end
           end
         end
-        # call the callback to bootstrap the process
-        watcher_callback.call
+
+        bootstrap.call
       end
     end
 
