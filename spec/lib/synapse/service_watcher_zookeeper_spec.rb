@@ -75,7 +75,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     }
   end
 
-  context 'ZookeeperWatcher' do
+  describe 'ZookeeperWatcher' do
     let(:discovery) { { 'method' => 'zookeeper', 'hosts' => 'somehost', 'path' => 'some/path' } }
     let(:mock_zk) { double(ZK) }
     let(:mock_node) do
@@ -124,7 +124,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       subject.send(:watcher_callback).call
     end
 
-    context 'watcher_callback' do
+    describe 'watcher_callback' do
       before :each do
         subject.instance_variable_set(:@retry_policy, {'max_attempts' => 2, 'base_interval' => 0, 'max_interval' => 0})
       end
@@ -169,7 +169,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       end
     end
 
-    context 'start' do
+    describe 'start' do
       before :each do
         discovery['hosts'] = ['127.0.0.1:2181']
         subject.instance_variable_set(:@retry_policy, {'max_attempts' => 2, 'base_interval' => 0, 'max_interval' => 0})
@@ -209,6 +209,40 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
         expect { subject.start }.to raise_error(ZK::Exceptions::OperationTimeOut)
       end
+
+      it 'calls watcher_callback' do
+        allow(ZK).to receive(:new).and_return(mock_zk)
+        allow(mock_zk).to receive(:on_expired_session)
+        allow(mock_zk).to receive(:exists?).and_return(true)
+        allow(subject).to receive(:watch)
+        allow(subject).to receive(:discover)
+
+        cb = subject.send(:watcher_callback)
+        expect(cb).to receive(:call).exactly(:once)
+
+        subject.start
+      end
+
+      it 'calls zk_connect' do
+        expect(subject).to receive(:zk_connect).exactly(:once)
+
+        subject.start
+      end
+    end
+
+    describe 'stop' do
+      it 'sets watcher to nil' do
+        expect(subject.instance_variable_get(:@watcher)).to eq(nil)
+        subject.stop
+      end
+
+      it 'unsubscribes from the watcher' do
+        watcher = double("watcher")
+        subject.instance_variable_set(:@watcher, watcher)
+
+        expect(watcher).to receive(:unsubscribe).exactly(:once)
+        subject.stop
+      end
     end
 
     it 'responds fail to ping? when the client is not in any of the connected/connecting/associatin state' do
@@ -220,7 +254,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       expect(subject.ping?).to be false
     end
 
-    context 'watcher_callback' do
+    describe 'watcher_callback' do
       let (:time_now) { Time.now }
       before :each do
         expect(subject).to receive(:watch)
@@ -254,7 +288,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       end
     end
 
-    context "generator_config_path" do
+    describe "generator_config_path" do
       let(:discovery) { { 'method' => 'zookeeper', 'hosts' => 'somehost', 'path' => 'some/path', 'generator_config_path' => generator_config_path } }
       before :each do
         expect(subject).to receive(:watch)
@@ -354,7 +388,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     end
   end
 
-  context 'ZookeeperDnsWatcher' do
+  describe 'ZookeeperDnsWatcher' do
     let(:discovery) { { 'method' => 'zookeeper_dns', 'hosts' => 'somehost','path' => 'some/path' } }
     let(:message_queue) { [] }
     subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher::Zookeeper.new(config, mock_synapse, -> {}, message_queue) }
