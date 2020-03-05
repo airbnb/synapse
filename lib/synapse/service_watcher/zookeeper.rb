@@ -169,79 +169,11 @@ class Synapse::ServiceWatcher
         statsd_gauge('synapse.watcher.zk.children.bytes', ObjectSpace.memsize_of(zk_children), ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}"])
 
         zk_children.each do |id|
-          if id.start_with?(CHILD_NAME_ENCODING_PREFIX)
-            decoded = parse_base64_encoded_prefix(id)
-            if decoded != nil
-              new_backends << create_backend_info(id, decoded)
-              next
-            end
-          end
-
-          begin
-            node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
-              statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-                log.debug "synapse: zk get child at #{@discovery['path']}/#{id} for #{attempts} times"
-                @zk.get("#{@discovery['path']}/#{id}")
-              end
-            end
-          rescue ZK::Exceptions::NoNode => e
-            # This can happen when the registry unregisters a service node between
-            # the call to @zk.children and @zk.get(path). ZK does not guarantee
-            # a read to ``get`` of a child returned by ``children`` will succeed
-            log.error("synapse: #{@discovery['path']}/#{id} disappeared before it could be read: #{e}")
-            next
-          rescue StandardError => e
-            log.error("synapse: #{@discovery['path']}/#{id} failed to get from ZK: #{e}")
-            statsd_increment('synapse.watcher.zk.get_child_failed')
-            raise e
-          end
-
-          begin
-            # TODO: Do less munging, or refactor out this processing
-            decoded = deserialize_service_instance(node.first)
-          rescue StandardError => e
-            log.error "synapse: skip child due to invalid data in ZK at #{@discovery['path']}/#{id}: #{e}"
-            statsd_increment('synapse.watcher.zk.parse_child_failed')
-          else
-            new_backends << create_backend_info(id, decoded)
-          end
+          backend = read_child_data(id)
+          new_backends << backend unless backend.nil?
         end
 
-        # support for a separate 'generator_config_path' key, for reading the
-        # generator config block, that may be different from the 'path' key where
-        # we discover service instances. if generator_config_path is present and
-        # the value is "disabled", then skip all zk-based discovery of the
-        # generator config (and use the values from the local config.json
-        # instead).
-        case @discovery.fetch('generator_config_path', nil)
-        when 'disabled'
-          discovery_key = nil
-        when nil
-          discovery_key = 'path'
-        else
-          discovery_key = 'generator_config_path'
-        end
-
-        if discovery_key
-          begin
-            node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
-                statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-                  log.info "synapse: zk get parent at #{@discovery[discovery_key]} for #{attempts} times"
-                  @zk.get(@discovery[discovery_key], :watch => true)
-                end
-            end
-            new_config_for_generator = parse_service_config(node.first)
-          rescue ZK::Exceptions::NoNode => e
-            log.error "synapse: No ZK node for config data at #{@discovery[discovery_key]}: #{e}"
-            new_config_for_generator = {}
-          rescue StandardError => e
-            log.error "synapse: skip path due to invalid data in ZK at #{@discovery[discovery_key]}: #{e}"
-            statsd_increment('synapse.watcher.zk.get_config_failed')
-            new_config_for_generator = {}
-          end
-        else
-          new_config_for_generator = {}
-        end
+        new_config_for_generator = read_config_for_generator
 
         set_backends(new_backends, new_config_for_generator)
       end
@@ -304,6 +236,86 @@ class Synapse::ServiceWatcher
         # Rediscover
         discover
       end
+    end
+
+    # read the child data, using path-encoding if available or resorting to
+    # calling zk.get otherwise.
+    def read_child_data(id)
+      if id.start_with?(CHILD_NAME_ENCODING_PREFIX)
+        decoded = parse_base64_encoded_prefix(id)
+
+        return create_backend_info(id, decoded) if decoded != nil
+      end
+
+      begin
+        node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
+          statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+            log.debug "synapse: zk get child at #{@discovery['path']}/#{id} for #{attempts} times"
+
+            @zk.get("#{@discovery['path']}/#{id}")
+          end
+        end
+      rescue ZK::Exceptions::NoNode => e
+        # This can happen when the registry unregisters a service node between
+        # the call to @zk.children and @zk.get(path). ZK does not guarantee
+        # a read to ``get`` of a child returned by ``children`` will succeed
+        log.error("synapse: #{@discovery['path']}/#{id} disappeared before it could be read: #{e}")
+        return nil
+      rescue StandardError => e
+        log.error("synapse: #{@discovery['path']}/#{id} failed to get from ZK: #{e}")
+        statsd_increment('synapse.watcher.zk.get_child_failed')
+        raise e
+      end
+
+      begin
+        # TODO: Do less munging, or refactor out this processing
+        decoded = deserialize_service_instance(node.first)
+      rescue StandardError => e
+        log.error "synapse: skip child due to invalid data in ZK at #{@discovery['path']}/#{id}: #{e}"
+        statsd_increment('synapse.watcher.zk.parse_child_failed')
+      else
+        return create_backend_info(id, decoded)
+      end
+    end
+
+    # support for a separate 'generator_config_path' key, for reading the
+    # generator config block, that may be different from the 'path' key where
+    # we discover service instances. if generator_config_path is present and
+    # the value is "disabled", then skip all zk-based discovery of the
+    # generator config (and use the values from the local config.json
+    # instead).
+    def read_config_for_generator
+      case @discovery.fetch('generator_config_path', nil)
+      when 'disabled'
+        discovery_key = nil
+      when nil
+        discovery_key = 'path'
+      else
+        discovery_key = 'generator_config_path'
+      end
+
+      if discovery_key
+        begin
+          node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
+            statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+              log.info "synapse: zk get parent at #{@discovery[discovery_key]} for #{attempts} times"
+              @zk.get(@discovery[discovery_key], :watch => true)
+            end
+          end
+          new_config_for_generator = parse_service_config(node.first)
+        rescue ZK::Exceptions::NoNode => e
+          log.error "synapse: No ZK node for config data at #{@discovery[discovery_key]}: #{e}"
+          new_config_for_generator = {}
+        rescue StandardError => e
+          log.error "synapse: skip path due to invalid data in ZK at #{@discovery[discovery_key]}: #{e}"
+          statsd_increment('synapse.watcher.zk.get_config_failed')
+          new_config_for_generator = {}
+        end
+      else
+        new_config_for_generator = {}
+      end
+
+      return new_config_for_generator
     end
 
     def zk_cleanup
