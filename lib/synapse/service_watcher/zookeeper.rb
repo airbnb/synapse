@@ -83,82 +83,6 @@ class Synapse::ServiceWatcher
 
     private
 
-    def host_list_to_cluster(list)
-      first_host = list.sort.first
-      first_token = first_host.split('.').first
-      # extract cluster name by filtering name of first host
-      # remove domain extents and trailing numbers
-      last_non_number = first_token.rindex(/[^0-9]/)
-      last_non_number ? first_token[0..last_non_number] : first_host
-    end
-
-    def validate_discovery_opts
-      raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
-        unless @discovery['method'] == 'zookeeper'
-      raise ArgumentError, "missing or invalid zookeeper host for service #{@name}" \
-        unless @discovery['hosts']
-      raise ArgumentError, "invalid zookeeper path for service #{@name}" \
-        unless @discovery['path']
-    end
-
-    # Supported decode methods
-
-    # Airbnb nerve ZK node data looks like this:
-    #
-    # {
-    #   "host": "somehostname",
-    #   "port": 1234,
-    # }
-    def nerve_decode(data)
-      JSON.parse(data)
-    end
-
-    # Twitter serverset ZK node data looks like this:
-    #
-    # {
-    #   "additionalEndpoints": {
-    #     "serverset": {
-    #       "host": "somehostname",
-    #       "port": 31943
-    #     },
-    #     "http": {
-    #       "host": "somehostname",
-    #       "port": 31943
-    #     },
-    #     "otherport": {
-    #       "host": "somehostname",
-    #       "port": 31944
-    #     }
-    #   },
-    #   "serviceEndpoint": {
-    #     "host": "somehostname",
-    #     "port": 31943
-    #   },
-    #   "shard": 0,
-    #   "status": "ALIVE"
-    # }
-    def serverset_decode(data)
-      decoded = JSON.parse(data)
-      if @discovery['decode']['endpoint_name']
-        endpoint_name = @discovery['decode']['endpoint_name']
-        raise KeyError, "json data has no additionalEndpoint called #{endpoint_name}" \
-          unless decoded['additionalEndpoints'] && decoded['additionalEndpoints'][endpoint_name]
-        result = decoded['additionalEndpoints'][endpoint_name]
-      else
-        result = decoded['serviceEndpoint']
-      end
-      result['name'] = decoded['shard'] || nil
-      result['name'] = result['name'].to_s unless result['name'].nil?
-      result
-    end
-
-    # helper method that ensures that the discovery path exists
-    def create(path)
-      # recurse if the parent node does not exist
-      create File.dirname(path) unless @zk.exists? File.dirname(path)
-      @zk.create(path, ignore: :node_exists)
-    end
-
     # find the current backends at the discovery path
     def discover
       statsd_increment('synapse.watcher.zk.discovery', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"])
@@ -242,6 +166,75 @@ class Synapse::ServiceWatcher
         # Rediscover
         discover
       end
+    end
+
+    protected
+
+    def validate_discovery_opts
+      raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
+        unless @discovery['method'] == 'zookeeper'
+      raise ArgumentError, "missing or invalid zookeeper host for service #{@name}" \
+        unless @discovery['hosts']
+      raise ArgumentError, "invalid zookeeper path for service #{@name}" \
+        unless @discovery['path']
+    end
+
+    # Supported decode methods
+
+    # Airbnb nerve ZK node data looks like this:
+    #
+    # {
+    #   "host": "somehostname",
+    #   "port": 1234,
+    # }
+    def nerve_decode(data)
+      JSON.parse(data)
+    end
+
+    # Twitter serverset ZK node data looks like this:
+    #
+    # {
+    #   "additionalEndpoints": {
+    #     "serverset": {
+    #       "host": "somehostname",
+    #       "port": 31943
+    #     },
+    #     "http": {
+    #       "host": "somehostname",
+    #       "port": 31943
+    #     },
+    #     "otherport": {
+    #       "host": "somehostname",
+    #       "port": 31944
+    #     }
+    #   },
+    #   "serviceEndpoint": {
+    #     "host": "somehostname",
+    #     "port": 31943
+    #   },
+    #   "shard": 0,
+    #   "status": "ALIVE"
+    # }
+    def serverset_decode(data)
+      decoded = JSON.parse(data)
+      if @discovery['decode']['endpoint_name']
+        endpoint_name = @discovery['decode']['endpoint_name']
+        raise KeyError, "json data has no additionalEndpoint called #{endpoint_name}" \
+          unless decoded['additionalEndpoints'] && decoded['additionalEndpoints'][endpoint_name]
+        result = decoded['additionalEndpoints'][endpoint_name]
+      else
+        result = decoded['serviceEndpoint']
+      end
+      result['name'] = decoded['shard'] || nil
+      result['name'] = result['name'].to_s unless result['name'].nil?
+      result
+    end
+
+    # helper method that ensures that the discovery path exists
+    def create(path)
+      # recurse if the parent node does not exist
+      create File.dirname(path) unless @zk.exists? File.dirname(path)
+      @zk.create(path, ignore: :node_exists)
     end
 
     # read the child data, using path-encoding if available or resorting to
@@ -411,6 +404,15 @@ class Synapse::ServiceWatcher
       end
 
       return decoded
+    end
+
+    def host_list_to_cluster(list)
+      first_host = list.sort.first
+      first_token = first_host.split('.').first
+      # extract cluster name by filtering name of first host
+      # remove domain extents and trailing numbers
+      last_non_number = first_token.rindex(/[^0-9]/)
+      last_non_number ? first_token[0..last_non_number] : first_host
     end
 
     # find the encoded metadata in the prefix of child name; used for path encoding if enabled
