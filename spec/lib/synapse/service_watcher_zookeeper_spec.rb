@@ -404,6 +404,73 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         expect(subject.send(:create_backend_info, "i-xxxxxxx_0000000005", node)).to eq backend
       end
     end
+
+    describe "discover" do
+      let(:service_data) {
+        {
+          'name' => 'i-testhost',
+          'host' => '127.0.0.1',
+          'port' => '3001',
+          'labels' => {
+            'region' => 'us-east-1',
+            'az' => 'us-east-1a'
+          }
+        }
+      }
+      let(:backend) {
+        service_data.merge({"id" => kind_of(Numeric), "weight" => nil, "haproxy_server_options" => nil})
+      }
+
+      let(:encoded_str) { Base64.urlsafe_encode64(JSON(service_data)) }
+      let(:child_name) { "base64_#{encoded_str.length}_#{encoded_str}_0000000003" }
+
+      before :each do
+        expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).and_return(config_for_generator_string)
+        expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).and_return(
+                            [ child_name ])
+
+        subject.instance_variable_set('@zk', mock_zk)
+      end
+
+      context "with path encoding" do
+        context "with sequential node" do
+          it "does not call get on child" do
+            expect(mock_zk).not_to receive(:get).with(start_with("some/path/"))
+            subject.send(:discover)
+          end
+
+          it 'sets backends with the parsed data' do
+            expect(subject).to receive(:set_backends).exactly(:once).with([backend], parsed_config_for_generator)
+            subject.send(:discover)
+          end
+        end
+
+        context "with non-sequential node" do
+          let(:child_name) { "base64_#{encoded_str.length}_#{encoded_str}" }
+
+          it "does not call get on child" do
+            expect(mock_zk).not_to receive(:get).with(start_with("some/path/"))
+            subject.send(:discover)
+          end
+
+          it 'sets backends with the parsed data' do
+            expect(subject).to receive(:set_backends).exactly(:once).with(
+                                 [backend.merge({"id" => nil})], parsed_config_for_generator)
+            subject.send(:discover)
+          end
+        end
+      end
+
+      context "without path encoding" do
+        let(:child_name) { "child_1" }
+
+        it "sets backends with the fetched data" do
+          expect(mock_zk).to receive(:get).with("some/path/child_1").and_return(mock_node)
+          expect(subject).to receive(:set_backends).exactly(:once).with([backend], parsed_config_for_generator)
+          subject.send(:discover)
+        end
+      end
+    end
   end
 
   describe 'ZookeeperDnsWatcher' do
