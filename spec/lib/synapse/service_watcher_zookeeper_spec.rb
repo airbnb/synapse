@@ -499,7 +499,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
     subject { Synapse::ServiceWatcher::ZookeeperPollWatcher.new(config, mock_synapse, -> {}) }
 
-    after :each do
+    before :each do
       # reset the pool so that doubles are not re-used across instances
       Synapse::ServiceWatcher::ZookeeperPollWatcher.class_variable_set(:@@zk_pool, {})
     end
