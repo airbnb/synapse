@@ -61,6 +61,16 @@ class Synapse::ServiceWatcher
 
       log.info "synapse: starting ZK watcher #{@name} @ cluster: #{@zk_cluster} path: #{@discovery['path']} retry policy: #{@retry_policy}"
       zk_connect do
+        # the path must exist, otherwise watch callbacks will not work
+        with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
+          unless @zk.exists?(@discovery['path'])
+            statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+              log.info "synapse: zk create at #{@discovery['path']} for #{attempts} times"
+              create(@discovery['path'])
+            end
+          end
+        end
+
         watcher_callback.call
       end
     end
@@ -374,16 +384,6 @@ class Synapse::ServiceWatcher
           statsd_increment('synapse.watcher.zk.session.expired', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
           log.warn "synapse: ZK client session expired #{@name}"
           stop
-        end
-
-        # the path must exist, otherwise watch callbacks will not work
-        with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
-          unless @zk.exists?(@discovery['path'])
-            statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-              log.info "synapse: zk create at #{@discovery['path']} for #{attempts} times"
-              create(@discovery['path'])
-            end
-          end
         end
 
         bootstrap.call
