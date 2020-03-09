@@ -94,7 +94,7 @@ class Synapse::ServiceWatcher
     private
 
     # find the current backends at the discovery path
-    def discover(watch=true)
+    def discover(zookeeper_opts={:watch => true})
       statsd_increment('synapse.watcher.zk.discovery', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"])
       statsd_time('synapse.watcher.zk.discovery.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
         log.info "synapse: discovering backends for service #{@name}"
@@ -103,9 +103,7 @@ class Synapse::ServiceWatcher
         zk_children = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
             statsd_time('synapse.watcher.zk.children.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
               log.info "synapse: zk list children at #{@discovery['path']} for #{attempts} times"
-              opts = Hash.new
-              opts[:watch] = true if watch
-              @zk.children(@discovery['path'], opts)
+              @zk.children(@discovery['path'], zookeeper_opts)
             end
         end
         statsd_gauge('synapse.watcher.zk.children.bytes', ObjectSpace.memsize_of(zk_children), ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}"])
@@ -115,7 +113,7 @@ class Synapse::ServiceWatcher
           new_backends << backend unless backend.nil?
         end
 
-        new_config_for_generator = read_config_for_generator(watch)
+        new_config_for_generator = read_config_for_generator(zookeeper_opts)
         set_backends(new_backends, new_config_for_generator)
       end
     end
@@ -294,7 +292,7 @@ class Synapse::ServiceWatcher
     # the value is "disabled", then skip all zk-based discovery of the
     # generator config (and use the values from the local config.json
     # instead).
-    def read_config_for_generator(watch=true)
+    def read_config_for_generator(zookeeper_opts={:watch => true})
       case @discovery.fetch('generator_config_path', nil)
       when 'disabled'
         discovery_key = nil
@@ -309,9 +307,7 @@ class Synapse::ServiceWatcher
           node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
             statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
               log.info "synapse: zk get parent at #{@discovery[discovery_key]} for #{attempts} times"
-              opts = Hash.new
-              opts[:watch] = true if watch
-              @zk.get(@discovery[discovery_key], opts)
+              @zk.get(@discovery[discovery_key], zookeeper_opts)
             end
           end
           new_config_for_generator = parse_service_config(node.first)

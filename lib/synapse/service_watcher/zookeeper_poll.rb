@@ -75,7 +75,8 @@ class Synapse::ServiceWatcher
       log.info 'synapse: zookeeper polling discover called'
       statsd_increment('synapse.watcher.zookeeper_poll.discover')
 
-      super(false)
+      # passing {} disables setting watches
+      super({})
     end
   end
 end

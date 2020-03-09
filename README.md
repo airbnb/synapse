@@ -261,7 +261,7 @@ It takes the following mandatory arguments:
 * `method`: zookeeper_poll
 * `polling_interval_sec`: the interval at which the watcher will poll Zookeeper.
 
-Other than those options, it takes the same options as the above ZookeeperWatcher.
+Other than these two options, it takes the same options as the above ZookeeperWatcher.
 For all the required options, see above.
 
 ##### Docker #####

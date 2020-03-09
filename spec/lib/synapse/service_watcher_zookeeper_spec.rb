@@ -491,8 +491,6 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
   end
 
   describe Synapse::ServiceWatcher::ZookeeperPollWatcher do
-    include ActiveSupport::Testing::TimeHelpers
-
     let(:mock_zk) {
       zk = double("zookeeper")
       allow(zk).to receive(:on_expired_session)
