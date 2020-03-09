@@ -32,7 +32,7 @@ class Synapse::ServiceWatcher
             # (2) sleep_duration seconds has passed.
             begin
               Timeout::timeout(sleep_duration) {
-                mutex.lock
+                @mutex.lock
                 should_exit = true
               }
             rescue Timeout::Error
