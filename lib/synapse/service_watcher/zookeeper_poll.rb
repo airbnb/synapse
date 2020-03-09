@@ -3,41 +3,36 @@ require 'synapse/service_watcher/zookeeper'
 
 require 'zk'
 require 'thread'
-require 'timeout'
 
 class Synapse::ServiceWatcher
   class ZookeeperPollWatcher < ZookeeperWatcher
     def start
       log.info 'synapse: ZookeeperPollWatcher starting'
 
+      @should_exit = false
       @thread = nil
-      @mutex = Mutex.new
-      @mutex.lock
+      @poll_interval = @discovery['polling_interval_sec']
 
       zk_connect do
         @thread = Thread.new {
           log.info 'synapse: zookeeper polling thread started'
 
-          should_exit = false
-          until should_exit
-            discover
+          # last_run is shifted by a random jitter in order to spread the first
+          # discover call of multiple Synapses. This helps to spread load.
+          # As long as the beginning is spread, the future discovers will also
+          # be spread.
+          last_run = Time.now - rand(@poll_interval)
 
-            sleep_duration = @discovery['polling_interval_sec']
-            log.info "synapse: zookeeper polling thread sleeping for #{sleep_duration} seconds"
+          until @should_exit
+            now = Time.now
+            elapsed = now - last_run
 
-            # Awake either when
-            # (1) Mutex is released, which occurs in #stop. This means we
-            #     should exit the thread, which will occur on the next
-            #     iteration.
-            # (2) sleep_duration seconds has passed.
-            begin
-              Timeout::timeout(sleep_duration) {
-                @mutex.lock
-                should_exit = true
-              }
-            rescue Timeout::Error
-              # do nothing, this just means we should proceed to the next loop
+            if elapsed >= @poll_interval
+              discover
+              last_run = now
             end
+
+            sleep 0.5
           end
 
           log.info 'synapse: zookeeper polling thread exiting normally'
@@ -51,7 +46,7 @@ class Synapse::ServiceWatcher
       zk_teardown do
         # Signal to the thread that it should exit, and then wait for it to
         # exit.
-        @mutex.unlock unless @mutex.nil?
+        @should_exit = true
         @thread.join unless @thread.nil?
       end
     end
