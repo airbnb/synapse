@@ -24,7 +24,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
   let(:opts) { opts_valid }
   let(:opts_valid) {
     {'method' => 's3_toggle',
-       's3_url' => 's3://bucket/path1/path2',
+       's3_url' => 's3://config_bucket/path1/path2',
        's3_polling_interval_seconds' => 60}
   }
 
@@ -86,30 +86,18 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
 
   describe '#start' do
     it 'starts a thread' do
-      expect(Thread).to receive(:new)
-    end
-
-    it 'calls #set_watcher' do
-      allow(Thread).to receive(:new) do |&block|
-        block.call
-      end
-
-      expect(subject).to receive(:read_s3_file)
-      expect(subject).to receive(:set_watcher)
+      expect(Thread).to receive(:new).exactly(:once)
       subject.start
     end
   end
 
   describe '#stop' do
     context 'with a thread running' do
-      let(:mock_thread) {
-        thr = double(Thread)
-        allow(Thread).to receive(:new).and_return(thr)
-        thr
-      }
+      let(:mock_thread) { double(Thread) }
 
       it 'waits to exit' do
-        expect(mock_thread).to receive(:join)
+        subject.instance_variable_set(:@thread, mock_thread)
+        expect(mock_thread).to receive(:join).exactly(:once)
         subject.stop
       end
     end
@@ -127,7 +115,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     end
 
     it 'calls #backends on current watcher' do
-      expect(secondary_watcher).to receive(:backends)
+      expect(secondary_watcher).to receive(:backends).exactly(:once)
       subject.merged_backends
     end
 
@@ -147,7 +135,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     end
 
     it 'calls #ping? on current watcher' do
-      expect(secondary_watcher).to receive(:ping?)
+      expect(secondary_watcher).to receive(:ping?).exactly(:once)
       subject.healthy?
     end
 
@@ -168,7 +156,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
 
     context 'when current watcher returns false' do
       before :each do
-        allow(secondary_watcher).to receive(:ping?).and_return(true)
+        allow(secondary_watcher).to receive(:ping?).and_return(false)
       end
 
       it 'returns false' do
@@ -189,21 +177,25 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
   end
 
   describe 'set_watcher' do
+    # TODO: random seed
     let(:watcher_weights) { {'primary' => 0, 'secondary' => 100} }
 
     it 'sets @watcher_setting' do
-      expect(subject).instance_variable_get(:@watcher_setting, 'secondary')
-      subject.set_watcher(watcher_weights)
+      expect(subject.instance_variable_get(:@watcher_setting)).to eq('secondary')
+      subject.send(:set_watcher, watcher_weights)
     end
 
-    it 'picks between the watchers by weight'
+    it 'picks between the watchers by weight' do
+      expect(subject.instance_variable_get(:@watcher_setting)).to eq('secondary')
+      subject.send(:set_watcher, {'primary' => 25, 'secondary' => 75})
+    end
 
     context 'when primary has all weight' do
       let(:watcher_weights) { {'primary' => 100, 'secondary' => 0} }
 
       it 'returns primary' do
-        expect(subject).instance_variable_get(:@watcher_setting, 'primary')
-        subject.set_watcher(watcher_weights)
+        expect(subject.instance_variable_get(:@watcher_setting)).to eq('primary')
+        subject.send(:set_watcher, watcher_weights)
       end
     end
 
@@ -211,8 +203,13 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       let(:watcher_weights) { {'primary' => 50, 'secondary' => 50} }
 
       it 'deterministically returns the same result' do
-        expect(subject).instance_variable_get(:@watcher_setting, 'primary')
-        subject.set_watcher(watcher_weights)
+        expect(subject.instance_variable_get(:@watcher_setting)).to eq('mock-watcher')
+        subject.send(:set_watcher, watcher_weights)
+
+        # Explicitly set the setting to something that cannot occur.
+        # However, it should not change because the weights do not change.
+        subject.instance_variable_set(:@watcher_setting, 'mock-watcher')
+        subject.send(:set_watcher, watcher_weights)
       end
     end
 
@@ -220,35 +217,106 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       let(:watcher_weights) {}
 
       it 'returns primary' do
-        expect(subject).instance_variable_get(:@watcher_setting, 'primary')
-        subject.set_watcher(watcher_weights)
+        expect(subject.instance_variable_get(:@watcher_setting)).to eq('primary')
+        subject.send(:set_watcher, watcher_weights)
       end
     end
 
     context 'when weights add up to more than 100' do
       let(:watcher_weights) { {'primary' => 50, 'secondary' => 100} }
 
-      it 'still sets watcher properly'
+      it 'still sets watcher properly' do
+        expect(subject.instance_variable_get(:@watcher_setting)).to eq('secondary')
+        subject.send(:set_watcher, watcher_weights)
+      end
     end
   end
 
   describe 'read_s3_file' do
     let(:s3_data) { {'primary' => 50, 'secondary' => 50} }
+    let(:s3_data_string) { JSON.dump(s3_data) }
+    let(:mock_s3_response) {
+      mock_response = double("mock_s3_response")
+      allow(mock_response).to receive(:body).and_return(StringIO.new(s3_data_string))
+      mock_response
+    }
 
-    it 'properly parses response'
-    it 'calls S3 API with proper bucket and key'
+    let(:mock_s3) {
+      mock_s3 = double(AWS::S3::Client)
+      allow(AWS::S3::Client).to receive(:new).and_return(mock_s3)
+      mock_s3
+    }
+
+    before :each do
+      subject.instance_variable_set(:@s3_bucket, 'config_bucket')
+      subject.instance_variable_set(:@s3_path, 'path1/path2')
+
+      current_retry_policy = Synapse::ServiceWatcher::Resolver::S3ToggleResolver.class_variable_get(:@@S3_RETRY_POLICY)
+      Synapse::ServiceWatcher::Resolver::S3ToggleResolver.class_variable_set(
+        :@@S3_RETRY_POLICY, current_retry_policy.merge({'base_interval' => 0, 'max_interval' => 0}))
+    end
+
+    it 'properly parses response' do
+      allow(mock_s3).to receive(:get_object).and_return(mock_s3_response)
+      expect(subject.send(:read_s3_file)).to eq(s3_data)
+    end
+
+    it 'calls S3 API with proper bucket and key' do
+      expect(mock_s3).to receive(:get_object).with(bucket: 'config_bucket', key: 'path1/path2').exactly(:once).and_return(mock_s3_response)
+      subject.send(:read_s3_file)
+    end
 
     context 'with s3 errors' do
-      it 'retries'
-      it 'exponentially backs off'
+      it 'returns an empty configuration' do
+        expect(mock_s3).to receive(:get_object).and_raise(AWS::S3::Errors::NoSuchBucket)
+        expect(subject.send(:read_s3_file)).to eq({})
+      end
+    end
+
+    context 'with invalid json' do
+      let(:s3_data_string) { "bogus-json" }
+
+      it 'retries' do
+        expect(mock_s3).to receive(:get_object).exactly(3).and_return(mock_s3_response)
+        subject.send(:read_s3_file)
+      end
+
+      it 'returns an empty configuration' do
+        allow(mock_s3).to receive(:get_object).and_return(mock_s3_response)
+        expect(subject.send(:read_s3_file)).to eq({})
+      end
     end
   end
 
   describe 'parse_s3_url' do
-    it 'returns components'
+    let(:s3_url) { 's3://my_bucket/object_path/child' }
 
-    context 'with invalid format' do
-      it 'raises an error'
+    it 'returns components' do
+      expect(subject.send(:parse_s3_url, s3_url)).to eq({'bucket' => 'my_bucket', 'path' => 'object_path/child'})
+    end
+
+    context 'without s3 prefix' do
+      let(:s3_url) { 'my_bucket/object_path/child' }
+
+      it 'raises an error' do
+        expect { subject.send(:parse_s3_url, s3_url) }.to raise_error(ArgumentError)
+      end
+    end
+
+    context 'without components' do
+      let(:s3_url) { 's3://' }
+
+      it 'raises an error' do
+        expect { subject.send(:parse_s3_url, s3_url) }.to raise_error(ArgumentError)
+      end
+    end
+
+    context 'without path' do
+      let(:s3_url) { 's3://my_bucket' }
+
+      it 'raises an error' do
+        expect { subject.send(:parse_s3_url, s3_url) }.to raise_error(ArgumentError)
+      end
     end
   end
 end
