@@ -250,6 +250,10 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     end
 
     describe 'zk_connect' do
+      before :each do
+        Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
+      end
+
       it 'calls provided block' do
         allow(ZK).to receive(:new).and_return(mock_zk)
         allow(mock_zk).to receive(:on_expired_session)
