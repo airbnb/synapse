@@ -28,8 +28,8 @@ class Synapse::ServiceWatcher
             elapsed = now - last_run
 
             if elapsed >= @poll_interval
-              discover
               last_run = now
+              discover
             end
 
             sleep 0.5
