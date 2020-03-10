@@ -251,6 +251,19 @@ If the `method` is `serverset` then we expect to find Finagle ServerSet
 (also used by [Aurora](https://github.com/apache/aurora/blob/master/docs/user-guide.md#service-discovery)) registrations with a `serviceEndpoint` and optionally one or more `additionalEndpoints`.
 The Synapse `name` will be automatically deduced from `shard` if present.
 
+##### Zookeeper Poll #####
+
+This watcher retrieves a list of servers and also service config data from zookeeper.
+Instead of setting Zookeeper watchers, it uses a long-polling method.
+
+It takes the following mandatory arguments:
+
+* `method`: zookeeper_poll
+* `polling_interval_sec`: the interval at which the watcher will poll Zookeeper.
+
+Other than these two options, it takes the same options as the above ZookeeperWatcher.
+For all the required options, see above.
+
 ##### Docker #####
 
 This watcher retrieves a list of [docker](http://www.docker.io/) containers via docker's [HTTP API](http://docs.docker.io/en/latest/reference/api/docker_remote_api/).

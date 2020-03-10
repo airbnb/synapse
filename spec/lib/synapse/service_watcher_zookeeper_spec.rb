@@ -1,6 +1,10 @@
 require 'spec_helper'
+require 'active_support/all'
+require 'active_support/testing/time_helpers'
+
 require 'synapse/service_watcher/zookeeper'
 require 'synapse/service_watcher/zookeeper_dns'
+require 'synapse/service_watcher/zookeeper_poll'
 
 describe Synapse::ServiceWatcher::ZookeeperWatcher do
   let(:mock_synapse) do
@@ -246,6 +250,10 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     end
 
     describe 'zk_connect' do
+      before :each do
+        Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
+      end
+
       it 'calls provided block' do
         allow(ZK).to receive(:new).and_return(mock_zk)
         allow(mock_zk).to receive(:on_expired_session)
@@ -479,6 +487,287 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher::Zookeeper.new(config, mock_synapse, -> {}, message_queue) }
     it 'decodes data correctly' do
       expect(subject.send(:deserialize_service_instance, service_data_string)).to eql(deserialized_service_data)
+    end
+  end
+
+  describe Synapse::ServiceWatcher::ZookeeperPollWatcher do
+    let(:mock_zk) {
+      zk = double("zookeeper")
+      allow(zk).to receive(:on_expired_session)
+      zk
+    }
+    let(:mock_thread) { double("thread") }
+    let(:discovery) { { 'method' => 'zookeeper_poll', 'hosts' => ['somehost'],'path' => 'some/path', 'polling_interval_sec' => 30 } }
+
+    subject { Synapse::ServiceWatcher::ZookeeperPollWatcher.new(config, mock_synapse, -> {}) }
+
+    before :each do
+      # reset the pool so that doubles are not re-used across instances
+      Synapse::ServiceWatcher::ZookeeperPollWatcher.class_variable_set(:@@zk_pool, {})
+    end
+
+    describe "#initialize" do
+      context 'with discovery type != zookeeper_poll' do
+        let(:discovery) { { 'method' => 'bogus', 'hosts' => ['somehost'],'path' => 'some/path', 'polling_interval_sec' => 30 } }
+
+        it 'raises an error' do
+          expect { subject }.to raise_error(ArgumentError)
+        end
+      end
+
+      context 'with invalid discovery duration' do
+        let(:discovery) { { 'method' => 'zookeeper_poll', 'hosts' => ['somehost'],'path' => 'some/path', 'polling_interval_sec' => 'bogus' } }
+
+        it 'raises an error' do
+          expect { subject }.to raise_error(ArgumentError)
+        end
+      end
+
+      context 'with float discovery duration' do
+        let(:discovery) { { 'method' => 'zookeeper_poll', 'hosts' => ['somehost'],'path' => 'some/path', 'polling_interval_sec' => 2.5 } }
+
+        it 'constructs properly' do
+          expect { subject }.not_to raise_error
+        end
+      end
+
+      context 'without zookeeper hosts' do
+        let(:discovery) { { 'method' => 'zookeeper_poll', 'path' => 'some/path', 'polling_interval_sec' => 'bogus' } }
+
+        it 'raises an error' do
+          expect { subject }.to raise_error(ArgumentError)
+        end
+      end
+
+      context 'without path set' do
+        let(:discovery) { { 'method' => 'zookeeper_poll', 'hosts' => ['somehost'], 'polling_interval_sec' => 'bogus' } }
+
+        it 'raises an error' do
+          expect { subject }.to raise_error(ArgumentError)
+        end
+      end
+    end
+
+    describe '#start' do
+      it 'starts a thread' do
+        expect(Thread).to receive(:new)
+        allow(ZK).to receive(:new).and_return(mock_zk)
+        subject.start
+      end
+
+      it 'connects to zookeeper' do
+        allow(Thread).to receive(:new)
+        expect(ZK)
+          .to receive(:new)
+          .exactly(:once)
+          .with('somehost', :timeout => 5, :thread => :per_callback)
+          .and_return(mock_zk)
+
+        subject.start
+      end
+
+      it 'does not call create' do
+        allow(Thread).to receive(:new)
+        allow(ZK).to receive(:new).and_return(mock_zk)
+
+        expect(mock_zk).not_to receive(:create)
+        subject.start
+      end
+    end
+
+    describe '#stop' do
+      context 'when connected to zookeeper' do
+        before :each do
+          subject.instance_variable_set(:@thread, mock_thread.as_null_object)
+          allow(mock_zk).to receive(:connecting?).and_return(false)
+          allow(mock_zk).to receive(:connected?).and_return(true)
+        end
+
+        it 'disconnects' do
+          allow(ZK).to receive(:new).and_return(mock_zk)
+          allow(Thread).to receive(:new)
+
+          expect(mock_zk).to receive(:close!).exactly(:once)
+          subject.start
+          subject.stop
+        end
+      end
+
+      context 'when not connected to zookeeper' do
+        it 'continues silently' do
+          subject.stop
+        end
+      end
+
+      context 'when thread is running' do
+        before :each do
+          subject.instance_variable_set(:@thread, mock_thread)
+          subject.instance_variable_set(:@zk, mock_zk.as_null_object)
+        end
+
+        it 'kills the thread' do
+          expect(mock_thread).to receive(:join).exactly(:once)
+          subject.stop
+        end
+      end
+
+      context 'when thread is not running' do
+        before :each do
+          subject.instance_variable_set(:@zk, mock_zk.as_null_object)
+        end
+
+        it 'continues silently' do
+          expect { subject.stop }.not_to raise_error
+        end
+      end
+    end
+
+    describe '#ping' do
+      before :each do
+        subject.instance_variable_set(:@zk, mock_zk)
+        allow(mock_zk).to receive(:connecting?).and_return(false)
+        allow(mock_zk).to receive(:associating?).and_return(false)
+        allow(mock_zk).to receive(:connected?).and_return(false)
+      end
+
+      it 'checks zookeeper' do
+        expect(mock_zk).to receive(:connecting?)
+        expect(mock_zk).to receive(:associating?)
+        expect(mock_zk).to receive(:connected?)
+
+        subject.ping?
+      end
+
+      context 'when zookeeper is disconnected' do
+        it 'fails' do
+          expect(subject.ping?).to eq(false)
+        end
+      end
+
+      context 'when zookeeper is connecting' do
+        it 'succeeds' do
+          allow(mock_zk).to receive(:connecting?).and_return(true)
+          expect(subject.ping?).to eq(true)
+        end
+      end
+
+      context 'when zookeeper is connected' do
+        it 'succeeds' do
+          allow(mock_zk).to receive(:connected?).and_return(true)
+          expect(subject.ping?).to eq(true)
+        end
+      end
+
+      context 'when zookeeper is associating' do
+        it 'succeeds' do
+          allow(mock_zk).to receive(:associating?).and_return(true)
+          expect(subject.ping?).to eq(true)
+        end
+      end
+    end
+
+    describe '#discover' do
+      before :each do
+        subject.instance_variable_set(:@zk, mock_zk)
+        allow(mock_zk).to receive(:children).with("some/path", {}).and_return([child_name])
+        allow(mock_zk).to receive(:get).with("some/path", {}).and_return(config_for_generator_string)
+      end
+
+      let(:service_data) {
+        {
+          'name' => 'i-testhost',
+          'host' => '127.0.0.1',
+          'port' => '3001',
+          'labels' => {
+            'region' => 'us-east-1',
+            'az' => 'us-east-1a'
+          }
+        }
+      }
+      let(:mock_node) do
+        node_double = double()
+        allow(node_double).to receive(:first).and_return(service_data_string)
+        node_double
+      end
+
+      let(:backend) {
+        service_data.merge({"id" => kind_of(Numeric), "weight" => nil, "haproxy_server_options" => nil})
+      }
+
+      let(:encoded_str) { Base64.urlsafe_encode64(JSON(service_data)) }
+      let(:child_name) { "base64_#{encoded_str.length}_#{encoded_str}_0000000003" }
+
+      context "with path encoding" do
+        context "with sequential node" do
+          it "does not call get on child" do
+            expect(mock_zk).not_to receive(:get).with(start_with("some/path/"))
+            subject.send(:discover)
+          end
+
+          it 'sets backends with the parsed data' do
+            expect(subject).to receive(:set_backends).exactly(:once).with([backend], parsed_config_for_generator)
+            subject.send(:discover)
+          end
+        end
+
+        context "with non-sequential node" do
+          let(:child_name) { "base64_#{encoded_str.length}_#{encoded_str}" }
+
+          it "does not call get on child" do
+            expect(mock_zk).not_to receive(:get).with(start_with("some/path/"))
+            subject.send(:discover)
+          end
+
+          it 'sets backends with the parsed data' do
+            expect(subject).to receive(:set_backends).exactly(:once).with(
+                                 [backend.merge({"id" => nil})], parsed_config_for_generator)
+            subject.send(:discover)
+          end
+        end
+      end
+
+      context "without path encoding" do
+        let(:child_name) { "child_1" }
+
+        it "sets backends with the fetched data" do
+          expect(mock_zk).to receive(:get).with("some/path/child_1").and_return(mock_node)
+          expect(subject).to receive(:set_backends).exactly(:once).with([backend], parsed_config_for_generator)
+          subject.send(:discover)
+        end
+      end
+
+      describe "retry_policy" do
+        before :each do
+          subject.instance_variable_set(:@retry_policy, {'max_attempts' => 2, 'base_interval' => 0, 'max_interval' => 0})
+        end
+
+        context 'with retriable errors' do
+          before :each do
+            allow(mock_zk).to receive(:register)
+            allow(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_raise(ZK::Exceptions::ConnectionLoss)
+            allow(mock_zk).to receive(:exists?).with('some/path', {:watch=>true}).once.and_return(true)
+            allow(mock_zk).to receive(:children).with('some/path', {:watch=>true}).once.and_raise(ZK::Exceptions::OperationTimeOut)
+            allow(mock_zk).to receive(:children).with('some/path', {:watch=>true}).once.and_return(["test_child_1"])
+            allow(mock_zk).to receive(:get).with('some/path', {:watch=>true}).once.and_raise(::Zookeeper::Exceptions::ContinuationTimeoutError)
+            allow(mock_zk).to receive(:get).with('some/path', {:watch=>true}).once.and_return(config_for_generator_string)
+            allow(mock_zk).to receive(:get).with('some/path/test_child_1').once.and_raise(::Zookeeper::Exceptions::NotConnected)
+            allow(mock_zk).to receive(:get).with('some/path/test_child_1').once.and_return(mock_node)
+            subject.instance_variable_set('@zk', mock_zk)
+          end
+
+          it 'retries until success' do
+            expect { subject.send(:discover) }.not_to raise_error
+          end
+
+          it 'calls set_backends' do
+            expect(subject)
+              .to receive(:set_backends)
+              .with([service_data.merge({'id' => kind_of(Numeric), 'haproxy_server_options' => nil, "weight" => nil})],
+                    parsed_config_for_generator)
+            subject.send(:discover)
+          end
+        end
+      end
     end
   end
 end
