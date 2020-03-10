@@ -523,6 +523,14 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         end
       end
 
+      context 'with float discovery duration' do
+        let(:discovery) { { 'method' => 'zookeeper_poll', 'hosts' => ['somehost'],'path' => 'some/path', 'polling_interval_sec' => 2.5 } }
+
+        it 'constructs properly' do
+          expect { subject }.not_to raise_error
+        end
+      end
+
       context 'without zookeeper hosts' do
         let(:discovery) { { 'method' => 'zookeeper_poll', 'path' => 'some/path', 'polling_interval_sec' => 'bogus' } }
 
