@@ -206,10 +206,18 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     end
 
     context 'when weights are empty' do
-      let(:watcher_weights) {}
+      let(:watcher_weights) { {} }
 
-      it 'returns primary' do
-        expect(subject.send(:pick_watcher, watcher_weights)).to eq('primary')
+      it 'returns nil' do
+        expect(subject.send(:pick_watcher, watcher_weights)).to eq(nil)
+      end
+    end
+
+    context 'when weights are nil' do
+      let(:watcher_weights) { nil }
+
+      it 'returns nil' do
+        expect(subject.send(:pick_watcher, watcher_weights).nil?).to eq(true)
       end
     end
 
@@ -248,9 +256,9 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     context 'with only unknown watchers' do
       let(:watcher_weights) { {'bogus' => 10000} }
 
-      it 'always picks primary' do
+      it 'does not pick' do
         (0..100).each do
-          expect(subject.send(:pick_watcher, watcher_weights)).to eq('primary')
+          expect(subject.send(:pick_watcher, watcher_weights)).to eq(nil)
         end
       end
     end
@@ -294,6 +302,15 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
         expect(subject.send(:set_watcher, watcher_weights_new)).to eq('secondary')
       end
     end
+
+    context 'when pick_watcher returns nil' do
+      it 'does not change the watcher' do
+        allow(subject).to receive(:pick_watcher).and_return(nil)
+
+        subject.instance_variable_set(:@watcher_setting, 'mock-watcher')
+        expect(subject.send(:set_watcher, watcher_weights)).to eq('mock-watcher')
+      end
+    end
   end
 
   describe 'read_s3_file' do
@@ -314,10 +331,6 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     before :each do
       subject.instance_variable_set(:@s3_bucket, 'config_bucket')
       subject.instance_variable_set(:@s3_path, 'path1/path2')
-
-      current_retry_policy = Synapse::ServiceWatcher::Resolver::S3ToggleResolver.class_variable_get(:@@S3_RETRY_POLICY)
-      Synapse::ServiceWatcher::Resolver::S3ToggleResolver.class_variable_set(
-        :@@S3_RETRY_POLICY, current_retry_policy.merge({'base_interval' => 0, 'max_interval' => 0}))
     end
 
     it 'properly parses response' do
@@ -333,21 +346,16 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     context 'with s3 errors' do
       it 'returns an empty configuration' do
         expect(mock_s3).to receive(:get_object).and_raise(AWS::S3::Errors::NoSuchBucket)
-        expect(subject.send(:read_s3_file)).to eq({})
+        expect(subject.send(:read_s3_file)).to eq(nil)
       end
     end
 
     context 'with invalid yaml' do
       let(:s3_data_string) { "{" }
 
-      it 'retries' do
-        expect(mock_s3).to receive(:get_object).exactly(3).and_return(mock_s3_response)
-        subject.send(:read_s3_file)
-      end
-
       it 'returns an empty configuration' do
         allow(mock_s3).to receive(:get_object).and_return(mock_s3_response)
-        expect(subject.send(:read_s3_file)).to eq({})
+        expect(subject.send(:read_s3_file)).to eq(nil)
       end
     end
   end

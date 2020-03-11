@@ -1,7 +1,6 @@
 require 'synapse/service_watcher/multi/resolver/base'
 require 'synapse/log'
 require 'synapse/statsd'
-require 'synapse/retry_policy'
 
 require 'aws-sdk'
 require 'timeout'
@@ -12,20 +11,8 @@ class Synapse::ServiceWatcher::Resolver
   class S3ToggleResolver < BaseResolver
     include Synapse::Logging
     include Synapse::StatsD
-    include Synapse::RetryPolicy
 
     DEFAULT_WATCHER = 'primary'
-
-    @@S3_RETRY_POLICY = {
-      'max_attempts' => 3,
-      'base_interval' => 10,
-      'max_interval' => 180,
-      'retriable_errors' => [
-        # S3 errors are not included here because the S3 client already includes
-        # retrying logic.
-        Psych::SyntaxError,
-      ]
-    }
 
     def initialize(opts, watchers)
       super(opts, watchers)
@@ -112,6 +99,9 @@ class Synapse::ServiceWatcher::Resolver
       end
 
       picked_watcher = pick_watcher(watcher_weights)
+      if picked_watcher.nil?
+        return get_watcher
+      end
 
       @last_watcher_weights_hash = watcher_weights.hash
       @watcher_mu.synchronize {
@@ -121,9 +111,15 @@ class Synapse::ServiceWatcher::Resolver
       return picked_watcher
     end
 
-    # randomly pick a watcher based on the provided weights
+    # randomly pick a watcher based on the provided weights.
+    # if it returns nil, it means it could not pick.
     def pick_watcher(watcher_weights)
-      watcher_weights ||= {}
+      if watcher_weights.nil?
+        log.warn "synapse: s3 toggle: received nil watcher weights, not picking"
+        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:nil_weights'])
+
+        return nil
+      end
 
       # Filter out any watchers that do not exist
       watcher_weights = watcher_weights.select do |watcher, _|
@@ -155,17 +151,17 @@ class Synapse::ServiceWatcher::Resolver
           log.warn "synapse: s3 toggle: failed to pick a watcher"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:no_choice'])
 
-          DEFAULT_WATCHER
+          nil
         else
           log.info "synapse: s3 toggle: chose watcher #{chosen_watcher}"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:success', "watcher:#{chosen_watcher}"])
           chosen_watcher
         end
       else
-        log.warn "synapse: s3 toggle: no watchers read, defaulting to primary"
+        log.warn "synapse: s3 toggle: no watchers read, failed to pick a watcher"
         statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:watchers_missing'])
 
-        DEFAULT_WATCHER
+        nil
       end
 
       return watcher_name
@@ -176,23 +172,19 @@ class Synapse::ServiceWatcher::Resolver
 
       data =
         begin
-          with_retry(@@S3_RETRY_POLICY) do |attempts|
-            log.info "synapse: reading s3 toggle file for #{attempts} times"
+          resp = s3.get_object(bucket: @s3_bucket, key: @s3_path)
+          parsed = YAML.load(resp.body.read)
 
-            resp = s3.get_object(bucket: @s3_bucket, key: @s3_path)
-            parsed = YAML.load(resp.body.read)
-
-            log.info "synapse: read s3 toggle file: #{parsed}"
-            parsed
-          end
+          log.info "synapse: read s3 toggle file: #{parsed}"
+          parsed
         rescue Psych::SyntaxError => e
           log.warn "synapse: failed to parse s3 toggle file: #{e}"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.fetch_failure', ["reason:parse_error"])
-          {}
+          nil
         rescue AWS::Errors::Base => e
           log.warn "synapse: failed to fetch s3 toggle file: #{e}"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.fetch_failure', ["reason:s3_error"])
-          {}
+          nil
         end
 
       return data
