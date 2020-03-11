@@ -147,6 +147,8 @@ class Synapse::ServiceWatcher::Resolver
       @watcher_mu.synchronize {
         @watcher_setting = watcher_name
       }
+
+      return watcher_name
     end
 
     def read_s3_file

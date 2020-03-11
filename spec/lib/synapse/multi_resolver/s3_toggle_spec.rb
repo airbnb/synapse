@@ -186,16 +186,14 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     end
 
     it 'picks between the watchers by weight' do
-      subject.send(:set_watcher, {'primary' => 25, 'secondary' => 75})
-      expect(subject.instance_variable_get(:@watcher_setting)).to eq('secondary')
+      expect(subject.send(:set_watcher, {'primary' => 25, 'secondary' => 75})).to eq('secondary')
     end
 
     context 'when primary has all weight' do
       let(:watcher_weights) { {'primary' => 100, 'secondary' => 0} }
 
       it 'returns primary' do
-        subject.send(:set_watcher, watcher_weights)
-        expect(subject.instance_variable_get(:@watcher_setting)).to eq('primary')
+        expect(subject.send(:set_watcher, watcher_weights)).to eq('primary')
       end
     end
 
@@ -208,9 +206,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
         # Explicitly set the setting to something that cannot occur.
         # However, it should not change because the weights do not change.
         subject.instance_variable_set(:@watcher_setting, 'mock-watcher')
-        subject.send(:set_watcher, watcher_weights)
-
-        expect(subject.instance_variable_get(:@watcher_setting)).to eq('mock-watcher')
+        expect(subject.send(:set_watcher, watcher_weights)).to eq('mock-watcher')
       end
     end
 
@@ -218,8 +214,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       let(:watcher_weights) {}
 
       it 'returns primary' do
-        subject.send(:set_watcher, watcher_weights)
-        expect(subject.instance_variable_get(:@watcher_setting)).to eq('primary')
+        expect(subject.send(:set_watcher, watcher_weights)).to eq('primary')
       end
     end
 
@@ -227,8 +222,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       let(:watcher_weights) { {'primary' => 50, 'secondary' => 100} }
 
       it 'still sets watcher properly' do
-        subject.send(:set_watcher, watcher_weights)
-        expect(subject.instance_variable_get(:@watcher_setting)).to eq('secondary')
+        expect(subject.send(:set_watcher, watcher_weights)).to eq('secondary')
       end
     end
   end
