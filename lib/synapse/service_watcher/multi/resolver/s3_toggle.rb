@@ -14,6 +14,8 @@ class Synapse::ServiceWatcher::Resolver
     include Synapse::StatsD
     include Synapse::RetryPolicy
 
+    DEFAULT_WATCHER = 'primary'
+
     @@S3_RETRY_POLICY = {
       'max_attempts' => 3,
       'base_interval' => 10,
@@ -29,7 +31,7 @@ class Synapse::ServiceWatcher::Resolver
       super(opts, watchers)
 
       @watcher_mu = Mutex.new
-      @watcher_setting = 'primary'
+      @watcher_setting = DEFAULT_WATCHER
       @last_watcher_weights_hash = nil
 
       @polling_interval = @opts['s3_polling_interval_seconds']
@@ -153,7 +155,7 @@ class Synapse::ServiceWatcher::Resolver
           log.warn "synapse: s3 toggle: failed to pick a watcher"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:no_choice'])
 
-          'primary'
+          DEFAULT_WATCHER
         else
           log.info "synapse: s3 toggle: chose watcher #{chosen_watcher}"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:success', "watcher:#{chosen_watcher}"])
@@ -163,7 +165,7 @@ class Synapse::ServiceWatcher::Resolver
         log.warn "synapse: s3 toggle: no watchers read, defaulting to primary"
         statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:watchers_missing'])
 
-        'primary'
+        DEFAULT_WATCHER
       end
 
       return watcher_name
