@@ -6,7 +6,7 @@ require 'synapse/retry_policy'
 require 'aws-sdk'
 require 'timeout'
 require 'thread'
-require 'json'
+require 'yaml'
 
 class Synapse::ServiceWatcher::Resolver
   class S3ToggleResolver < BaseResolver
@@ -23,7 +23,7 @@ class Synapse::ServiceWatcher::Resolver
       'retriable_errors' => [
         # S3 errors are not included here because the S3 client already includes
         # retrying logic.
-        JSON::ParserError,
+        Psych::SyntaxError,
       ]
     }
 
@@ -180,12 +180,12 @@ class Synapse::ServiceWatcher::Resolver
             log.info "synapse: reading s3 toggle file for #{attempts} times"
 
             resp = s3.get_object(bucket: @s3_bucket, key: @s3_path)
-            parsed = JSON.parse(resp.body.read)
+            parsed = YAML.load(resp.body.read)
 
             log.info "synapse: read s3 toggle file: #{parsed}"
             parsed
           end
-        rescue JSON::ParserError => e
+        rescue Psych::SyntaxError => e
           log.warn "synapse: failed to parse s3 toggle file: #{e}"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.fetch_failure', ["reason:parse_error"])
           {}

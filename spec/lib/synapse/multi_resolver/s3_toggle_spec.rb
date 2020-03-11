@@ -298,7 +298,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
 
   describe 'read_s3_file' do
     let(:s3_data) { {'primary' => 50, 'secondary' => 50} }
-    let(:s3_data_string) { JSON.dump(s3_data) }
+    let(:s3_data_string) { YAML.dump(s3_data) }
     let(:mock_s3_response) {
       mock_response = double("mock_s3_response")
       allow(mock_response).to receive(:body).and_return(StringIO.new(s3_data_string))
@@ -337,8 +337,8 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       end
     end
 
-    context 'with invalid json' do
-      let(:s3_data_string) { "bogus-json" }
+    context 'with invalid yaml' do
+      let(:s3_data_string) { "{" }
 
       it 'retries' do
         expect(mock_s3).to receive(:get_object).exactly(3).and_return(mock_s3_response)
