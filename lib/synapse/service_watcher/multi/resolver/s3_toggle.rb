@@ -29,11 +29,11 @@ class Synapse::ServiceWatcher::Resolver
     end
 
     def start
-      log.info "synapse: start s3 toggle resolver"
+      log.info "synapse: s3 toggle resolver: starting"
 
       @should_exit = false
       @thread = Thread.new {
-        log.info "synapse: s3 toggle resolver background thread starting"
+        log.info "synapse: s3 toggle resolver: background thread starting"
         last_run = Time.now - rand(@polling_interval)
 
         until @should_exit
@@ -41,7 +41,6 @@ class Synapse::ServiceWatcher::Resolver
           elapsed = now - last_run
 
           if elapsed >= @polling_interval
-            log.info "synapse: s3 resolver reading from s3"
             config_from_s3 = read_s3_file
             set_watcher(config_from_s3)
 
@@ -51,11 +50,12 @@ class Synapse::ServiceWatcher::Resolver
           sleep 0.5
         end
 
-        log.info "synapse: s3 toggle resolver background thread exiting normally"
+        log.info "synapse: s3 toggle resolver: background thread exiting normally"
       }
     end
 
     def stop
+      log.warn "synapse: s3 toggle resolver: stopping and waiting for background thread"
       @should_exit = true
       @thread.join unless @thread.nil?
     end
@@ -92,7 +92,7 @@ class Synapse::ServiceWatcher::Resolver
     # pick and set a new watcher, but only if the hash has changed
     def set_watcher(watcher_weights)
       if watcher_weights.hash == @last_watcher_weights_hash
-        log.info "synapse: s3 toggle: watcher weights hash does not change; ignoring update"
+        log.info "synapse: s3 toggle resolver: watcher weights hash does not change; ignoring update"
         statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:skip'])
 
         return get_watcher
@@ -115,7 +115,7 @@ class Synapse::ServiceWatcher::Resolver
     # if it returns nil, it means it could not pick.
     def pick_watcher(watcher_weights)
       if watcher_weights.nil?
-        log.warn "synapse: s3 toggle: received nil watcher weights, not picking"
+        log.warn "synapse: s3 toggle resolver: received nil watcher weights, not picking"
         statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:nil_weights'])
 
         return nil
@@ -125,7 +125,7 @@ class Synapse::ServiceWatcher::Resolver
       watcher_weights = watcher_weights.select do |watcher, _|
         exists = @watchers.has_key?(watcher)
         unless exists
-          log.warn "synapse: s3 toggle: read invalid watcher name #{watcher}"
+          log.warn "synapse: s3 toggle resolver: read invalid watcher name #{watcher}"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.unknown_watchers')
         end
 
@@ -148,17 +148,17 @@ class Synapse::ServiceWatcher::Resolver
         end
 
         if chosen_watcher.nil?
-          log.warn "synapse: s3 toggle: failed to pick a watcher"
+          log.warn "synapse: s3 toggle resolver: failed to pick a watcher"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:no_choice'])
 
           nil
         else
-          log.info "synapse: s3 toggle: chose watcher #{chosen_watcher}"
+          log.info "synapse: s3 toggle resolver: chose watcher #{chosen_watcher}"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:success', "watcher:#{chosen_watcher}"])
           chosen_watcher
         end
       else
-        log.warn "synapse: s3 toggle: no watchers read, failed to pick a watcher"
+        log.warn "synapse: s3 toggle resolver: no watchers read, failed to pick a watcher"
         statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:watchers_missing'])
 
         nil
@@ -175,19 +175,40 @@ class Synapse::ServiceWatcher::Resolver
           resp = s3.get_object(bucket: @s3_bucket, key: @s3_path)
           parsed = YAML.load(resp.body.read)
 
-          log.info "synapse: read s3 toggle file: #{parsed}"
+          log.info "synapse: s3 toggle resolver: read s3 file: #{parsed}"
           parsed
         rescue Psych::SyntaxError => e
-          log.warn "synapse: failed to parse s3 toggle file: #{e}"
+          log.warn "synapse: s3 toggle resolver: failed to parse s3 file: #{e}"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.fetch_failure', ["reason:parse_error"])
           nil
         rescue AWS::Errors::Base => e
-          log.warn "synapse: failed to fetch s3 toggle file: #{e}"
+          log.warn "synapse: s3 toggle resolver: failed to fetch s3 file: #{e}"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.fetch_failure', ["reason:s3_error"])
           nil
         end
 
-      return data
+      if validate_s3_file_schema(data)
+        return data
+      else
+        log.warn "synapse: s3 toggle resolver: s3 file has invalid schema"
+        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.fetch_failure', ["reason:invalid_schema"])
+
+        return nil
+      end
+    end
+
+    # expected schema is {'watcher_name' => Integer, ...}
+    def validate_s3_file_schema(contents)
+      return false if (
+          contents.nil? ||
+          !contents.is_a?(Hash)
+        )
+
+      contents.each do |key, value|
+        return false unless key.is_a?(String) && value.is_a?(Integer)
+      end
+
+      return true
     end
 
     # url = s3://{bucket}/{path}

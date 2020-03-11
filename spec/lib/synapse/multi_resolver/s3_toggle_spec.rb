@@ -338,6 +338,15 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       expect(subject.send(:read_s3_file)).to eq(s3_data)
     end
 
+    context 'with yaml comments' do
+      let(:s3_data_string) { "---\n# example comment\nprimary: 50\nsecondary: 50" }
+
+      it 'properly parses response' do
+        allow(mock_s3).to receive(:get_object).and_return(mock_s3_response)
+        expect(subject.send(:read_s3_file)).to eq(s3_data)
+      end
+    end
+
     it 'calls S3 API with proper bucket and key' do
       expect(mock_s3).to receive(:get_object).with(bucket: 'config_bucket', key: 'path1/path2').exactly(:once).and_return(mock_s3_response)
       subject.send(:read_s3_file)
@@ -356,6 +365,49 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       it 'returns an empty configuration' do
         allow(mock_s3).to receive(:get_object).and_return(mock_s3_response)
         expect(subject.send(:read_s3_file)).to eq(nil)
+      end
+    end
+
+    context 'with invalid schema' do
+      let(:s3_data) { {"watchers" => [{"bogus" => 10}, {"morebogus" => 11}]} }
+
+      it 'returns an empty configuration' do
+        allow(mock_s3).to receive(:get_object).and_return(mock_s3_response)
+        expect(subject.send(:read_s3_file)).to eq(nil)
+      end
+    end
+  end
+
+  describe 'validate_s3_file_schema' do
+    context 'with invalid schema' do
+      let(:schema) { {"watchers" => [{"bogus" => 10}, {"morebogus" => 11}]} }
+
+      it 'returns false' do
+        expect(subject.send(:validate_s3_file_schema, schema)).to eq(false)
+      end
+    end
+
+    context 'with invalid type' do
+      let(:schema) { "bogus" }
+
+      it 'returns false' do
+        expect(subject.send(:validate_s3_file_schema, schema)).to eq(false)
+      end
+    end
+
+    context 'with nil contents' do
+      let(:schema) { nil }
+
+      it 'returns false' do
+        expect(subject.send(:validate_s3_file_schema, schema)).to eq(false)
+      end
+    end
+
+    context 'with valid schema' do
+      let(:schema) { {'primary' => 50, 'secondary' => 50} }
+
+      it 'returns true' do
+        expect(subject.send(:validate_s3_file_schema, schema)).to eq(true)
       end
     end
   end
