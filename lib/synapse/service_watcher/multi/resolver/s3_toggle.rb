@@ -52,7 +52,7 @@ class Synapse::ServiceWatcher::Resolver
           if elapsed >= @polling_interval
             log.info "synapse: s3 resolver reading from s3"
             config_from_s3 = read_s3_file
-            set_watcher(config_from_s3)
+            stable_set_watcher(config_from_s3)
 
             last_run = now
           end
@@ -96,6 +96,10 @@ class Synapse::ServiceWatcher::Resolver
       @watcher_mu.synchronize {
         return @watcher_setting
       }
+    end
+
+    def stable_set_watcher(watcher_weights)
+      return set_watcher(watcher_weights)
     end
 
     def set_watcher(watcher_weights)
