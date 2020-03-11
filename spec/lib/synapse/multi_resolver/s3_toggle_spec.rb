@@ -176,14 +176,8 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     end
   end
 
-  describe 'set_watcher' do
-    # TODO: random seed
+  describe 'pick_watcher' do
     let(:watcher_weights) { {'primary' => 0, 'secondary' => 100} }
-
-    it 'sets @watcher_setting' do
-      subject.send(:set_watcher, watcher_weights)
-      expect(subject.instance_variable_get(:@watcher_setting)).to eq('secondary')
-    end
 
     it 'picks between the watchers by weight' do
       distribution = {'primary' => 25, 'secondary' => 75}
@@ -193,7 +187,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       end
 
       (0..100).each do
-        choice = subject.send(:set_watcher, distribution)
+        choice = subject.send(:pick_watcher, distribution)
         results[choice] += 1
       end
 
@@ -207,7 +201,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       let(:watcher_weights) { {'primary' => 100, 'secondary' => 0} }
 
       it 'returns primary' do
-        expect(subject.send(:set_watcher, watcher_weights)).to eq('primary')
+        expect(subject.send(:pick_watcher, watcher_weights)).to eq('primary')
       end
     end
 
@@ -215,7 +209,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       let(:watcher_weights) {}
 
       it 'returns primary' do
-        expect(subject.send(:set_watcher, watcher_weights)).to eq('primary')
+        expect(subject.send(:pick_watcher, watcher_weights)).to eq('primary')
       end
     end
 
@@ -230,7 +224,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
         end
 
         (0..100).each do
-          choice = subject.send(:set_watcher, distribution)
+          choice = subject.send(:pick_watcher, distribution)
           results[choice] += 1
         end
 
@@ -242,24 +236,42 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     end
   end
 
-  describe 'stable_set_watcher' do
+  describe 'set_watcher' do
     let(:watcher_weights) { {'primary' => 50, 'secondary' => 50} }
 
+    it 'sets @watcher_setting' do
+      subject.send(:set_watcher, {'primary' => 0, 'secondary' => 100})
+      expect(subject.instance_variable_get(:@watcher_setting)).to eq('secondary')
+    end
+
     it 'calls set_watcher' do
-      expect(subject).to receive(:set_watcher).with(watcher_weights).exactly(:once)
-      subject.send(:stable_set_watcher, watcher_weights)
+      expect(subject).to receive(:pick_watcher).with(watcher_weights).exactly(:once)
+      subject.send(:set_watcher, watcher_weights)
     end
 
     context 'when called multiple times' do
-      it 'deterministically returns the same result' do
-        expect(subject).to receive(:set_watcher).with(watcher_weights).exactly(:once)
+      it 'deterministically picks the same watcher' do
+        expect(subject).to receive(:pick_watcher).with(watcher_weights).exactly(:once).and_call_original
 
-        subject.send(:stable_set_watcher, watcher_weights)
+        subject.send(:set_watcher, watcher_weights)
 
         # Explicitly set the setting to something that cannot occur.
         # However, it should not change because the weights do not change.
         subject.instance_variable_set(:@watcher_setting, 'mock-watcher')
-        expect(subject.send(:stable_set_watcher, watcher_weights)).to eq('mock-watcher')
+        expect(subject.send(:set_watcher, watcher_weights)).to eq('mock-watcher')
+      end
+    end
+
+    context 'with different weights' do
+      let(:watcher_weights) { {'primary' => 100, 'secondary' => 0} }
+      let(:watcher_weights_new) { {'primary' => 0, 'secondary' => 100} }
+
+      it 'picks a new watcher' do
+        expect(subject).to receive(:pick_watcher).with(watcher_weights).exactly(:once).and_call_original
+        expect(subject).to receive(:pick_watcher).with(watcher_weights_new).exactly(:once).and_call_original
+
+        expect(subject.send(:set_watcher, watcher_weights)).to eq('primary')
+        expect(subject.send(:set_watcher, watcher_weights_new)).to eq('secondary')
       end
     end
   end

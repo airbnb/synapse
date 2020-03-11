@@ -30,6 +30,8 @@ class Synapse::ServiceWatcher::Resolver
 
       @watcher_mu = Mutex.new
       @watcher_setting = 'primary'
+      @last_watcher_weights_hash = nil
+
       @polling_interval = @opts['s3_polling_interval_seconds']
 
       s3_parts = parse_s3_url(@opts['s3_url'])
@@ -52,7 +54,7 @@ class Synapse::ServiceWatcher::Resolver
           if elapsed >= @polling_interval
             log.info "synapse: s3 resolver reading from s3"
             config_from_s3 = read_s3_file
-            stable_set_watcher(config_from_s3)
+            set_watcher(config_from_s3)
 
             last_run = now
           end
@@ -98,11 +100,27 @@ class Synapse::ServiceWatcher::Resolver
       }
     end
 
-    def stable_set_watcher(watcher_weights)
-      return set_watcher(watcher_weights)
+    # pick and set a new watcher, but only if the hash has changed
+    def set_watcher(watcher_weights)
+      if watcher_weights.hash == @last_watcher_weights_hash
+        log.info "synapse: s3 toggle: watcher weights hash does not change; ignoring update"
+        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:skip'])
+
+        return get_watcher
+      end
+
+      picked_watcher = pick_watcher(watcher_weights)
+
+      @last_watcher_weights_hash = watcher_weights.hash
+      @watcher_mu.synchronize {
+        @watcher_setting = picked_watcher
+      }
+
+      return picked_watcher
     end
 
-    def set_watcher(watcher_weights)
+    # randomly pick a watcher based on the provided weights
+    def pick_watcher(watcher_weights)
       watcher_weights ||= {}
 
       # Filter out any watchers that do not exist
@@ -147,10 +165,6 @@ class Synapse::ServiceWatcher::Resolver
 
         'primary'
       end
-
-      @watcher_mu.synchronize {
-        @watcher_setting = watcher_name
-      }
 
       return watcher_name
     end
