@@ -234,6 +234,26 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
         expect(results['secondary']).to be > results['primary']
       end
     end
+
+    context 'with unknown watcher' do
+      let(:watcher_weights) { {'primary' => 0, 'secondary' => 1, 'bogus' => 100000} }
+
+      it 'ignores unknown watchers' do
+        (0..100).each do
+          expect(subject.send(:pick_watcher, watcher_weights)).to eq('secondary')
+        end
+      end
+    end
+
+    context 'with only unknown watchers' do
+      let(:watcher_weights) { {'bogus' => 10000} }
+
+      it 'always picks primary' do
+        (0..100).each do
+          expect(subject.send(:pick_watcher, watcher_weights)).to eq('primary')
+        end
+      end
+    end
   end
 
   describe 'set_watcher' do
