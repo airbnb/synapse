@@ -507,6 +507,15 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     end
 
     describe "#initialize" do
+      context 'without polling_interval_sec' do
+        let(:discovery) { { 'method' => 'zookeeper_poll', 'hosts' => ['somehost'], 'path' => 'some/path'} }
+
+        it 'sets a default' do
+          expect { subject }.not_to raise_error
+          expect(subject.instance_variable_get(:@discovery)['polling_interval_sec'].nil?).to be(false)
+        end
+      end
+
       context 'with discovery type != zookeeper_poll' do
         let(:discovery) { { 'method' => 'bogus', 'hosts' => ['somehost'],'path' => 'some/path', 'polling_interval_sec' => 30 } }
 

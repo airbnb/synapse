@@ -177,8 +177,6 @@ class Synapse::ServiceWatcher
       end
     end
 
-    protected
-
     def validate_discovery_opts
       raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
         unless @discovery['method'] == 'zookeeper'

@@ -6,6 +6,12 @@ require 'thread'
 
 class Synapse::ServiceWatcher
   class ZookeeperPollWatcher < ZookeeperWatcher
+    def initialize(opts, synapse, reconfigure_callback)
+      super(opts, synapse, reconfigure_callback)
+
+      @discovery['polling_interval_sec'] ||= 60
+    end
+
     def start
       log.info 'synapse: ZookeeperPollWatcher starting'
 
@@ -55,10 +61,10 @@ class Synapse::ServiceWatcher
 
     def validate_discovery_opts
       raise ArgumentError, "zookeeper poll watcher expects zookeeper_poll method" unless @discovery['method'] == 'zookeeper_poll'
-      raise ArgumentError, "zookeeper poll watcher expects integer polling_interval_sec >= 0" unless (
+      raise ArgumentError, "zookeeper poll watcher expects integer polling_interval_sec >= 0" if (
           @discovery.has_key?('polling_interval_sec') &&
-          @discovery['polling_interval_sec'].is_a?(Numeric) &&
-          @discovery['polling_interval_sec'] >= 0
+          !(@discovery['polling_interval_sec'].is_a?(Numeric) &&
+          @discovery['polling_interval_sec'] >= 0)
         )
       raise ArgumentError, "missing or invalid zookeeper host for service #{@name}" \
         unless @discovery['hosts']
