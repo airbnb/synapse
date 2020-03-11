@@ -48,23 +48,39 @@ class Synapse::ServiceWatcher
       @retry_policy['max_delay'] = @retry_policy['max_delay'] || 600
       @retry_policy['base_interval'] = @retry_policy['base_interval'] || 0.5
       @retry_policy['max_interval'] = @retry_policy['max_interval'] || 60
-    end
 
-    def start
       zk_host_list = @discovery['hosts'].sort
       @zk_cluster = host_list_to_cluster(zk_host_list)
       @zk_hosts = zk_host_list.join(',')
 
-      @watcher = nil
       @zk = nil
+    end
+
+    def start
+      @watcher = nil
 
       log.info "synapse: starting ZK watcher #{@name} @ cluster: #{@zk_cluster} path: #{@discovery['path']} retry policy: #{@retry_policy}"
-      zk_connect
+      zk_connect do
+        # the path must exist, otherwise watch callbacks will not work
+        with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
+          unless @zk.exists?(@discovery['path'])
+            statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+              log.info "synapse: zk create at #{@discovery['path']} for #{attempts} times"
+              create(@discovery['path'])
+            end
+          end
+        end
+
+        watcher_callback.call
+      end
     end
 
     def stop
       log.warn "synapse: zookeeper watcher exiting"
-      zk_cleanup
+      zk_teardown do
+        @watcher.unsubscribe unless @watcher.nil?
+        @watcher = nil
+      end
     end
 
     def ping?
@@ -77,13 +93,88 @@ class Synapse::ServiceWatcher
 
     private
 
-    def host_list_to_cluster(list)
-      first_host = list.sort.first
-      first_token = first_host.split('.').first
-      # extract cluster name by filtering name of first host
-      # remove domain extents and trailing numbers
-      last_non_number = first_token.rindex(/[^0-9]/)
-      last_non_number ? first_token[0..last_non_number] : first_host
+    # find the current backends at the discovery path
+    def discover(zookeeper_opts={:watch => true})
+      statsd_increment('synapse.watcher.zk.discovery', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"])
+      statsd_time('synapse.watcher.zk.discovery.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
+        log.info "synapse: discovering backends for service #{@name}"
+
+        new_backends = []
+        zk_children = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
+            statsd_time('synapse.watcher.zk.children.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+              log.info "synapse: zk list children at #{@discovery['path']} for #{attempts} times"
+              @zk.children(@discovery['path'], zookeeper_opts)
+            end
+        end
+        statsd_gauge('synapse.watcher.zk.children.bytes', ObjectSpace.memsize_of(zk_children), ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}"])
+
+        zk_children.each do |id|
+          backend = read_child_data(id)
+          new_backends << backend unless backend.nil?
+        end
+
+        new_config_for_generator = read_config_for_generator(zookeeper_opts)
+        set_backends(new_backends, new_config_for_generator)
+      end
+    end
+
+    # sets up zookeeper callbacks if the data at the discovery path changes
+    def watch
+      return if @zk.nil?
+      log.debug "synapse: setting watch at #{@discovery['path']}"
+
+      statsd_time('synapse.watcher.zk.watch.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
+        unless @watcher
+          log.debug "synapse: zk register at #{@discovery['path']}"
+          @watcher = @zk.register(@discovery['path'], &watcher_callback)
+        end
+
+        # Verify that we actually set up the watcher.
+        existed = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
+          log.info "synapse: zk exists at #{@discovery['path']} for #{attempts} times"
+          @zk.exists?(@discovery['path'], :watch => true)
+        end
+        unless existed
+          log.error "synapse: zookeeper watcher path #{@discovery['path']} does not exist!"
+          statsd_increment('synapse.watcher.zk.register_failed')
+          stop
+        end
+      end
+      log.debug "synapse: set watch for parent at #{@discovery['path']}"
+    end
+
+    # handles the event that a watched path has changed in zookeeper
+    def watcher_callback
+      @callback ||= Proc.new do |event|
+        # We instantiate ZK client with :thread => :per_callback
+        # https://github.com/zk-ruby/zk/wiki/EventDeliveryModel#thread-per-callback
+        # Only one thread will be executing the callback at a time
+        #
+        # We call watch on every callback, but do not call zk.register => change callback, except the first time.
+        #
+        # We sleep if we have not slept in discovery_jitter seconds
+        # We loose / do not get any events during this time for this service.
+        # This helps with throttling discover.
+        #
+        # We call watch and discover on every callback.
+        # We call exists(watch), children(discover) and get(discover) with (:watch=>true)
+        # This re-initializes callbacks just before get scan. So we do not miss any updates by sleeping.
+        #
+        if @discovery['discovery_jitter']
+          if @discovery['discovery_jitter'].between?(MIN_JITTER, MAX_JITTER)
+            if @last_discovery && (Time.now - @last_discovery) < @discovery['discovery_jitter']
+              log.info "synapse: sleeping for discovery_jitter=#{@discovery['discovery_jitter']} seconds for service:#{@name}"
+              sleep @discovery['discovery_jitter']
+            end
+            @last_discovery = Time.now
+          else
+            log.warn "synapse: invalid discovery_jitter=#{@discovery['discovery_jitter']} for service:#{@name}"
+          end
+        end
+        watch
+        # Rediscover
+        discover
+      end
     end
 
     def validate_discovery_opts
@@ -153,165 +244,91 @@ class Synapse::ServiceWatcher
       @zk.create(path, ignore: :node_exists)
     end
 
-    # find the current backends at the discovery path
-    def discover
-      statsd_increment('synapse.watcher.zk.discovery', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"])
-      statsd_time('synapse.watcher.zk.discovery.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
-        log.info "synapse: discovering backends for service #{@name}"
+    # read the child data, using path-encoding if available or resorting to
+    # calling zk.get otherwise.
+    def read_child_data(id)
+      if id.start_with?(CHILD_NAME_ENCODING_PREFIX)
+        decoded = parse_base64_encoded_prefix(id)
 
-        new_backends = []
-        zk_children = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
-            statsd_time('synapse.watcher.zk.children.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-              log.info "synapse: zk list children at #{@discovery['path']} for #{attempts} times"
-              @zk.children(@discovery['path'], :watch => true)
-            end
-        end
-        statsd_gauge('synapse.watcher.zk.children.bytes', ObjectSpace.memsize_of(zk_children), ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}"])
+        return create_backend_info(id, decoded) if decoded != nil
+      end
 
-        zk_children.each do |id|
-          if id.start_with?(CHILD_NAME_ENCODING_PREFIX)
-            decoded = parse_base64_encoded_prefix(id)
-            if decoded != nil
-              new_backends << create_backend_info(id, decoded)
-              next
-            end
-          end
+      begin
+        node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
+          statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+            log.debug "synapse: zk get child at #{@discovery['path']}/#{id} for #{attempts} times"
 
-          begin
-            node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
-              statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-                log.debug "synapse: zk get child at #{@discovery['path']}/#{id} for #{attempts} times"
-                @zk.get("#{@discovery['path']}/#{id}")
-              end
-            end
-          rescue ZK::Exceptions::NoNode => e
-            # This can happen when the registry unregisters a service node between
-            # the call to @zk.children and @zk.get(path). ZK does not guarantee
-            # a read to ``get`` of a child returned by ``children`` will succeed
-            log.error("synapse: #{@discovery['path']}/#{id} disappeared before it could be read: #{e}")
-            next
-          rescue StandardError => e
-            log.error("synapse: #{@discovery['path']}/#{id} failed to get from ZK: #{e}")
-            statsd_increment('synapse.watcher.zk.get_child_failed')
-            raise e
-          end
-
-          begin
-            # TODO: Do less munging, or refactor out this processing
-            decoded = deserialize_service_instance(node.first)
-          rescue StandardError => e
-            log.error "synapse: skip child due to invalid data in ZK at #{@discovery['path']}/#{id}: #{e}"
-            statsd_increment('synapse.watcher.zk.parse_child_failed')
-          else
-            new_backends << create_backend_info(id, decoded)
+            @zk.get("#{@discovery['path']}/#{id}")
           end
         end
+      rescue ZK::Exceptions::NoNode => e
+        # This can happen when the registry unregisters a service node between
+        # the call to @zk.children and @zk.get(path). ZK does not guarantee
+        # a read to ``get`` of a child returned by ``children`` will succeed
+        log.error("synapse: #{@discovery['path']}/#{id} disappeared before it could be read: #{e}")
+        return nil
+      rescue StandardError => e
+        log.error("synapse: #{@discovery['path']}/#{id} failed to get from ZK: #{e}")
+        statsd_increment('synapse.watcher.zk.get_child_failed')
+        raise e
+      end
 
-        # support for a separate 'generator_config_path' key, for reading the
-        # generator config block, that may be different from the 'path' key where
-        # we discover service instances. if generator_config_path is present and
-        # the value is "disabled", then skip all zk-based discovery of the
-        # generator config (and use the values from the local config.json
-        # instead).
-        case @discovery.fetch('generator_config_path', nil)
-        when 'disabled'
-          discovery_key = nil
-        when nil
-          discovery_key = 'path'
-        else
-          discovery_key = 'generator_config_path'
-        end
+      begin
+        # TODO: Do less munging, or refactor out this processing
+        decoded = deserialize_service_instance(node.first)
+      rescue StandardError => e
+        log.error "synapse: skip child due to invalid data in ZK at #{@discovery['path']}/#{id}: #{e}"
+        statsd_increment('synapse.watcher.zk.parse_child_failed')
+      else
+        return create_backend_info(id, decoded)
+      end
+    end
 
-        if discovery_key
-          begin
-            node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
-                statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-                  log.info "synapse: zk get parent at #{@discovery[discovery_key]} for #{attempts} times"
-                  @zk.get(@discovery[discovery_key], :watch => true)
-                end
+    # support for a separate 'generator_config_path' key, for reading the
+    # generator config block, that may be different from the 'path' key where
+    # we discover service instances. if generator_config_path is present and
+    # the value is "disabled", then skip all zk-based discovery of the
+    # generator config (and use the values from the local config.json
+    # instead).
+    def read_config_for_generator(zookeeper_opts={:watch => true})
+      case @discovery.fetch('generator_config_path', nil)
+      when 'disabled'
+        discovery_key = nil
+      when nil
+        discovery_key = 'path'
+      else
+        discovery_key = 'generator_config_path'
+      end
+
+      if discovery_key
+        begin
+          node = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
+            statsd_time('synapse.watcher.zk.get.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+              log.info "synapse: zk get parent at #{@discovery[discovery_key]} for #{attempts} times"
+              @zk.get(@discovery[discovery_key], zookeeper_opts)
             end
-            new_config_for_generator = parse_service_config(node.first)
-          rescue ZK::Exceptions::NoNode => e
-            log.error "synapse: No ZK node for config data at #{@discovery[discovery_key]}: #{e}"
-            new_config_for_generator = {}
-          rescue StandardError => e
-            log.error "synapse: skip path due to invalid data in ZK at #{@discovery[discovery_key]}: #{e}"
-            statsd_increment('synapse.watcher.zk.get_config_failed')
-            new_config_for_generator = {}
           end
-        else
+          new_config_for_generator = parse_service_config(node.first)
+        rescue ZK::Exceptions::NoNode => e
+          log.error "synapse: No ZK node for config data at #{@discovery[discovery_key]}: #{e}"
+          new_config_for_generator = {}
+        rescue StandardError => e
+          log.error "synapse: skip path due to invalid data in ZK at #{@discovery[discovery_key]}: #{e}"
+          statsd_increment('synapse.watcher.zk.get_config_failed')
           new_config_for_generator = {}
         end
-
-        set_backends(new_backends, new_config_for_generator)
+      else
+        new_config_for_generator = {}
       end
+
+      return new_config_for_generator
     end
 
-    # sets up zookeeper callbacks if the data at the discovery path changes
-    def watch
-      return if @zk.nil?
-      log.debug "synapse: setting watch at #{@discovery['path']}"
-
-      statsd_time('synapse.watcher.zk.watch.elapsed_time', ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}", "service_name:#{@name}"]) do
-        unless @watcher
-          log.debug "synapse: zk register at #{@discovery['path']}"
-          @watcher = @zk.register(@discovery['path'], &watcher_callback)
-        end
-
-        # Verify that we actually set up the watcher.
-        existed = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
-          log.info "synapse: zk exists at #{@discovery['path']} for #{attempts} times"
-          @zk.exists?(@discovery['path'], :watch => true)
-        end
-        unless existed
-          log.error "synapse: zookeeper watcher path #{@discovery['path']} does not exist!"
-          statsd_increment('synapse.watcher.zk.register_failed')
-          zk_cleanup
-        end
-      end
-      log.debug "synapse: set watch for parent at #{@discovery['path']}"
-    end
-
-    # handles the event that a watched path has changed in zookeeper
-    def watcher_callback
-      @callback ||= Proc.new do |event|
-        # We instantiate ZK client with :thread => :per_callback
-        # https://github.com/zk-ruby/zk/wiki/EventDeliveryModel#thread-per-callback
-        # Only one thread will be executing the callback at a time
-        #
-        # We call watch on every callback, but do not call zk.register => change callback, except the first time.
-        #
-        # We sleep if we have not slept in discovery_jitter seconds
-        # We loose / do not get any events during this time for this service.
-        # This helps with throttling discover.
-        #
-        # We call watch and discover on every callback.
-        # We call exists(watch), children(discover) and get(discover) with (:watch=>true)
-        # This re-initializes callbacks just before get scan. So we do not miss any updates by sleeping.
-        #
-        if @discovery['discovery_jitter']
-          if @discovery['discovery_jitter'].between?(MIN_JITTER, MAX_JITTER)
-            if @last_discovery && (Time.now - @last_discovery) < @discovery['discovery_jitter']
-              log.info "synapse: sleeping for discovery_jitter=#{@discovery['discovery_jitter']} seconds for service:#{@name}"
-              sleep @discovery['discovery_jitter']
-            end
-            @last_discovery = Time.now
-          else
-            log.warn "synapse: invalid discovery_jitter=#{@discovery['discovery_jitter']} for service:#{@name}"
-          end
-        end
-        watch
-        # Rediscover
-        discover
-      end
-    end
-
-    def zk_cleanup
+    def zk_teardown(&teardown)
       log.info "synapse: zookeeper watcher cleaning up"
 
       begin
-        @watcher.unsubscribe unless @watcher.nil?
-        @watcher = nil
+        teardown.call
       ensure
         @@zk_pool_lock.synchronize {
           if @@zk_pool.has_key?(@zk_hosts)
@@ -333,7 +350,7 @@ class Synapse::ServiceWatcher
       log.info "synapse: zookeeper watcher cleaned up successfully"
     end
 
-    def zk_connect
+    def zk_connect(&bootstrap)
       statsd_time('synapse.watcher.zk.connect.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
         # Ensure that all Zookeeper watcher re-use a single zookeeper
         # connection to any given set of zk hosts.
@@ -363,20 +380,10 @@ class Synapse::ServiceWatcher
         @zk.on_expired_session do
           statsd_increment('synapse.watcher.zk.session.expired', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
           log.warn "synapse: ZK client session expired #{@name}"
-          zk_cleanup
+          stop
         end
 
-        # the path must exist, otherwise watch callbacks will not work
-        with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
-          unless @zk.exists?(@discovery['path'])
-            statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-              log.info "synapse: zk create at #{@discovery['path']} for #{attempts} times"
-              create(@discovery['path'])
-            end
-          end
-        end
-        # call the callback to bootstrap the process
-        watcher_callback.call
+        bootstrap.call
       end
     end
 
@@ -394,6 +401,15 @@ class Synapse::ServiceWatcher
       end
 
       return decoded
+    end
+
+    def host_list_to_cluster(list)
+      first_host = list.sort.first
+      first_token = first_host.split('.').first
+      # extract cluster name by filtering name of first host
+      # remove domain extents and trailing numbers
+      last_non_number = first_token.rindex(/[^0-9]/)
+      last_non_number ? first_token[0..last_non_number] : first_host
     end
 
     # find the encoded metadata in the prefix of child name; used for path encoding if enabled

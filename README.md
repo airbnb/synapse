@@ -183,7 +183,7 @@ relevant routing component. For example if you want to only configure HAProxy an
 not NGINX for a particular service, you would pass ``disabled`` to the `nginx` section
 of that service's watcher config.
 
-* [`haproxy`](#haproxysvc): how will the haproxy section for this service be configured. If the corresponding `watcher` is defined to use `zookeeper` and the service publishes its `haproxy` configure on ZK, the `haproxy` hash can be filled/updated via data from the ZK node. 
+* [`haproxy`](#haproxysvc): how will the haproxy section for this service be configured. If the corresponding `watcher` is defined to use `zookeeper` and the service publishes its `haproxy` configure on ZK, the `haproxy` hash can be filled/updated via data from the ZK node.
 * [`nginx`](https://github.com/jolynch/synapse-nginx#service-watcher-config): how will the nginx section for this service be configured. **NOTE** to use this you must have the synapse-nginx [plugin](#plugins) installed.
 
 The services hash may contain the following additional keys:
@@ -250,6 +250,19 @@ Any additional metadata for the service node provided in the hash `labels` will 
 If the `method` is `serverset` then we expect to find Finagle ServerSet
 (also used by [Aurora](https://github.com/apache/aurora/blob/master/docs/user-guide.md#service-discovery)) registrations with a `serviceEndpoint` and optionally one or more `additionalEndpoints`.
 The Synapse `name` will be automatically deduced from `shard` if present.
+
+##### Zookeeper Poll #####
+
+This watcher retrieves a list of servers and also service config data from zookeeper.
+Instead of setting Zookeeper watchers, it uses a long-polling method.
+
+It takes the following mandatory arguments:
+
+* `method`: zookeeper_poll
+* `polling_interval_sec`: the interval at which the watcher will poll Zookeeper. Defaults to 60 seconds.
+
+Other than these two options, it takes the same options as the above ZookeeperWatcher.
+For all the required options, see above.
 
 ##### Docker #####
 
