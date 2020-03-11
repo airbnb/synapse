@@ -99,7 +99,21 @@ class Synapse::ServiceWatcher::Resolver
     end
 
     def set_watcher(watcher_weights)
-      watcher_name = if !watcher_weights.nil? && watcher_weights.length > 0
+      watcher_weights ||= {}
+
+      # Filter out any watchers that do not exist
+      watcher_weights = watcher_weights.select do |watcher, _|
+        exists = @watchers.has_key?(watcher)
+        unless exists
+          log.warn "synapse: s3 toggle: read invalid watcher name #{watcher}"
+          statsd_increment('synapse.watcher.multi.resolver.s3_toggle.unknown_watchers')
+        end
+
+        exists
+      end
+
+      watcher_name = if watcher_weights.length > 0
+        # Pick a watcher randomly by weight.
         total_weight = watcher_weights.values.inject(:+)
         pick = rand(total_weight)
         chosen_watcher = nil
@@ -111,14 +125,21 @@ class Synapse::ServiceWatcher::Resolver
           else
             pick -= value
           end
+        end
 
+        if chosen_watcher.nil?
+          log.warn "synapse: s3 toggle: failed to pick a watcher"
+          statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:no_choice'])
+
+          'primary'
+        else
           log.info "synapse: s3 toggle: chose watcher #{chosen_watcher}"
-          statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switched_watcher', ["watcher:#{chosen_watcher}"])
+          statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:success', "watcher:#{chosen_watcher}"])
           chosen_watcher
         end
       else
         log.warn "synapse: s3 toggle: no watchers read, defaulting to primary"
-        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.watchers_missing')
+        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:watchers_missing'])
 
         'primary'
       end
