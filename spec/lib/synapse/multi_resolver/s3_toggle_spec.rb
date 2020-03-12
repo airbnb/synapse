@@ -28,7 +28,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
        's3_polling_interval_seconds' => 60}
   }
 
-  subject { Synapse::ServiceWatcher::Resolver::S3ToggleResolver.new(opts, watchers) }
+  subject { Synapse::ServiceWatcher::Resolver::S3ToggleResolver.new(opts, watchers, -> {}) }
 
   describe '#initialize' do
     context 'with valid arguments' do
@@ -306,6 +306,11 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       subject.send(:set_watcher, watcher_weights)
     end
 
+    it 'sends a notification' do
+      expect(subject).to receive(:send_notification).exactly(:once)
+      subject.send(:set_watcher, watcher_weights)
+    end
+
     context 'when called multiple times' do
       it 'deterministically picks the same watcher' do
         expect(subject).to receive(:pick_watcher).with(watcher_weights).exactly(:once).and_call_original
@@ -316,6 +321,13 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
         # However, it should not change because the weights do not change.
         subject.instance_variable_set(:@watcher_setting, 'mock-watcher')
         expect(subject.send(:set_watcher, watcher_weights)).to eq('mock-watcher')
+      end
+
+      it 'only sends one notification' do
+        expect(subject).to receive(:send_notification).exactly(:once)
+
+        subject.send(:set_watcher, watcher_weights)
+        subject.send(:set_watcher, watcher_weights)
       end
     end
 
@@ -330,14 +342,28 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
         expect(subject.send(:set_watcher, watcher_weights)).to eq('primary')
         expect(subject.send(:set_watcher, watcher_weights_new)).to eq('secondary')
       end
+
+      it 'sends a notification' do
+        expect(subject).to receive(:send_notification).exactly(:twice)
+
+        subject.send(:set_watcher, watcher_weights)
+        subject.send(:set_watcher, watcher_weights_new)
+      end
     end
 
     context 'when pick_watcher returns nil' do
-      it 'does not change the watcher' do
+      before :each do
         allow(subject).to receive(:pick_watcher).and_return(nil)
-
         subject.instance_variable_set(:@watcher_setting, 'mock-watcher')
+      end
+
+      it 'does not change the watcher' do
         expect(subject.send(:set_watcher, watcher_weights)).to eq('mock-watcher')
+      end
+
+      it 'does not send a notification' do
+        expect(subject).not_to receive(:send_notification)
+        subject.send(:set_watcher, watcher_weights)
       end
     end
   end
