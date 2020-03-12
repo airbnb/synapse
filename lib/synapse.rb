@@ -1,5 +1,7 @@
 require 'logger'
 require 'json'
+require 'uri'
+require 'aws-sdk'
 
 require 'synapse/version'
 require 'synapse/log'
@@ -16,6 +18,15 @@ module Synapse
 
     def initialize(opts={})
       StatsD.configure_statsd(opts["statsd"] || {})
+
+      # configure AWS clients to use custom endpoint
+      if ENV.has_key?('AWS_ENDPOINT_URL')
+        aws_endpoint = URI(ENV['AWS_ENDPOINT_URL'])
+        AWS.config(s3_endpoint: aws_endpoint.host,
+                   s3_port: aws_endpoint.port,
+                   s3_force_path_style: true,
+                   use_ssl: aws_endpoint.scheme == 'https')
+      end
 
       # create objects that need to be notified of service changes
       @config_generators = create_config_generators(opts)

@@ -13,6 +13,10 @@ require "synapse/service_watcher/multi/resolver/base"
 
 class Synapse::ServiceWatcher::MultiWatcher::Resolver
    class MyResolver < BaseResolver
+	  def validate_opts
+	     # validate options in @opts and optionally, wathchers in @watchers
+	  end
+
       def start
 	     # start resolver
 	  end
