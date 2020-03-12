@@ -19,6 +19,7 @@ class Synapse::ServiceWatcher::MultiWatcher::Resolver
 
       def start
 	     # start resolver
+		 # if you need to trigger a reconfigure, call send_notification
 	  end
 
 	  def stop
@@ -39,7 +40,7 @@ end
 ### Resolver Plugin Interface
 Synapse deduces both the class path and class name from the `method` key within
 the resolver configuration.  Every resolver is passed configuration with the
-`method` key, e.g. `zookeeper` or `ec2tag`.
+`method` key, e.g. `base` or `s3_toggle`.
 
 #### Class Location
 Synapse expects to find your class at `synapse/service_watcher/multi/#{method}`.
@@ -56,5 +57,5 @@ method_class  = method.split('_').map{|x| x.capitalize}.join.concat('Resolver')
 
 This has the effect of taking the method, splitting on '_', capitalizing each
 part and recombining with an added 'Resolver' on the end. So `fallback`
-becomes `FallbackResolver`, and `union` becomes `UnionResolver`. Make sure
-your class name is correct.
+becomes `FallbackResolver`, and `s3_toggle` becomes `S3ToggleResolver`. Make
+sure your class name is correct.

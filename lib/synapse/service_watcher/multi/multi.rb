@@ -54,7 +54,8 @@ class Synapse::ServiceWatcher
       end
 
       @resolver = Synapse::ServiceWatcher::Resolver.load_resolver(@discovery['resolver'],
-                                                                  @watchers)
+                                                                  @watchers,
+                                                                  -> { resolver_notification })
     end
 
     def start
@@ -109,6 +110,10 @@ class Synapse::ServiceWatcher
           raise ArgumentError, "discovery method not included in config for watcher #{watcher_name}"
         end
       end
+    end
+
+    def resolver_notification
+      set_backends(backends)
     end
   end
 end
