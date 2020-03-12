@@ -172,12 +172,12 @@ class Synapse::ServiceWatcher::Resolver
 
       data =
         begin
-          resp = s3.get_object(bucket: @s3_bucket, key: @s3_path)
-          parsed = YAML.load(resp.body.read)
+          resp = s3.get_object(bucket_name: @s3_bucket, key: @s3_path)
+          parsed = YAML.load(resp.data[:data])
 
           log.info "synapse: s3 toggle resolver: read s3 file: #{parsed}"
           parsed
-        rescue Psych::SyntaxError => e
+        rescue Psych::SyntaxError, TypeError => e
           log.warn "synapse: s3 toggle resolver: failed to parse s3 file: #{e}"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.fetch_failure', ["reason:parse_error"])
           nil
