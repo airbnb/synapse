@@ -292,4 +292,20 @@ describe Synapse::ServiceWatcher::MultiWatcher do
       end
     end
   end
+
+  describe "resolver" do
+    context 'when resolver sends a notification' do
+      let(:mock_backends) { ['host_1', 'host_2'] }
+
+      it 'sets backends to resolver backends' do
+        expect(subject).to receive(:resolver_notification).exactly(:once).and_call_original
+        expect(subject).to receive(:set_backends).exactly(:once).with(mock_backends)
+
+        resolver = subject.instance_variable_get(:@resolver)
+        allow(resolver).to receive(:merged_backends).exactly(:once).and_return(mock_backends)
+
+        resolver.send(:send_notification)
+      end
+    end
+  end
 end
