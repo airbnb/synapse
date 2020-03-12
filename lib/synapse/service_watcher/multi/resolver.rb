@@ -1,6 +1,6 @@
 class Synapse::ServiceWatcher
   class Resolver
-    def self.load_resolver(opts, watchers)
+    def self.load_resolver(opts, watchers, notification_callback)
       raise ArgumentError, "resolver method not provided" unless opts.has_key?('method')
       method = opts['method'].downcase
 
@@ -12,7 +12,7 @@ class Synapse::ServiceWatcher
                    raise ArgumentError, "specified a resolver method of #{method}, which could not be found: #{e}"
                  end
 
-      return resolver.new(opts, watchers)
+      return resolver.new(opts, watchers, notification_callback)
     end
   end
 end

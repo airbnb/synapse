@@ -29,8 +29,8 @@ class Synapse::ServiceWatcher::Resolver
 
     @@s3_client = AWS::S3::Client.new
 
-    def initialize(opts, watchers)
-      super(opts, watchers)
+    def initialize(opts, watchers, notification_callback)
+      super(opts, watchers, notification_callback)
 
       @watcher_mu = Mutex.new
       @watcher_setting = DEFAULT_WATCHER
@@ -123,6 +123,7 @@ class Synapse::ServiceWatcher::Resolver
         @watcher_setting = picked_watcher
       }
 
+      send_notification
       return picked_watcher
     end
 

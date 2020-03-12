@@ -6,13 +6,14 @@ class Synapse::ServiceWatcher::Resolver
     include Synapse::Logging
     include Synapse::StatsD
 
-    def initialize(opts, watchers)
+    def initialize(opts, watchers, notification_callback)
       super()
 
       log.info "creating base resolver"
 
       @opts = opts
       @watchers = watchers
+      @notification_callback = notification_callback
       validate_opts
     end
 
@@ -39,6 +40,10 @@ class Synapse::ServiceWatcher::Resolver
     # should be overridden in child classes
     def healthy?
       return true
+    end
+
+    def send_notification
+      @notification_callback.call
     end
   end
 end

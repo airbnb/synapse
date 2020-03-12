@@ -13,8 +13,10 @@ describe Synapse::ServiceWatcher::Resolver::BaseResolver do
     ]
   }
 
+  let(:notification_callback) { -> {} }
+
   subject {
-    Synapse::ServiceWatcher::Resolver::BaseResolver.new(opts, watchers)
+    Synapse::ServiceWatcher::Resolver::BaseResolver.new(opts, watchers, notification_callback)
   }
 
   describe "#initialize" do
@@ -64,6 +66,13 @@ describe Synapse::ServiceWatcher::Resolver::BaseResolver do
   describe "#healthy?" do
     it 'returns true by default' do
       expect(subject.healthy?).to eq(true)
+    end
+  end
+
+  describe 'send_notification' do
+    it 'calls the provided callback' do
+      expect(notification_callback).to receive(:call).exactly(:once)
+      subject.send(:send_notification)
     end
   end
 end

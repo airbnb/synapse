@@ -188,7 +188,8 @@ describe Synapse::ServiceWatcher::MultiWatcher do
           .to receive(:new)
           .with({'method' => 'base'},
                 {'primary' => instance_of(Synapse::ServiceWatcher::ZookeeperWatcher),
-                  'secondary' => instance_of(Synapse::ServiceWatcher::DnsWatcher)})
+                 'secondary' => instance_of(Synapse::ServiceWatcher::DnsWatcher)},
+                duck_type(:call))
           .and_call_original
 
         expect { subject.new(config, mock_synapse, reconfigure_callback) }.not_to raise_error
@@ -288,6 +289,22 @@ describe Synapse::ServiceWatcher::MultiWatcher do
         allow(resolver).to receive(:healthy?).and_return(true)
 
         expect(subject.ping?).to eq(true)
+      end
+    end
+  end
+
+  describe "resolver" do
+    context 'when resolver sends a notification' do
+      let(:mock_backends) { ['host_1', 'host_2'] }
+
+      it 'sets backends to resolver backends' do
+        expect(subject).to receive(:resolver_notification).exactly(:once).and_call_original
+        expect(subject).to receive(:set_backends).exactly(:once).with(mock_backends)
+
+        resolver = subject.instance_variable_get(:@resolver)
+        allow(resolver).to receive(:merged_backends).exactly(:once).and_return(mock_backends)
+
+        resolver.send(:send_notification)
       end
     end
   end
