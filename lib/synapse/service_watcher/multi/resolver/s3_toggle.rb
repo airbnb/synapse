@@ -12,7 +12,22 @@ class Synapse::ServiceWatcher::Resolver
     include Synapse::Logging
     include Synapse::StatsD
 
-    DEFAULT_WATCHER = 'primary'
+    # The S3 file schema, which is validated in validate_s3_file_schema, is YAML
+    # of the form:
+    #
+    # ---
+    # primary: weight
+    # watcher_name: weight
+    # ...
+    #
+    # The keys refer to the watchers as defined in the Synapse configuration.
+    # `primary` is the default watcher, defined by the `discovery` section.
+    # All other watchers are defined under `discovery_multi.watchers`.
+    # The weight is a non-negative integer value which determines how likely it
+    # is for the watcher to get chosen.
+    DEFAULT_WATCHER = 'primary'.freeze
+
+    @@S3_CLIENT = AWS::S3::Client.new
 
     def initialize(opts, watchers)
       super(opts, watchers)
@@ -77,7 +92,7 @@ class Synapse::ServiceWatcher::Resolver
 
       raise ArgumentError, "s3 toggle resolver expects method to be s3_toggle" unless @opts['method'] == 's3_toggle'
       raise ArgumentError, "s3 url should be of form s3://{bucket}/{name}" unless @opts['s3_url'].start_with?('s3://')
-      raise ArgumentError, "s3 toggle resolver expects numeric s3_polling_interval_seconds" unless @opts['s3_polling_interval_seconds'].is_a?(Numeric)
+      raise ArgumentError, "s3 toggle resolver expects numeric s3_polling_interval_seconds > 0" unless @opts['s3_polling_interval_seconds'].is_a?(Numeric) && @opts['s3_polling_interval_seconds'] > 0
       raise ArgumentError, "s3 toggle resolver expects at least 1 watcher" unless @watchers.length > 0
     end
 
@@ -132,47 +147,43 @@ class Synapse::ServiceWatcher::Resolver
         exists
       end
 
-      watcher_name = if watcher_weights.length > 0
-        # Pick a watcher randomly by weight.
-        total_weight = watcher_weights.values.inject(:+)
+      watcher_name = nil
+      total_weight = watcher_weights.values.inject(0, :+)
+
+      if total_weight == 0
+        log.warn "synapse: s3 toggle resolver: sum of all weights equal 0, not picking"
+        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:zero_sum'])
+      elsif watcher_weights.length == 0
+        log.warn "synapse: s3 toggle resolver: no watchers read, failed to pick a watcher"
+        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:watchers_missing'])
+      else
         pick = rand(total_weight)
-        chosen_watcher = nil
 
         watcher_weights.each do |key, value|
           if pick < value
-            chosen_watcher = key
+            watcher_name  = key
             break
           else
             pick -= value
           end
         end
+      end
 
-        if chosen_watcher.nil?
-          log.warn "synapse: s3 toggle resolver: failed to pick a watcher"
-          statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:no_choice'])
-
-          nil
-        else
-          log.info "synapse: s3 toggle resolver: chose watcher #{chosen_watcher}"
-          statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:success', "watcher:#{chosen_watcher}"])
-          chosen_watcher
-        end
+      if watcher_name.nil?
+        log.warn "synapse: s3 toggle resolver: failed to pick a watcher"
+        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:no_choice'])
       else
-        log.warn "synapse: s3 toggle resolver: no watchers read, failed to pick a watcher"
-        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:watchers_missing'])
-
-        nil
+        log.info "synapse: s3 toggle resolver: chose watcher #{watcher_name}"
+        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:success', "watcher:#{watcher_name}"])
       end
 
       return watcher_name
     end
 
     def read_s3_file
-      s3 = AWS::S3::Client.new
-
       data =
         begin
-          resp = s3.get_object(bucket_name: @s3_bucket, key: @s3_path)
+          resp = @@S3_CLIENT.get_object(bucket_name: @s3_bucket, key: @s3_path)
           parsed = YAML.load(resp.data[:data])
 
           log.info "synapse: s3 toggle resolver: read s3 file: #{parsed}"
@@ -205,7 +216,7 @@ class Synapse::ServiceWatcher::Resolver
         )
 
       contents.each do |key, value|
-        return false unless key.is_a?(String) && value.is_a?(Integer)
+        return false unless key.is_a?(String) && value.is_a?(Integer) && value >= 0
       end
 
       return true
