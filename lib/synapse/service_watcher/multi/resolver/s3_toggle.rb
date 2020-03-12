@@ -27,7 +27,7 @@ class Synapse::ServiceWatcher::Resolver
     # is for the watcher to get chosen.
     DEFAULT_WATCHER = 'primary'.freeze
 
-    @@S3_CLIENT = AWS::S3::Client.new
+    @@s3_client = AWS::S3::Client.new
 
     def initialize(opts, watchers)
       super(opts, watchers)
@@ -183,7 +183,7 @@ class Synapse::ServiceWatcher::Resolver
     def read_s3_file
       data =
         begin
-          resp = @@S3_CLIENT.get_object(bucket_name: @s3_bucket, key: @s3_path)
+          resp = @@s3_client.get_object(bucket_name: @s3_bucket, key: @s3_path)
           parsed = YAML.load(resp.data[:data])
 
           log.info "synapse: s3 toggle resolver: read s3 file: #{parsed}"

@@ -225,14 +225,13 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       let(:watcher_weights) { {'primary' => 50, 'secondary' => 100} }
 
       it 'still sets watcher properly' do
-        distribution = {'primary' => 50, 'secondary' => 150}
         results = {}
-        distribution.each_key do |k|
+        watcher_weights.each_key do |k|
           results[k] = 0
         end
 
         (0..100).each do
-          choice = subject.send(:pick_watcher, distribution)
+          choice = subject.send(:pick_watcher, watcher_weights)
           results[choice] += 1
         end
 
@@ -240,6 +239,36 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
         expect(results['primary']).to be > 0
         expect(results['secondary']).to be > 0
         expect(results['secondary']).to be > results['primary']
+      end
+    end
+
+    context 'when weights are the same' do
+      let(:watcher_weights) { {'primary' => 50, 'secondary' => 50} }
+
+      it 'picks each watcher equally' do
+        distribution = {'primary' => 50, 'secondary' => 50}
+        results = {}
+        distribution.each_key do |k|
+          results[k] = 0
+        end
+
+        (0..1000).each do
+          choice = subject.send(:pick_watcher, distribution)
+          results[choice] += 1
+        end
+
+        # check distribution of results instead of actual choices
+        expect(results['primary']).to be > 0
+        expect(results['secondary']).to be > 0
+        expect(results['secondary']).to be_within(100).of(results['primary'])
+      end
+    end
+
+    context 'when weights add up to 0' do
+      let(:watcher_weights) { {'primary' => 0, 'secondary' => 0} }
+
+      it 'returns nil' do
+        expect(subject.send(:pick_watcher, watcher_weights).nil?).to eq(true)
       end
     end
 
@@ -318,13 +347,13 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     let(:s3_data_string) { YAML.dump(s3_data) }
     let(:mock_s3_response) {
       mock_response = double("mock_s3_response")
-      allow(mock_response).to receive(:body).and_return(StringIO.new(s3_data_string))
+      allow(mock_response).to receive(:data).and_return({:data => s3_data_string})
       mock_response
     }
 
     let(:mock_s3) {
       mock_s3 = double(AWS::S3::Client)
-      allow(AWS::S3::Client).to receive(:new).and_return(mock_s3)
+      Synapse::ServiceWatcher::Resolver::S3ToggleResolver.class_variable_set(:@@s3_client, mock_s3)
       mock_s3
     }
 
@@ -348,7 +377,12 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     end
 
     it 'calls S3 API with proper bucket and key' do
-      expect(mock_s3).to receive(:get_object).with(bucket: 'config_bucket', key: 'path1/path2').exactly(:once).and_return(mock_s3_response)
+      expect(mock_s3)
+        .to receive(:get_object)
+        .with(bucket_name: 'config_bucket', key: 'path1/path2')
+        .exactly(:once)
+        .and_return(mock_s3_response)
+
       subject.send(:read_s3_file)
     end
 
@@ -397,6 +431,14 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
 
     context 'with nil contents' do
       let(:schema) { nil }
+
+      it 'returns false' do
+        expect(subject.send(:validate_s3_file_schema, schema)).to eq(false)
+      end
+    end
+
+    context 'with floating-point weights' do
+      let(:schema) { {"primary" => 0.25, "secondary" => 0.75} }
 
       it 'returns false' do
         expect(subject.send(:validate_s3_file_schema, schema)).to eq(false)
