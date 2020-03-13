@@ -310,6 +310,46 @@ It takes the following options:
 * `check_interval`: How often to request the list of tasks from Marathon (default: 10 seconds)
 * `port_index`: Index of the backend port in the task's "ports" array. (default: 0)
 
+##### Multi #####
+
+The `MultiWatcher` aggregates multiple watchers together. This allows getting
+service discovery data from multiple sources and combining them into one set of
+backends.
+
+It takes the following options:
+
+* `method`: must be `multi`
+* `watchers`: a hash of name --> child watcher config. The name should uniquely identify
+  the child watcher, and the config should be of the same format that the child watcher
+  expects. I.e. a valid config for a Zookeeper child watcher looks like
+  `{"my_watcher" => {"method" => "zookeeper", "path" => "/svc", "hosts": ["localhost:2181"]} }`
+* `resolver`: an options hash which creates a `Resolver`. The `method` field of that hash
+  is used to decide what `resolver` to use, and the rest of the options are passed to that.
+
+###### S3 Toggle File Resolver ######
+
+This resolver merges results by picking one of the watchers to treat as the source of truth.
+That watcher is picked based on the contents of an S3 file, which is periodically polled.
+In other words, the file in S3 "toggles" between different watchers.
+
+It takes the following options:
+
+* `method`: must be `s3_toggle`
+* `s3_url`: an S3-style URL pointing to the file. Looks like `s3://{bucket}/{path...}`.
+* `s3_polling_interval_seconds`: frequency with which to fetch the file
+
+The S3 file has the following YAML schema:
+
+```yaml
+watcher_name: weight
+second_watcher_name: weight
+```
+
+It is a simple dictionary in YAML where the key refers to the watcher nam
+(as provided to the `MultiWatcher`) and the value is an integer, non-negative
+weight that determines the probability for that watcher to be chosen.
+
+
 <a name="defaultservers"/>
 
 #### Listing Default Servers ####
