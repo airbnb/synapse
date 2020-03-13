@@ -308,4 +308,21 @@ describe Synapse::ServiceWatcher::MultiWatcher do
       end
     end
   end
+
+  describe 'child watchers' do
+    context 'when they have an update' do
+      it 'increments @revision' do
+        w = subject.instance_variable_get(:@watchers).values[0]
+
+        expect { w.send(:reconfigure!) }.to change { subject.instance_variable_get(:@revision) }.by_at_least(1)
+      end
+
+      it 'calls reconfigure! on multi watcher' do
+        expect(subject).to receive(:reconfigure!).at_least(:once)
+
+        w = subject.instance_variable_get(:@watchers).values[0]
+        w.send(:reconfigure!)
+      end
+    end
+  end
 end

@@ -48,7 +48,7 @@ class Synapse::ServiceWatcher
         discovery_method = watcher_config['method']
 
         log.info "synapse multi-watcher creating child watcher #{watcher_name} of type #{discovery_method}"
-        watcher = Synapse::ServiceWatcher.load_watcher(discovery_method, merged_config, synapse, -> { synapse.reconfigure! })
+        watcher = Synapse::ServiceWatcher.load_watcher(discovery_method, merged_config, synapse, -> { reconfigure! })
 
         @watchers[watcher_name] = watcher
       end
