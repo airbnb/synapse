@@ -103,7 +103,13 @@ class Synapse::ServiceWatcher
         zk_children = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
             statsd_time('synapse.watcher.zk.children.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
               log.info "synapse: zk list children at #{@discovery['path']} for #{attempts} times"
-              @zk.children(@discovery['path'], zookeeper_opts)
+              begin
+                @zk.children(@discovery['path'], zookeeper_opts)
+              rescue ZK::Exceptions::NoNode
+                log.error "synapse: zk list children failed with no node"
+                statsd_increment('synapse.watcher.zk.children.failed', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
+                []
+              end
             end
         end
         statsd_gauge('synapse.watcher.zk.children.bytes', ObjectSpace.memsize_of(zk_children), ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}"])

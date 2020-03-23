@@ -432,10 +432,16 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       let(:encoded_str) { Base64.urlsafe_encode64(JSON(service_data)) }
       let(:child_name) { "base64_#{encoded_str.length}_#{encoded_str}_0000000003" }
 
+      let(:raise_no_node) { false }
       before :each do
-        expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).and_return(config_for_generator_string)
-        expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).and_return(
-                            [ child_name ])
+        if raise_no_node
+          expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).and_raise(ZK::Exceptions::NoNode)
+          expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).and_raise(ZK::Exceptions::NoNode)
+        else
+          expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).and_return(config_for_generator_string)
+          expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).and_return(
+                               [ child_name ])
+        end
 
         subject.instance_variable_set('@zk', mock_zk)
       end
@@ -476,6 +482,15 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
           expect(mock_zk).to receive(:get).with("some/path/child_1").and_return(mock_node)
           expect(subject).to receive(:set_backends).exactly(:once).with([backend], parsed_config_for_generator)
           subject.send(:discover)
+        end
+      end
+
+      context 'when parent path does not exist' do
+        let(:raise_no_node) { true }
+
+        it 'does not raise an error' do
+          expect(subject).to receive(:set_backends).exactly(:once).with([], {})
+          expect { subject.send(:discover) }.not_to raise_error
         end
       end
     end
@@ -676,10 +691,17 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     end
 
     describe '#discover' do
+      let(:raise_no_node) { false }
       before :each do
         subject.instance_variable_set(:@zk, mock_zk)
-        allow(mock_zk).to receive(:children).with("some/path", {}).and_return([child_name])
-        allow(mock_zk).to receive(:get).with("some/path", {}).and_return(config_for_generator_string)
+
+        if raise_no_node
+          allow(mock_zk).to receive(:children).with('some/path', {}).and_raise(ZK::Exceptions::NoNode)
+          allow(mock_zk).to receive(:get).with('some/path', {}).and_raise(ZK::Exceptions::NoNode)
+        else
+          allow(mock_zk).to receive(:children).with("some/path", {}).and_return([child_name])
+          allow(mock_zk).to receive(:get).with("some/path", {}).and_return(config_for_generator_string)
+        end
       end
 
       let(:service_data) {
@@ -742,6 +764,15 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
           expect(mock_zk).to receive(:get).with("some/path/child_1").and_return(mock_node)
           expect(subject).to receive(:set_backends).exactly(:once).with([backend], parsed_config_for_generator)
           subject.send(:discover)
+        end
+      end
+
+      context 'when parent path does not exist' do
+        let (:raise_no_node) { true }
+
+        it 'does not raise an error' do
+          expect(subject).to receive(:set_backends).exactly(:once).with([], {})
+          expect { subject.send(:discover) }.not_to raise_error
         end
       end
 
