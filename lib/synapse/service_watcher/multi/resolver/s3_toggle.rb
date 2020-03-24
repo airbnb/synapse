@@ -48,7 +48,7 @@ class Synapse::ServiceWatcher::Resolver
     def start
       log.info "synapse: s3 toggle resolver: starting"
       @@s3_watcher.add_path(@s3_bucket, @s3_path, @polling_interval,
-                            -> (path){ set_watcher(path) })
+                            ->(path) { set_watcher(path) })
     end
 
     def stop
@@ -81,6 +81,12 @@ class Synapse::ServiceWatcher::Resolver
 
     def set_watcher(w)
       new_watcher = false
+
+      unless @watchers.keys.include?(w)
+        log.warn "synapse: s3 toggle resolver: tried to set unknown watcher #{w}"
+        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:unknown_watcher'])
+        return
+      end
 
       @watcher_mu.synchronize {
         current = @watcher_setting

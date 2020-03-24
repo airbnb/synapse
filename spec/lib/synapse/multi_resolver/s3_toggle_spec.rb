@@ -1,8 +1,12 @@
 require 'spec_helper'
 require 'synapse/service_watcher/multi/resolver/s3_toggle'
 require 'synapse/service_watcher/base/base'
+require 'active_support/all'
+require 'active_support/testing/time_helpers'
 
 describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
+  include ActiveSupport::Testing::TimeHelpers
+
   let(:watchers) { {'primary' => primary_watcher, 'secondary' => secondary_watcher} }
 
   let(:primary_watcher) {
@@ -36,6 +40,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     end
 
     it 'creates an S3BackgroundPoller' do
+      Synapse::ServiceWatcher::Resolver::S3ToggleResolver.class_variable_set(:@@s3_watcher, nil)
       expect(Synapse::ServiceWatcher::Resolver::S3ToggleResolver::BackgroundS3Poller).to receive(:new).exactly(:once)
       subject
     end
@@ -184,9 +189,38 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     end
   end
 
-  describe 'set_backends' do
+  describe 'set_watcher' do
+    before :each do
+      subject.instance_variable_set(:@watcher_setting, 'primary')
+    end
+
+    it 'sends a notification' do
+      expect(subject).to receive(:send_notification).exactly(:once)
+      subject.send(:set_watcher, 'secondary')
+    end
+
+    it 'sets @watcher_setting' do
+      subject.send(:set_watcher, 'secondary')
+      expect(subject.instance_variable_get(:@watcher_setting)).to eq('secondary')
+    end
+
+    context 'with same watcher' do
+      it 'does not send a notification' do
+        expect(subject).not_to receive(:send_notification)
+        subject.send(:set_watcher, 'primary')
+      end
+    end
+
     context 'with unknown watchers' do
-      it 'ignores updates'
+      it 'does not change @watcher_setting' do
+        expect { subject.send(:set_watcher, 'bogus-watcher') }
+          .not_to change { subject.instance_variable_get(:@watcher_setting) }
+      end
+
+      it 'does not send a notification' do
+        expect(subject).not_to receive(:send_notification)
+        subject.send(:set_watcher, 'bogus-watcher')
+      end
     end
   end
 
@@ -203,66 +237,181 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     }
 
     describe '#add_path' do
-      it 'calls start'
+      it 'calls start' do
+        expect(subject).to receive(:start).exactly(:once)
+        subject.add_path('bucket', 'key', interval, mock_callback)
+      end
 
       context 'with a new path' do
-        it 'adds it to @paths'
-        it 'adds the new callback'
+        it 'adds it to @paths' do
+          subject.add_path('bucket', 'key', interval, mock_callback)
+
+          path_data[:last_run] = instance_of(Time)
+          expect(subject.instance_variable_get(:@paths).values).to match([path_data])
+        end
       end
 
       context 'with an existing path' do
+        before :each do
+          subject.add_path('bucket', 'key', interval, mock_callback)
+        end
+
         context 'with same interval' do
-          it 'does not add it to @paths'
-          it 'does not add a new callback'
+          it 'does not change @paths' do
+            expect { subject.add_path('bucket', 'key', interval, mock_callback) }
+              .not_to change { subject.instance_variable_get(:@paths).length }
+          end
+
+          it 'adds a new callback' do
+            expect { subject.add_path('bucket', 'key', interval, mock_callback) }
+              .to change { subject.instance_variable_get(:@paths).values[0][:callbacks].length }
+              .by(1)
+          end
         end
 
         context 'with new interval' do
-          it 'adds it to @paths'
-          it 'adds the new callback'
+          it 'adds it to @paths' do
+            expect { subject.add_path('bucket', 'key', interval + 1, mock_callback) }
+              .to change { subject.instance_variable_get(:@paths).length }
+              .by(1)
+          end
         end
       end
     end
 
     describe '#start' do
-      it 'increments a counter'
-      it 'starts a thread'
+      it 'increments a counter' do
+        allow(Thread).to receive(:new)
+        expect { subject.start }
+          .to change { subject.instance_variable_get(:@callback_count) }
+          .by(1)
+      end
+
+      it 'starts a thread' do
+        expect(Thread).to receive(:new).exactly(:once)
+        subject.start
+      end
 
       context 'when a thread already exists' do
-        it 'continues silently'
+        let(:thread) { double(Thread) }
+
+        before :each do
+          subject.instance_variable_set(:@thread, thread)
+        end
+
+        it 'continues silently' do
+          expect(Thread).not_to receive(:new)
+          expect { subject.start }.not_to raise_error
+        end
       end
     end
 
     describe '#stop' do
-      it 'increments a counter'
+     let(:thread) { double(Thread) }
+      before :each do
+        subject.instance_variable_set(:@thread, thread)
+      end
+
+      it 'increments a counter' do
+        allow(thread).to receive(:join)
+        expect { subject.stop }
+          .to change { subject.instance_variable_get(:@stop_count) }
+          .by(1)
+      end
 
       context 'when all started paths are stopped' do
-        it 'stops the thread'
+        it 'stops the thread' do
+          expect(thread).to receive(:join).exactly(:once)
+          subject.instance_variable_set(:@callback_count, 5)
+
+          (1..5).each do
+            subject.stop
+          end
+        end
       end
 
       context 'when only some started paths are stopped' do
-        it 'does not stop the thread'
+        it 'does not stop the thread' do
+          expect(thread).not_to receive(:join)
+          subject.instance_variable_set(:@callback_count, 5)
+
+          (1..3).each do
+            subject.stop
+          end
+        end
       end
 
       context 'when thread does not exist' do
-        it 'continues silently'
+        let(:thread) { nil }
+        it 'continues silently' do
+          expect { subject.stop }.not_to raise_error
+        end
       end
     end
 
     describe 'update_s3_picks' do
+      let(:last_run) {
+        travel_to Time.now
+        Time.now
+      }
+      let(:paths_key) { "bucket-key:#{interval}s" }
+      let(:s3_data) { {'primary' => 50, 'secondary' => 50} }
+
+      before :each do
+        subject.instance_variable_set(:@paths, {paths_key => path_data})
+      end
+
       context 'when path is out of date' do
-        it 'reads from s3'
-        it 'calls set_watcher'
-        it 'sets path data properly'
+        let(:last_run) {
+          travel_to Time.now
+          Time.now - interval - 1
+        }
+
+        it 'reads from s3' do
+          expect(subject).to receive(:read_s3_file).exactly(:once).with('bucket', 'key')
+          subject.send(:update_s3_picks)
+        end
+
+        it 'calls set_watcher' do
+          allow(subject).to receive(:read_s3_file).and_return(s3_data)
+          expect(subject).to receive(:set_watcher).exactly(:once).with(path_data, s3_data)
+          subject.send(:update_s3_picks)
+        end
+
+        it 'sets path data properly' do
+          allow(subject).to receive(:read_s3_file).and_return(s3_data)
+          subject.send(:update_s3_picks)
+
+          path_data[:last_content_hash] = anything
+          expect(subject.instance_variable_get(:@paths)[paths_key]).to match(path_data)
+        end
       end
 
       context 'when path is up to date' do
-        it 'does not read from s3'
-        it 'does not call set_watcher'
-        it 'does not change path data'
+        it 'does not read from s3' do
+          expect(subject).not_to receive(:read_s3_file)
+          subject.send(:update_s3_picks)
+        end
+
+        it 'does not call set_watcher' do
+          expect(subject).not_to receive(:set_watcher)
+          subject.send(:update_s3_picks)
+        end
+
+        it 'does not change path data' do
+          expect { subject.send(:update_s3_picks) }
+            .not_to change { subject.instance_variable_get(:@paths)[paths_key] }
+        end
       end
 
       context 'with no paths' do
-        it 'continues silently'
+        before :each do
+          subject.instance_variable_set(:@paths, {paths_key => path_data})
+        end
+
+        it 'continues silently' do
+          expect { subject.send(:update_s3_picks) }.not_to raise_error
+        end
       end
     end
 
@@ -382,7 +531,14 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       end
 
       context 'with multiple callbacks' do
-        it 'calls each one'
+        it 'calls each one' do
+          mock_callback2 = -> {}
+          path_data[:callbacks] << mock_callback2
+          expect(mock_callback).to receive(:call).exactly(:once).with('secondary')
+          expect(mock_callback2).to receive(:call).exactly(:once).with('secondary')
+
+          subject.send(:set_watcher, path_data, watcher_weights)
+        end
       end
 
       context 'when called multiple times' do
