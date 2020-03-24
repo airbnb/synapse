@@ -24,8 +24,8 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
   let(:opts) { opts_valid }
   let(:opts_valid) {
     {'method' => 's3_toggle',
-       's3_url' => 's3://config_bucket/path1/path2',
-       's3_polling_interval_seconds' => 60}
+     's3_url' => 's3://config_bucket/path1/path2',
+     's3_polling_interval_seconds' => 60}
   }
 
   subject { Synapse::ServiceWatcher::Resolver::S3ToggleResolver.new(opts, watchers, -> {}) }
@@ -89,6 +89,31 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
       expect(Thread).to receive(:new).exactly(:once)
       subject.start
     end
+
+    context 'with multiple resolvers' do
+      let(:opts1) { opts }
+      let(:opts2) { opts }
+      let(:r1) { Synapse::ServiceWatcher::Resolver::S3ToggleResolver.new(opts1, watchers, -> {}) }
+      let(:r2) { Synapse::ServiceWatcher::Resolver::S3ToggleResolver.new(opts2, watchers, -> {}) }
+
+      context 'with different configuration' do
+        let(:opts1) { opts.merge({'s3_url' => 's3://new/path'}) }
+
+        it 'starts two threads' do
+          expect(Thread).to receive(:new).exactly(:twice)
+          r1.start
+          r2.start
+        end
+      end
+
+      context 'with same configuration' do
+        it 'only starts one thread' do
+          expect(Thread).to receive(:new).exactly(:once)
+          r1.start
+          r2.start
+        end
+      end
+    end
   end
 
   describe '#stop' do
@@ -105,6 +130,55 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     context 'without a thread running' do
       it 'continues silently' do
         subject.stop
+      end
+    end
+
+    context 'with multiple resolvers' do
+      let(:opts1) { opts }
+      let(:opts2) { opts }
+      let(:r1) { Synapse::ServiceWatcher::Resolver::S3ToggleResolver.new(opts1, watchers, -> {}) }
+      let(:r2) { Synapse::ServiceWatcher::Resolver::S3ToggleResolver.new(opts2, watchers, -> {}) }
+
+      context 'with different configuration' do
+        let(:opts1) { opts.merge({'s3_url' => 's3://new/path'}) }
+        let(:thread1) { double(Thread) }
+        let(:thread2) { double(Thread) }
+
+        before :each do
+          r1.instance_variable_set(:@thread, thread1)
+          r2.instance_variable_set(:@thread, thread2)
+        end
+
+        it 'calls join on each' do
+          expect(thread1).to receive(:join).exactly(:once)
+          expect(thread2).to receive(:join).exactly(:once)
+          r1.stop
+          r2.stop
+        end
+      end
+
+      context 'with same configuration' do
+        let(:thread) { double(Thread) }
+
+        before :each do
+          r1.instance_variable_set(:@thread, thread)
+          r2.instance_variable_set(:@thread, thread)
+        end
+
+        context 'when stopping just one' do
+          it 'does not stop the thread' do
+            expect(thread).not_to receive(:join)
+            r1.stop
+          end
+        end
+
+        context 'when stopping both' do
+          it 'stops the thread' do
+            expect(thread).to receive(:join).exactly(:once)
+            r1.stop
+            r2.stop
+          end
+        end
       end
     end
   end
