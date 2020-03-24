@@ -47,13 +47,13 @@ class Synapse::ServiceWatcher::Resolver
 
     def start
       log.info "synapse: s3 toggle resolver: starting"
-
       @@s3_watcher.add_path(@s3_bucket, @s3_path, @polling_interval,
                             -> (path){ set_watcher(path) })
     end
 
     def stop
       log.warn "synapse: s3 toggle resolver: stopping"
+      @@s3_watcher.stop
     end
 
     def merged_backends
@@ -118,12 +118,17 @@ class Synapse::ServiceWatcher::Resolver
     # Polls multiple S3 files with different polling intervals.
     # Calls a callback with the file contents after each read.
     class BackgroundS3Poller
+      include Synapse::Logging
+      include Synapse::StatsD
+
       @@s3_client = AWS::S3::Client.new
 
       def initialize()
         @mu = Mutex.new
         @thread = nil
         @paths = {}
+        @stop_count = 0
+        @callback_count = 0
       end
 
       def add_path(bucket, key, polling_interval, callback)
@@ -145,9 +150,11 @@ class Synapse::ServiceWatcher::Resolver
           path_config[:callbacks] << callback
           @paths[path_key] = path_config
         }
+        start
       end
 
       def start
+        @callback_count += 1
         return unless @thread.nil?
 
         @should_exit = false
@@ -168,6 +175,9 @@ class Synapse::ServiceWatcher::Resolver
       end
 
       def stop
+        @stop_count += 1
+        return unless @callback_count == @stop_count
+
         @mu.synchronize { @should_exit = true }
         @thread.join unless @thread.nil?
         @thread = nil
@@ -179,14 +189,7 @@ class Synapse::ServiceWatcher::Resolver
         @paths.each_value do |path_data|
           if Time.now - path_data[:last_run] >= path_data[:polling_interval]
             path_data_from_s3 = read_s3_file(path_data[:bucket], path_data[:key])
-            picked_watcher = set_watcher(path_data, path_data_from_s3)
-
-
-            path_data[:callbacks].each do |cb|
-              cb.call(picked_watcher)
-            end
-
-            path_data[:last_run] = Time.now
+            set_watcher(path_data, path_data_from_s3)
           end
         end
       end
@@ -207,6 +210,11 @@ class Synapse::ServiceWatcher::Resolver
 
         path_data[:picked_watcher] = picked_watcher
         path_data[:last_content_hash] = watcher_weights.hash
+        path_data[:last_run] = Time.now
+
+        path_data[:callbacks].each do |cb|
+          cb.call(picked_watcher)
+        end
 
         return picked_watcher
       end
