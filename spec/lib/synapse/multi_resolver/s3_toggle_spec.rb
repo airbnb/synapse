@@ -563,6 +563,17 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
           subject.send(:set_watcher, path_data, watcher_weights)
           subject.send(:set_watcher, path_data, watcher_weights)
         end
+
+        it 'updates last_run time' do
+          travel_to Time.now
+          subject.send(:set_watcher, path_data, watcher_weights)
+          expect(path_data[:last_run]).to eq(Time.now)
+
+          second_run = Time.now + 1
+          travel_to second_run
+          subject.send(:set_watcher, path_data, watcher_weights)
+          expect(path_data[:last_run]).to eq(second_run)
+        end
       end
 
       context 'with different weights' do

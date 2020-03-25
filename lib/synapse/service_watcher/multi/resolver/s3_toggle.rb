@@ -202,6 +202,8 @@ class Synapse::ServiceWatcher::Resolver
 
       # pick and set a new watcher, but only if the hash has changed
       def set_watcher(path_data, watcher_weights)
+        path_data[:last_run] = Time.now
+
         if watcher_weights.hash == path_data[:last_content_hash]
           log.info "synapse: s3 toggle resolver: watcher weights hash does not change; ignoring update"
           statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:skip'])
@@ -216,7 +218,6 @@ class Synapse::ServiceWatcher::Resolver
 
         path_data[:picked_watcher] = picked_watcher
         path_data[:last_content_hash] = watcher_weights.hash
-        path_data[:last_run] = Time.now
 
         path_data[:callbacks].each do |cb|
           cb.call(picked_watcher)
