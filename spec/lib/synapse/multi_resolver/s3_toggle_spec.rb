@@ -229,7 +229,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
 
     let(:interval) { 60 }
     let(:last_run) { Time.now - interval - 1 }
-    let(:mock_callback) { -> (path){} }
+    let(:mock_callback) { ->(path) {} }
     let(:path_data) {
       {:bucket => 'bucket', :key => 'key', :polling_interval => interval,
        :last_run => last_run, :picked_watcher => nil, :last_content_hash => nil,
