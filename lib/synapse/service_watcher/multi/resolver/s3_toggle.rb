@@ -168,11 +168,13 @@ class Synapse::ServiceWatcher::Resolver
           log.info "synapse: s3 toggle resolver: background thread starting"
 
           while true
+            should_exit = nil
             @mu.synchronize {
-              return if @should_exit
+              should_exit = @should_exit
               update_s3_picks
             }
 
+            break if should_exit
             sleep 1
           end
 
