@@ -1,9 +1,13 @@
 require 'spec_helper'
 require 'synapse/config_generator/haproxy'
+require 'active_support/all'
+require 'active_support/testing/time_helpers'
 
 class MockWatcher; end;
 
 describe Synapse::ConfigGenerator::Haproxy do
+  include ActiveSupport::Testing::TimeHelpers
+
   subject { Synapse::ConfigGenerator::Haproxy.new(config['haproxy']) }
 
   let (:nerve_weights_subject) {
@@ -613,6 +617,7 @@ describe Synapse::ConfigGenerator::Haproxy do
 
       context 'if those backends are stale' do
         it 'removes those backends' do
+          travel_to Time.now
           subject.update_state_file(watchers)
 
           watchers.each do |watcher|
@@ -620,12 +625,11 @@ describe Synapse::ConfigGenerator::Haproxy do
           end
 
           # the final +1 puts us over the expiry limit
-          Timecop.travel(Time.now + state_file_ttl + 1) do
-            subject.update_state_file(watchers)
-            watchers.each do |watcher|
-              data = subject.state_cache.backends(watcher.name)
-              expect(data).to be_empty
-            end
+          travel_to (Time.now + state_file_ttl + 1)
+          subject.update_state_file(watchers)
+          watchers.each do |watcher|
+            data = subject.state_cache.backends(watcher.name)
+            expect(data).to be_empty
           end
         end
       end
