@@ -280,13 +280,6 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     end
 
     describe '#start' do
-      it 'increments a counter' do
-        allow(Thread).to receive(:new)
-        expect { subject.start }
-          .to change { subject.instance_variable_get(:@callback_count) }
-          .by(1)
-      end
-
       it 'starts a thread' do
         expect(Thread).to receive(:new).exactly(:once)
         subject.start
@@ -312,37 +305,18 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
         subject.instance_variable_set(:@thread, thread)
       end
 
-      it 'increments a counter' do
-        allow(thread).to receive(:join)
-        expect { subject.stop }
-          .to change { subject.instance_variable_get(:@stop_count) }
-          .by(1)
-      end
+      it 'stops the thread' do
+        expect(thread).to receive(:join).exactly(:once)
+        subject.instance_variable_set(:@callback_count, 5)
 
-      context 'when all started paths are stopped' do
-        it 'stops the thread' do
-          expect(thread).to receive(:join).exactly(:once)
-          subject.instance_variable_set(:@callback_count, 5)
-
-          (1..5).each do
-            subject.stop
-          end
-        end
-      end
-
-      context 'when only some started paths are stopped' do
-        it 'does not stop the thread' do
-          expect(thread).not_to receive(:join)
-          subject.instance_variable_set(:@callback_count, 5)
-
-          (1..3).each do
-            subject.stop
-          end
+        (1..5).each do
+          subject.stop
         end
       end
 
       context 'when thread does not exist' do
         let(:thread) { nil }
+
         it 'continues silently' do
           expect { subject.stop }.not_to raise_error
         end

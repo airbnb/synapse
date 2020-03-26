@@ -133,8 +133,6 @@ class Synapse::ServiceWatcher::Resolver
         @mu = Mutex.new
         @thread = nil
         @paths = {}
-        @stop_count = 0
-        @callback_count = 0
       end
 
       def add_path(bucket, key, polling_interval, callback)
@@ -160,7 +158,6 @@ class Synapse::ServiceWatcher::Resolver
       end
 
       def start
-        @callback_count += 1
         return unless @thread.nil?
 
         @should_exit = false
@@ -183,10 +180,12 @@ class Synapse::ServiceWatcher::Resolver
       end
 
       def stop
-        @stop_count += 1
-        return unless @callback_count == @stop_count
-
         @mu.synchronize { @should_exit = true }
+
+        # This will kill the thread even though other resolvers are potentially
+        # still using the singleton. However, that is fine to do because in Synapse,
+        # stop is called all at once---all watchers will be stopped when Synapse
+        # stops.
         @thread.join unless @thread.nil?
         @thread = nil
       end
