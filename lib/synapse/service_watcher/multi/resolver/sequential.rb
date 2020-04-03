@@ -31,6 +31,8 @@ class Synapse::ServiceWatcher::Resolver
 
     def merged_backends
       ordered_watchers.each do |w|
+        next unless w.ping?
+
         backends = w.backends
         return backends unless backends == []
       end
