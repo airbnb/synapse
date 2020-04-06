@@ -180,56 +180,57 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
       end
 
-      it 'new fails with retriable error retries until succeeded' do
-        expect(ZK).to receive(:new).and_raise(RuntimeError)
-        expect(ZK).to receive(:new).and_return(mock_zk)
-        expect(mock_zk).to receive(:on_expired_session)
-        expect(mock_zk).to receive(:exists?).with('some/path').exactly(2).and_return(false)
-        expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_return(true)
-        expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).once.and_raise(ZK::Exceptions::OperationTimeOut)
-        expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).once.and_return(true)
-        expect(subject).to receive(:watch)
-        expect(subject).to receive(:discover)
-        subject.start
+      describe 'zk_connect' do
+        it 'new fails with retriable error retries until succeeded' do
+          expect(ZK).to receive(:new).and_raise(RuntimeError)
+          expect(ZK).to receive(:new).and_return(mock_zk)
+          expect(mock_zk).to receive(:on_expired_session)
+
+          calls = 0
+          subject.send(:zk_connect) {
+            calls += 1
+          }
+          expect(calls).to eq(1)
+          expect(subject.instance_variable_get(:@zk)).to eq(mock_zk)
+        end
+
+        it 'new fails with retriable error retries until failed' do
+          expect(ZK).to receive(:new).exactly(2).and_raise(RuntimeError)
+          expect { subject.send(:zk_connect) }.to raise_error(RuntimeError)
+        end
       end
 
-      it 'new fails with retriable error retries until failed' do
-        expect(ZK).to receive(:new).exactly(2).and_raise(RuntimeError)
-        expect { subject.start }.to raise_error(RuntimeError)
-      end
+      describe 'start_discovery' do
+        before :each do
+          subject.instance_variable_set(:@zk, mock_zk)
+        end
 
-      it 'exists fails with retriable error retries until failed' do
-        expect(ZK).to receive(:new).and_return(mock_zk)
-        expect(mock_zk).to receive(:on_expired_session)
-        expect(mock_zk).to receive(:exists?).with('some/path').exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
-        expect { subject.start }.to raise_error(ZK::Exceptions::OperationTimeOut)
-      end
+        it 'exists fails with retriable error retries until failed' do
+          expect(mock_zk).to receive(:exists?).with('some/path').exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
+          expect { subject.send(:start_discovery) }.to raise_error(ZK::Exceptions::OperationTimeOut)
+        end
 
-      it 'create fails with retriable error retires until failed' do
-        expect(ZK).to receive(:new).and_return(mock_zk)
-        expect(mock_zk).to receive(:on_expired_session)
-        expect(mock_zk).to receive(:exists?).with('some/path').exactly(2).and_return(false)
-        expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_return(true)
-        expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
-        expect { subject.start }.to raise_error(ZK::Exceptions::OperationTimeOut)
-      end
+        it 'create fails with retriable error retires until failed' do
+          expect(mock_zk).to receive(:exists?).with('some/path').exactly(2).and_return(false)
+          expect(mock_zk).to receive(:exists?).with('some').exactly(2).and_return(true)
+          expect(mock_zk).to receive(:create).with('some/path', {:ignore=>:node_exists}).exactly(2).and_raise(ZK::Exceptions::OperationTimeOut)
+          expect { subject.send(:start_discovery) }.to raise_error(ZK::Exceptions::OperationTimeOut)
+        end
 
-      it 'calls watcher_callback' do
-        allow(ZK).to receive(:new).and_return(mock_zk)
-        allow(mock_zk).to receive(:on_expired_session)
-        allow(mock_zk).to receive(:exists?).and_return(true)
-        allow(subject).to receive(:watch)
-        allow(subject).to receive(:discover)
+        it 'calls watcher_callback' do
+          allow(mock_zk).to receive(:exists?).and_return(true)
+          allow(subject).to receive(:watch)
+          allow(subject).to receive(:discover)
 
-        cb = subject.send(:watcher_callback)
-        expect(cb).to receive(:call).exactly(:once)
+          cb = subject.send(:watcher_callback)
+          expect(cb).to receive(:call).exactly(:once)
 
-        subject.start
+          subject.send(:start_discovery)
+        end
       end
 
       it 'calls zk_connect' do
         expect(subject).to receive(:zk_connect).exactly(:once)
-
         subject.start
       end
     end
