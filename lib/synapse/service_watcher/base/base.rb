@@ -43,8 +43,9 @@ class Synapse::ServiceWatcher
       @leader_election = opts['leader_election'] || false
       @leader_last_warn = Time.now - LEADER_WARN_INTERVAL
 
+      @available_generators = @synapse.available_generators
       config_for_generator = Hash[
-        @synapse.available_generators.collect do |generator_name, generator|
+        @available_generators.collect do |generator_name, generator|
           watcher_provided_config = opts[generator_name] || {}
           normalized_generator_opts = generator.normalize_watcher_provided_config(
             @name, watcher_provided_config

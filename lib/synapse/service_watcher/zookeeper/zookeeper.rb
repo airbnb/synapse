@@ -450,7 +450,7 @@ class Synapse::ServiceWatcher
       #   each key should be named by one of the available generators
       #   each value should be a hash (could be empty)
       decoded.collect.each do |generator_name, generator_config|
-        if !@synapse.available_generators.keys.include?(generator_name)
+        if !@available_generators.keys.include?(generator_name)
           log.warn "synapse: invalid generator name in ZK node at #{@discovery['path']}:" \
             " #{generator_name}"
           next
