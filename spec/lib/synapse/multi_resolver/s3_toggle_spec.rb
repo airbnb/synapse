@@ -124,7 +124,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
 
   describe '#merged_backends' do
     before :each do
-      subject.instance_variable_set(:@watcher_setting, 'secondary')
+      subject.instance_variable_get(:@watcher_setting).set('secondary')
     end
 
     it 'calls #backends on current watcher' do
@@ -144,7 +144,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
 
   describe '#healthy?' do
     before :each do
-      subject.instance_variable_set(:@watcher_setting, 'secondary')
+      subject.instance_variable_get(:@watcher_setting).set('secondary')
     end
 
     it 'calls #ping? on current watcher' do
@@ -191,7 +191,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
 
   describe 'set_watcher' do
     before :each do
-      subject.instance_variable_set(:@watcher_setting, 'primary')
+      subject.instance_variable_get(:@watcher_setting).set('primary')
     end
 
     it 'sends a notification' do
@@ -201,7 +201,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
 
     it 'sets @watcher_setting' do
       subject.send(:set_watcher, 'secondary')
-      expect(subject.instance_variable_get(:@watcher_setting)).to eq('secondary')
+      expect(subject.instance_variable_get(:@watcher_setting).get).to eq('secondary')
     end
 
     context 'with same watcher' do
@@ -214,7 +214,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
     context 'with unknown watchers' do
       it 'does not change @watcher_setting' do
         expect { subject.send(:set_watcher, 'bogus-watcher') }
-          .not_to change { subject.instance_variable_get(:@watcher_setting) }
+          .not_to change { subject.instance_variable_get(:@watcher_setting).get }
       end
 
       it 'does not send a notification' do

@@ -1,6 +1,7 @@
 require 'synapse/service_watcher/multi/resolver/base'
 require 'synapse/log'
 require 'synapse/statsd'
+require 'synapse/atomic'
 
 require 'aws-sdk'
 require 'timeout'
@@ -32,8 +33,7 @@ class Synapse::ServiceWatcher::Resolver
     def initialize(opts, watchers, notification_callback)
       super(opts, watchers, notification_callback)
 
-      @watcher_mu = Mutex.new
-      @watcher_setting = DEFAULT_WATCHER
+      @watcher_setting = Synapse::AtomicValue.new(DEFAULT_WATCHER)
       @last_watcher_weights_hash = nil
 
       @polling_interval = @opts['s3_polling_interval_seconds']
@@ -57,12 +57,12 @@ class Synapse::ServiceWatcher::Resolver
     end
 
     def merged_backends
-      watcher_name = get_watcher
+      watcher_name = @watcher_setting.get
       return @watchers[watcher_name].backends
     end
 
     def healthy?
-      watcher_name = get_watcher
+      watcher_name = @watcher_setting.get
       return @watchers[watcher_name].ping?
     end
 
@@ -80,30 +80,18 @@ class Synapse::ServiceWatcher::Resolver
     private
 
     def set_watcher(w)
-      new_watcher = false
-
       unless @watchers.keys.include?(w)
         log.warn "synapse: s3 toggle resolver: tried to set unknown watcher #{w}"
         statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:unknown_watcher'])
         return
       end
 
-      @watcher_mu.synchronize {
-        current = @watcher_setting
+      current = @watcher_setting.get
 
-        unless current == w
-          @watcher_setting = w
-          new_watcher = true
-        end
-      }
-
-      send_notification if new_watcher
-    end
-
-    def get_watcher
-      @watcher_mu.synchronize {
-        return @watcher_setting
-      }
+      unless current == w
+        @watcher_setting.set(w)
+        send_notification
+      end
     end
 
     # url = s3://{bucket}/{path}
