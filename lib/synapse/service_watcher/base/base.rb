@@ -1,6 +1,7 @@
 require 'synapse/log'
 require 'synapse/statsd'
 require 'synapse/retry_policy'
+require 'synapse/atomic'
 require 'set'
 require 'hashdiff'
 
@@ -42,7 +43,7 @@ class Synapse::ServiceWatcher
       @leader_election = opts['leader_election'] || false
       @leader_last_warn = Time.now - LEADER_WARN_INTERVAL
 
-      @config_for_generator = Hash[
+      config_for_generator = Hash[
         @synapse.available_generators.collect do |generator_name, generator|
           watcher_provided_config = opts[generator_name] || {}
           normalized_generator_opts = generator.normalize_watcher_provided_config(
@@ -51,10 +52,11 @@ class Synapse::ServiceWatcher
           [generator_name, normalized_generator_opts]
         end
       ]
+      @config_for_generator = Synapse::AtomicValue.new(config_for_generator)
 
       # set initial backends to default servers, if any
       @default_servers = opts['default_servers'] || []
-      @backends = @default_servers
+      @backends = Synapse::AtomicValue.new(@default_servers)
 
       @keep_default_servers = opts['keep_default_servers'] || false
 
@@ -68,8 +70,8 @@ class Synapse::ServiceWatcher
 
       # For backwards compatability we support server_port_override
       # This will be removed in future versions
-      if @backend_port_override.nil? && @config_for_generator['haproxy']
-        @backend_port_override = @config_for_generator['haproxy']['server_port_override']
+      if @backend_port_override.nil? && config_for_generator['haproxy']
+        @backend_port_override = config_for_generator['haproxy']['server_port_override']
       end
 
       unless @backend_port_override.nil?
@@ -109,7 +111,7 @@ class Synapse::ServiceWatcher
 
     # deep clone the hash to protect its readonly property
     def config_for_generator
-      Marshal.load( Marshal.dump(@config_for_generator))
+      Marshal.load(Marshal.dump(@config_for_generator.get))
     end
 
     def backends
@@ -154,7 +156,7 @@ class Synapse::ServiceWatcher
     end
 
     def backends_filtered_by_labels
-      filtered_backends = @backends.select do |backend|
+      filtered_backends = @backends.get.select do |backend|
         backend_labels = backend['labels'] || {}
         @label_filters.all? do |label_filter|
           (label_filter['condition'] == 'equals' &&
@@ -190,7 +192,8 @@ class Synapse::ServiceWatcher
     end
 
     def update_backends(new_backends)
-      if new_backends.to_set == @backends.to_set
+      current_backends = @backends.get
+      if new_backends.to_set == current_backends.to_set
         log.info "synapse: backends for service #{@name} do not change."
         return false
       end
@@ -200,22 +203,23 @@ class Synapse::ServiceWatcher
           if @use_previous_backends
             # Discard this update
             log.warn "synapse: no backends for service #{@name} and no default" \
-              " servers for service #{@name}; using previous backends: #{@backends.inspect}"
+              " servers for service #{@name}; using previous backends: #{current_backends.inspect}"
             return false
           else
             log.warn "synapse: no backends for service #{@name}, no default" \
               " servers for service #{@name} and 'use_previous_backends' is disabled;" \
               " dropping all backends"
-            @backends.clear
+
+            @backends.set([])
           end
         else
           log.warn "synapse: no backends for service #{@name};" \
             " using default servers: #{@default_servers.inspect}"
-          @backends = @default_servers
+          @backends.set(@default_servers)
         end
       else
         log.info "synapse: discovered #{new_backends.length} backends for service #{@name}"
-        @backends = new_backends
+        @backends.set(new_backends)
       end
 
       return true
@@ -234,7 +238,7 @@ class Synapse::ServiceWatcher
           log.info "synapse: config_for_generator for service #{@name} does not change."
           return false
         else
-          @config_for_generator = new_config_for_generator
+          @config_for_generator.set(new_config_for_generator)
           return true
         end
       end
