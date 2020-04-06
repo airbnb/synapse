@@ -1,5 +1,6 @@
 require 'synapse/service_watcher/base/base'
 require 'synapse/service_watcher/zookeeper/zookeeper'
+require 'synapse/atomic'
 
 require 'zk'
 require 'thread'
@@ -9,15 +10,14 @@ class Synapse::ServiceWatcher
     def initialize(opts, synapse, reconfigure_callback)
       super(opts, synapse, reconfigure_callback)
 
-      @discovery['polling_interval_sec'] ||= 60
+      @poll_interval = @discovery['polling_interval_sec'] || 60
+
+      @should_exit = Synapse::AtomicValue.new(false)
+      @thread = nil
     end
 
     def start
       log.info 'synapse: ZookeeperPollWatcher starting'
-
-      @should_exit = false
-      @thread = nil
-      @poll_interval = @discovery['polling_interval_sec']
 
       zk_connect do
         @thread = Thread.new {
@@ -29,7 +29,7 @@ class Synapse::ServiceWatcher
           # be spread.
           last_run = Time.now - rand(@poll_interval)
 
-          until @should_exit
+          until @should_exit.get
             now = Time.now
             elapsed = now - last_run
 
@@ -52,7 +52,7 @@ class Synapse::ServiceWatcher
       zk_teardown do
         # Signal to the thread that it should exit, and then wait for it to
         # exit.
-        @should_exit = true
+        @should_exit.set(true) unless @should_exit.nil?
         @thread.join unless @thread.nil?
       end
     end

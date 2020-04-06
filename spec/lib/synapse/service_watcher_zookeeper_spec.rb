@@ -527,7 +527,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
         it 'sets a default' do
           expect { subject }.not_to raise_error
-          expect(subject.instance_variable_get(:@discovery)['polling_interval_sec'].nil?).to be(false)
+          expect(subject.instance_variable_get(:@poll_interval).nil?).to be(false)
         end
       end
 
