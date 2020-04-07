@@ -260,17 +260,19 @@ describe Synapse::ServiceWatcher::MultiWatcher do
   end
 
   describe ".backends" do
-    it "calls resolver.merged_backends" do
+    it "returns resolver.merged_backends" do
       resolver = subject.instance_variable_get(:@resolver)
-      expect(resolver).to receive(:merged_backends)
-      subject.backends
-    end
-
-    it "returns resolver.merged_backends result" do
-      resolver = subject.instance_variable_get(:@resolver)
-      allow(resolver).to receive(:merged_backends).and_return(["test-a", "test-b"])
+      expect(resolver).to receive(:merged_backends).exactly(:once).and_return(["test-a", "test-b"])
       expect(subject.backends).to eq(["test-a", "test-b"])
     end
+  end
+
+  describe ".config_for_generator" do
+    it 'calls resolver.merged_config_for_generator' do
+      resolver = subject.instance_variable_get(:@resolver)
+      expect(resolver).to receive(:merged_config_for_generator).exactly(:once).and_return({'haproxy' => 'custom config'})
+      expect(subject.config_for_generator).to eq({'haproxy' => 'custom config'})
+      end
   end
 
   describe ".ping?" do
@@ -296,13 +298,15 @@ describe Synapse::ServiceWatcher::MultiWatcher do
   describe "resolver" do
     context 'when resolver sends a notification' do
       let(:mock_backends) { ['host_1', 'host_2'] }
+      let(:mock_config) { {'haproxy' => 'mock config'} }
 
       it 'sets backends to resolver backends' do
         expect(subject).to receive(:resolver_notification).exactly(:once).and_call_original
-        expect(subject).to receive(:set_backends).exactly(:once).with(mock_backends)
+        expect(subject).to receive(:set_backends).exactly(:once).with(mock_backends, mock_config)
 
         resolver = subject.instance_variable_get(:@resolver)
         allow(resolver).to receive(:merged_backends).exactly(:once).and_return(mock_backends)
+        allow(resolver).to receive(:merged_config_for_generator).exactly(:once).and_return(mock_config)
 
         resolver.send(:send_notification)
       end

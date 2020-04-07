@@ -63,6 +63,12 @@ describe Synapse::ServiceWatcher::Resolver::BaseResolver do
     end
   end
 
+  describe "#merged_config_for_generator" do
+    it 'returns an empty config by default' do
+      expect(subject.merged_config_for_generator).to eq({})
+    end
+  end
+
   describe "#healthy?" do
     it 'returns true by default' do
       expect(subject.healthy?).to eq(true)
