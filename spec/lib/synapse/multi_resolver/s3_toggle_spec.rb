@@ -12,18 +12,22 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
   let(:primary_watcher) {
     w = double(Synapse::ServiceWatcher::BaseWatcher)
     allow(w).to receive(:backends).and_return(primary_backends)
+    allow(w).to receive(:config_for_generator).and_return(primary_service_level_config)
     allow(w).to receive(:ping?).and_return(true)
     w
   }
   let(:primary_backends) { ["primary_1", "primary_2", "primary_3"] }
+  let(:primary_service_level_config) { {'haproxy' => 'primary'} }
 
   let(:secondary_watcher) {
     w = double(Synapse::ServiceWatcher::BaseWatcher)
     allow(w).to receive(:backends).and_return(secondary_backends)
+    allow(w).to receive(:config_for_generator).and_return(secondary_service_level_config)
     allow(w).to receive(:ping?).and_return(true)
     w
   }
   let(:secondary_backends) { ["secondary_1", "secondary_2", "secondary_3"] }
+  let(:secondary_service_level_config) { {'haproxy' => 'secondary'} }
 
   let(:opts) { opts_valid }
   let(:opts_valid) {
@@ -139,6 +143,26 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
 
     it 'returns backends from current watcher' do
       expect(subject.merged_backends).to eq(secondary_backends)
+    end
+  end
+
+  describe '#merged_config_for_generator' do
+    before :each do
+      subject.instance_variable_get(:@watcher_setting).set('secondary')
+    end
+
+    it 'calls #config_for_generator on current watcher' do
+      expect(secondary_watcher).to receive(:config_for_generator).exactly(:once)
+      subject.merged_config_for_generator
+    end
+
+    it 'does not call #backends on other watchers' do
+      expect(primary_watcher).not_to receive(:config_for_generator)
+      subject.merged_config_for_generator
+    end
+
+    it 'returns backends from current watcher' do
+      expect(subject.merged_config_for_generator).to eq(secondary_service_level_config)
     end
   end
 

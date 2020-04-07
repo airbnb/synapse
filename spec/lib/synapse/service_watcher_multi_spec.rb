@@ -260,17 +260,19 @@ describe Synapse::ServiceWatcher::MultiWatcher do
   end
 
   describe ".backends" do
-    it "calls resolver.merged_backends" do
+    it "returns resolver.merged_backends" do
       resolver = subject.instance_variable_get(:@resolver)
-      expect(resolver).to receive(:merged_backends)
-      subject.backends
-    end
-
-    it "returns resolver.merged_backends result" do
-      resolver = subject.instance_variable_get(:@resolver)
-      allow(resolver).to receive(:merged_backends).and_return(["test-a", "test-b"])
+      expect(resolver).to receive(:merged_backends).exactly(:once).and_return(["test-a", "test-b"])
       expect(subject.backends).to eq(["test-a", "test-b"])
     end
+  end
+
+  describe ".config_for_generator" do
+    it 'calls resolver.merged_config_for_generator' do
+      resolver = subject.instance_variable_get(:@resolver)
+      expect(resolver).to receive(:merged_config_for_generator).exactly(:once).and_return({'haproxy' => 'custom config'})
+      expect(subject.config_for_generator).to eq({'haproxy' => 'custom config'})
+      end
   end
 
   describe ".ping?" do

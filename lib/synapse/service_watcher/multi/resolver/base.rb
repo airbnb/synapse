@@ -38,6 +38,11 @@ class Synapse::ServiceWatcher::Resolver
     end
 
     # should be overridden in child classes
+    def merged_config_for_generator
+      return {}
+    end
+
+    # should be overridden in child classes
     def healthy?
       return true
     end
