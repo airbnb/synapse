@@ -298,13 +298,15 @@ describe Synapse::ServiceWatcher::MultiWatcher do
   describe "resolver" do
     context 'when resolver sends a notification' do
       let(:mock_backends) { ['host_1', 'host_2'] }
+      let(:mock_config) { {'haproxy' => 'mock config'} }
 
       it 'sets backends to resolver backends' do
         expect(subject).to receive(:resolver_notification).exactly(:once).and_call_original
-        expect(subject).to receive(:set_backends).exactly(:once).with(mock_backends)
+        expect(subject).to receive(:set_backends).exactly(:once).with(mock_backends, mock_config)
 
         resolver = subject.instance_variable_get(:@resolver)
         allow(resolver).to receive(:merged_backends).exactly(:once).and_return(mock_backends)
+        allow(resolver).to receive(:merged_config_for_generator).exactly(:once).and_return(mock_config)
 
         resolver.send(:send_notification)
       end

@@ -117,7 +117,7 @@ class Synapse::ServiceWatcher
     end
 
     def resolver_notification
-      set_backends(backends)
+      set_backends(backends, config_for_generator)
     end
   end
 end
