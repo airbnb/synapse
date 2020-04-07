@@ -79,7 +79,6 @@ module Synapse
           end
 
           if @config_updated.get
-            @config_updated.set(false)
             statsd_increment('synapse.config.update')
             @config_generators.each do |config_generator|
               log.info "synapse: configuring #{config_generator.name}"
@@ -91,6 +90,8 @@ module Synapse
                 raise e
               end
             end
+
+            @config_updated.set(false)
           end
 
           sleep 1

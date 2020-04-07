@@ -52,7 +52,7 @@ class Synapse::ServiceWatcher
       zk_teardown do
         # Signal to the thread that it should exit, and then wait for it to
         # exit.
-        @should_exit.set(true) unless @should_exit.nil?
+        @should_exit.set(true)
         @thread.join unless @thread.nil?
       end
     end
