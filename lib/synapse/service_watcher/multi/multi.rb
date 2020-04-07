@@ -88,6 +88,10 @@ class Synapse::ServiceWatcher
       return @resolver.merged_backends
     end
 
+    def config_for_generator
+      return @resolver.merged_config_for_generator
+    end
+
     private
 
     def validate_discovery_opts
@@ -113,7 +117,7 @@ class Synapse::ServiceWatcher
     end
 
     def resolver_notification
-      set_backends(backends)
+      set_backends(backends, config_for_generator)
     end
   end
 end

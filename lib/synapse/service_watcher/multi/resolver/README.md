@@ -30,6 +30,10 @@ class Synapse::ServiceWatcher::MultiWatcher::Resolver
 	     # return a single list of backends
 	  end
 
+	  def merged_config_for_generator
+	     # return a single hash for generator config
+	  end
+
 	  def healthy?
 	     # return whether or not the watchers are healthy
 	  end

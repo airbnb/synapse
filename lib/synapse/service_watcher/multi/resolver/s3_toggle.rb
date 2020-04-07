@@ -57,13 +57,15 @@ class Synapse::ServiceWatcher::Resolver
     end
 
     def merged_backends
-      watcher_name = @watcher_setting.get
-      return @watchers[watcher_name].backends
+      return current_watcher.backends
+    end
+
+    def merged_config_for_generator
+      return current_watcher.config_for_generator
     end
 
     def healthy?
-      watcher_name = @watcher_setting.get
-      return @watchers[watcher_name].ping?
+      return current_watcher.ping?
     end
 
     def validate_opts
@@ -92,6 +94,11 @@ class Synapse::ServiceWatcher::Resolver
         @watcher_setting.set(w)
         send_notification
       end
+    end
+
+    def current_watcher
+      watcher_name = @watcher_setting.get
+      return @watchers[watcher_name]
     end
 
     # url = s3://{bucket}/{path}
