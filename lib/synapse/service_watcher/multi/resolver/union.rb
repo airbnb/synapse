@@ -16,6 +16,14 @@ class Synapse::ServiceWatcher::Resolver
       return @watchers.values.map { |w| w.backends }.flatten
     end
 
+    def merged_config_for_generator
+      return @watchers
+        .values
+        .map { |w| w.config_for_generator }
+        .select { |c| !c.empty? }
+        .first || {}
+    end
+
     def healthy?
       return @watchers.values.any? { |w| w.ping? }
     end

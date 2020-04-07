@@ -7,20 +7,24 @@ describe Synapse::ServiceWatcher::Resolver::UnionResolver do
 
   let(:primary_watcher) {
     w = double(Synapse::ServiceWatcher::BaseWatcher)
-    allow(w).to receive(:backends).and_return(primary_backends)
+    allow(w).to receive(:backends) { primary_healthy ? primary_backends: [] }
+    allow(w).to receive(:config_for_generator) { primary_healthy ? primary_config_for_generator: {} }
     allow(w).to receive(:ping?).and_return(primary_healthy)
     w
   }
   let(:primary_backends) { ["primary_1", "primary_2", "primary_3"] }
+  let(:primary_config_for_generator) { {'haproxy' => 'primary config'} }
   let(:primary_healthy) { true }
 
   let(:secondary_watcher) {
     w = double(Synapse::ServiceWatcher::BaseWatcher)
-    allow(w).to receive(:backends).and_return(secondary_backends)
+    allow(w).to receive(:backends) { secondary_healthy ? secondary_backends: [] }
+    allow(w).to receive(:config_for_generator) { secondary_healthy ? secondary_config_for_generator: {} }
     allow(w).to receive(:ping?).and_return(secondary_healthy)
     w
   }
   let(:secondary_backends) { ["secondary_1", "secondary_2", "secondary_3"] }
+  let(:secondary_config_for_generator) { {'haproxy' => 'secondary config'} }
   let(:secondary_healthy) { true }
 
   let(:opts) { opts_valid }
@@ -68,6 +72,35 @@ describe Synapse::ServiceWatcher::Resolver::UnionResolver do
 
       it 'includes duplicates' do
         subject.merged_backends.should =~ (primary_backends + secondary_backends)
+      end
+    end
+  end
+
+  describe '#merged_config_for_generator' do
+    it 'returns non-empty config' do
+      expect(subject.merged_config_for_generator).to eq(primary_config_for_generator)
+    end
+
+    it 'calls config_for_generator on all watchers' do
+      expect(primary_watcher).to receive(:config_for_generator).exactly(:once)
+      expect(secondary_watcher).to receive(:config_for_generator).exactly(:once)
+      subject.merged_config_for_generator
+    end
+
+    context 'when one watcher returns an empty config' do
+      let(:primary_config_for_generator) { {} }
+
+      it 'returns only healthy watchers config_for_generator' do
+        expect(subject.merged_config_for_generator).to eq(secondary_config_for_generator)
+      end
+    end
+
+    context 'when both watchers return an empty config' do
+      let(:primary_config_for_generator) { {} }
+      let(:secondary_config_for_generator) { {} }
+
+      it 'returns empty config_for_generator' do
+        expect(subject.merged_config_for_generator).to eq({})
       end
     end
   end

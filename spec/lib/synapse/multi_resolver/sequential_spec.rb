@@ -8,19 +8,23 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
   let(:primary_watcher) {
     w = double(Synapse::ServiceWatcher::BaseWatcher)
     allow(w).to receive(:backends) { primary_healthy ? primary_backends: [] }
+    allow(w).to receive(:config_for_generator) { primary_healthy ? primary_config_for_generator: {} }
     allow(w).to receive(:ping?).and_return(primary_healthy)
     w
   }
   let(:primary_backends) { ["primary_1", "primary_2", "primary_3"] }
+  let(:primary_config_for_generator) { {'haproxy' => 'primary config'} }
   let(:primary_healthy) { true }
 
   let(:secondary_watcher) {
     w = double(Synapse::ServiceWatcher::BaseWatcher)
     allow(w).to receive(:backends) { secondary_healthy ? secondary_backends: [] }
+    allow(w).to receive(:config_for_generator) { secondary_healthy ? secondary_config_for_generator: {} }
     allow(w).to receive(:ping?).and_return(secondary_healthy)
     w
   }
   let(:secondary_backends) { ["secondary_1", "secondary_2", "secondary_3"] }
+  let(:secondary_config_for_generator) { {'haproxy' => 'secondary config'} }
   let(:secondary_healthy) { true }
 
   let(:opts) { opts_valid }
@@ -91,7 +95,7 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
       end
     end
 
-    context 'when both watchers return empty lists' do
+    context 'when both watchers are unhealthy' do
       let(:primary_healthy) { false }
       let(:secondary_healthy) { false }
 
@@ -99,9 +103,9 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
         expect(subject.merged_backends).to eq([])
       end
 
-      it 'calls backends on both watchers' do
-        expect(primary_watcher).to receive(:backends).exactly(:once)
-        expect(secondary_watcher).to receive(:backends).exactly(:once)
+      it 'calls ping? on both watchers' do
+        expect(primary_watcher).to receive(:ping?).exactly(:once)
+        expect(secondary_watcher).to receive(:ping?).exactly(:once)
         subject.merged_backends
       end
     end
@@ -117,6 +121,60 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
         expect(primary_watcher).not_to receive(:backends)
         expect(secondary_watcher).to receive(:backends).exactly(:once)
         subject.merged_backends
+      end
+    end
+  end
+
+  describe '#merged_config_for_generator' do
+    it 'returns primary config_for_generator' do
+      expect(subject.merged_config_for_generator).to eq(primary_config_for_generator)
+    end
+
+    it 'calls config_for_generator only on first watcher' do
+      expect(primary_watcher).to receive(:config_for_generator).exactly(:once).and_return(primary_config_for_generator)
+      expect(secondary_watcher).not_to receive(:config_for_generator)
+      subject.merged_config_for_generator
+    end
+
+    context 'when first watcher returns an empty list' do
+      let(:primary_healthy) { false }
+
+      it 'returns secondary config_for_generator' do
+        expect(subject.merged_config_for_generator).to eq(secondary_config_for_generator)
+      end
+
+      it 'calls config_for_generator on secondary watcher' do
+        expect(secondary_watcher).to receive(:config_for_generator).exactly(:once)
+        subject.merged_config_for_generator
+      end
+    end
+
+    context 'when both watchers are unhealthy' do
+      let(:primary_healthy) { false }
+      let(:secondary_healthy) { false }
+
+      it 'returns an empty list' do
+        expect(subject.merged_config_for_generator).to eq([])
+      end
+
+      it 'calls ping? on both watchers' do
+        expect(primary_watcher).to receive(:ping?).exactly(:once)
+        expect(secondary_watcher).to receive(:ping?).exactly(:once)
+        subject.merged_config_for_generator
+      end
+    end
+
+    context 'with secondary first in order' do
+      let(:sequential_order) { ['secondary', 'primary'] }
+
+      it 'returns secondary config_for_generator' do
+        expect(subject.merged_config_for_generator).to eq(secondary_config_for_generator)
+      end
+
+      it 'calls config_for_generator only on second watcher' do
+        expect(primary_watcher).not_to receive(:config_for_generator)
+        expect(secondary_watcher).to receive(:config_for_generator).exactly(:once)
+        subject.merged_config_for_generator
       end
     end
   end

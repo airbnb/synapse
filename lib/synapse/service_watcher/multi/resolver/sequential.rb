@@ -40,6 +40,17 @@ class Synapse::ServiceWatcher::Resolver
       return []
     end
 
+    def merged_config_for_generator
+      ordered_watchers.each do |w|
+        next unless w.ping?
+
+        config_for_generator = w.config_for_generator
+        return config_for_generator unless config_for_generator == {}
+      end
+
+      return []
+    end
+
     def healthy?
       return ordered_watchers.any? { |w| w.ping? }
     end
