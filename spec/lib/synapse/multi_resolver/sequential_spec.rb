@@ -72,12 +72,16 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
   end
 
   describe '#merged_backends' do
+    before :each do
+      subject.start
+    end
+
     it 'returns primary backends' do
       expect(subject.merged_backends).to eq(primary_backends)
     end
 
     it 'calls backends only on first watcher' do
-      expect(primary_watcher).to receive(:backends).exactly(:once).and_return(primary_backends)
+      expect(primary_watcher).to receive(:backends).at_least(:once).and_return(primary_backends)
       expect(secondary_watcher).not_to receive(:backends)
       subject.merged_backends
     end
@@ -90,7 +94,7 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
       end
 
       it 'calls backends on secondary watcher' do
-        expect(secondary_watcher).to receive(:backends).exactly(:once)
+        expect(secondary_watcher).to receive(:backends).at_least(:once)
         subject.merged_backends
       end
     end
@@ -101,12 +105,6 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
 
       it 'returns an empty list' do
         expect(subject.merged_backends).to eq([])
-      end
-
-      it 'calls ping? on both watchers' do
-        expect(primary_watcher).to receive(:ping?).exactly(:once)
-        expect(secondary_watcher).to receive(:ping?).exactly(:once)
-        subject.merged_backends
       end
     end
 
@@ -119,19 +117,23 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
 
       it 'calls backends only on second watcher' do
         expect(primary_watcher).not_to receive(:backends)
-        expect(secondary_watcher).to receive(:backends).exactly(:once)
+        expect(secondary_watcher).to receive(:backends).at_least(:once)
         subject.merged_backends
       end
     end
   end
 
   describe '#merged_config_for_generator' do
+    before :each do
+      subject.start
+    end
+
     it 'returns primary config_for_generator' do
       expect(subject.merged_config_for_generator).to eq(primary_config_for_generator)
     end
 
     it 'calls config_for_generator only on first watcher' do
-      expect(primary_watcher).to receive(:config_for_generator).exactly(:once).and_return(primary_config_for_generator)
+      expect(primary_watcher).to receive(:config_for_generator).at_least(:once).and_return(primary_config_for_generator)
       expect(secondary_watcher).not_to receive(:config_for_generator)
       subject.merged_config_for_generator
     end
@@ -144,7 +146,7 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
       end
 
       it 'calls config_for_generator on secondary watcher' do
-        expect(secondary_watcher).to receive(:config_for_generator).exactly(:once)
+        expect(secondary_watcher).to receive(:config_for_generator).at_least(:once)
         subject.merged_config_for_generator
       end
     end
@@ -153,14 +155,8 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
       let(:primary_healthy) { false }
       let(:secondary_healthy) { false }
 
-      it 'returns an empty list' do
-        expect(subject.merged_config_for_generator).to eq([])
-      end
-
-      it 'calls ping? on both watchers' do
-        expect(primary_watcher).to receive(:ping?).exactly(:once)
-        expect(secondary_watcher).to receive(:ping?).exactly(:once)
-        subject.merged_config_for_generator
+      it 'returns an empty config' do
+        expect(subject.merged_config_for_generator).to eq({})
       end
     end
 
@@ -173,16 +169,20 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
 
       it 'calls config_for_generator only on second watcher' do
         expect(primary_watcher).not_to receive(:config_for_generator)
-        expect(secondary_watcher).to receive(:config_for_generator).exactly(:once)
+        expect(secondary_watcher).to receive(:config_for_generator).at_least(:once)
         subject.merged_config_for_generator
       end
     end
   end
 
   describe '#healthy?' do
+    before :each do
+      subject.start
+    end
+
     it 'calls ping? on the first watcher' do
-      expect(primary_watcher).to receive(:ping?).exactly(:once).and_return(true)
-      expect(primary_watcher).not_to receive(:ping?)
+      expect(primary_watcher).to receive(:ping?).at_least(:once).and_return(true)
+      expect(secondary_watcher).not_to receive(:ping?)
       subject.healthy?
     end
 
@@ -194,7 +194,7 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
       end
 
       it 'calls ping on secondary' do
-        expect(secondary_watcher).to receive(:ping?).exactly(:once).and_return(true)
+        expect(secondary_watcher).to receive(:ping?).at_least(:once).and_return(true)
         subject.healthy?
       end
     end
@@ -207,7 +207,7 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
       end
 
       it 'calls ping on primary' do
-        expect(primary_watcher).to receive(:ping?).exactly(:once).and_return(true)
+        expect(primary_watcher).to receive(:ping?).at_least(:once).and_return(true)
         subject.healthy?
       end
     end
@@ -231,9 +231,73 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
       let(:sequential_order) { ['secondary', 'primary'] }
 
       it 'calls ping? on secondary' do
-        expect(secondary_watcher).to receive(:ping?).exactly(:once).and_return(true)
+        expect(secondary_watcher).to receive(:ping?).at_least(:once).and_return(true)
         expect(primary_watcher).not_to receive(:ping?)
         subject.healthy?
+      end
+    end
+  end
+
+  describe 'pick_watcher' do
+    context 'when all watchers are healthy' do
+      before :each do
+        subject.instance_variable_get(:@watcher_setting).set('secondary')
+      end
+
+      it 'picks first' do
+        expect(primary_watcher).to receive(:ping?).exactly(:once)
+        expect(primary_watcher).to receive(:backends).exactly(:once)
+        expect(primary_watcher).to receive(:config_for_generator).exactly(:once)
+
+        expect(secondary_watcher).not_to receive(:ping?)
+        expect(secondary_watcher).not_to receive(:backends)
+        expect(secondary_watcher).not_to receive(:config_for_generator)
+
+        expect { subject.send(:pick_watcher) }.to change { subject.instance_variable_get(:@watcher_setting).get }.to ('primary')
+      end
+
+      it 'sends a notification' do
+        expect(subject).to receive(:send_notification).exactly(:once)
+        subject.send(:pick_watcher)
+      end
+    end
+
+    context 'when first watcher is unhealthy' do
+      let(:primary_healthy) { false }
+
+      it 'picks second' do
+        expect(secondary_watcher).to receive(:ping?).exactly(:once)
+        expect(secondary_watcher).to receive(:backends).exactly(:once)
+        expect(secondary_watcher).to receive(:config_for_generator).exactly(:once)
+
+        expect { subject.send(:pick_watcher) }.to change { subject.instance_variable_get(:@watcher_setting).get }.to ('secondary')
+      end
+
+      it 'sends a notification' do
+        expect(subject).to receive(:send_notification).exactly(:once)
+        subject.send(:pick_watcher)
+      end
+    end
+
+    context 'in reversed order' do
+      let(:sequential_order) { ['secondary', 'primary'] }
+      before :each do
+        subject.instance_variable_get(:@watcher_setting).set('primary')
+      end
+
+      it 'picks secondary first' do
+        expect { subject.send(:pick_watcher) }.to change { subject.instance_variable_get(:@watcher_setting).get }.to ('secondary')
+      end
+    end
+
+    context 'when watcher does not change' do
+      before :each do
+        subject.instance_variable_get(:@watcher_setting).set('primary')
+      end
+
+      it 'does not send a notification' do
+        expect(subject).not_to receive(:send_notification)
+        subject.send(:pick_watcher)
       end
     end
   end
