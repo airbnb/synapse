@@ -10,6 +10,7 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
     allow(w).to receive(:backends) { primary_healthy ? primary_backends: [] }
     allow(w).to receive(:config_for_generator) { primary_healthy ? primary_config_for_generator: {} }
     allow(w).to receive(:ping?).and_return(primary_healthy)
+    allow(w).to receive(:watching?).and_return(primary_healthy)
     w
   }
   let(:primary_backends) { ["primary_1", "primary_2", "primary_3"] }
@@ -21,6 +22,7 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
     allow(w).to receive(:backends) { secondary_healthy ? secondary_backends: [] }
     allow(w).to receive(:config_for_generator) { secondary_healthy ? secondary_config_for_generator: {} }
     allow(w).to receive(:ping?).and_return(secondary_healthy)
+    allow(w).to receive(:watching?).and_return(secondary_healthy)
     w
   }
   let(:secondary_backends) { ["secondary_1", "secondary_2", "secondary_3"] }
@@ -245,7 +247,7 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
       end
 
       it 'picks first' do
-        expect(primary_watcher).to receive(:ping?).exactly(:once)
+        expect(primary_watcher).to receive(:ping?).at_least(:once)
         expect(primary_watcher).to receive(:backends).exactly(:once)
         expect(primary_watcher).to receive(:config_for_generator).exactly(:once)
 
@@ -266,7 +268,7 @@ describe Synapse::ServiceWatcher::Resolver::SequentialResolver do
       let(:primary_healthy) { false }
 
       it 'picks second' do
-        expect(secondary_watcher).to receive(:ping?).exactly(:once)
+        expect(secondary_watcher).to receive(:ping?).at_least(:once)
         expect(secondary_watcher).to receive(:backends).exactly(:once)
         expect(secondary_watcher).to receive(:config_for_generator).exactly(:once)
 

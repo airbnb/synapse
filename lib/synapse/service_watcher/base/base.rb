@@ -110,6 +110,11 @@ class Synapse::ServiceWatcher
       true
     end
 
+    # this can be overridden in child classes, if different from ping?
+    def watching?
+      ping?
+    end
+
     # deep clone the hash to protect its readonly property
     def config_for_generator
       Marshal.load(Marshal.dump(@config_for_generator.get))

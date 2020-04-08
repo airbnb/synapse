@@ -56,7 +56,7 @@ class Synapse::ServiceWatcher::Resolver
       new_watcher = @watcher_order[0]
 
       ordered_watchers.each do |watcher_name, watcher|
-        if watcher.ping? && watcher.backends != [] && watcher.config_for_generator != {}
+        if watcher.ping? && watcher.watching? && watcher.backends != [] && watcher.config_for_generator != {}
           log.debug "synapse: sequential resolver: first healthy watcher is #{watcher_name}"
           new_watcher = watcher_name
           break
