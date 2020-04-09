@@ -8,7 +8,7 @@ class Synapse::ServiceWatcher::Resolver
     include Synapse::StatsD
 
     def validate_opts
-      raise ArgumentError, "union resolver expects method to be union" unless @opts['method'] == 'union'
+      raise ArgumentError, "union resolver expects method to be union; currently: #{@opts['method']}" unless @opts['method'] == 'union'
       raise ArgumentError, "no watchers provided" unless @watchers.length > 0
     end
 

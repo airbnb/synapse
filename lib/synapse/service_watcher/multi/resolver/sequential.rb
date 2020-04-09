@@ -21,7 +21,7 @@ class Synapse::ServiceWatcher::Resolver
     end
 
     def validate_opts
-      raise ArgumentError, "sequential resolver expects method to be union" unless @opts['method'] == 'sequential'
+      raise ArgumentError, "sequential resolver expects method to be sequential; currently: #{@opts['method']}" unless @opts['method'] == 'sequential'
       raise ArgumentError, "no watchers provided" unless @watchers.length > 0
       raise ArgumentError, "no sequential order defined" if @watcher_order.nil?
 
