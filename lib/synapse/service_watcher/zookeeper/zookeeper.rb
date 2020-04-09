@@ -96,6 +96,13 @@ class Synapse::ServiceWatcher
       @zk && (@zk.associating? || @zk.connecting? || @zk.connected?)
     end
 
+    def watching?
+      # This is different from ping? in that it only returns true if ZK
+      # is connected, which is particularly useful for checking if updates are
+      # being processed (or are stalled).
+      @zk && @zk.connected?
+    end
+
     private
 
     def start_discovery

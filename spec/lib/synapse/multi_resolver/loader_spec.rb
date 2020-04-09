@@ -37,6 +37,24 @@ describe Synapse::ServiceWatcher::Resolver do
       end
     end
 
+    context 'with method => union' do
+      let(:config) { {'method' => 'union'} }
+
+      it 'creates the union resolver' do
+        expect(subject::UnionResolver).to receive(:new).exactly(:once).with(config, watchers, callback)
+        expect { subject.load_resolver(config, watchers, callback) }.not_to raise_error
+      end
+    end
+
+    context 'with method => sequential' do
+      let(:config) { {'method' => 'sequential'} }
+
+      it 'creates the sequential resolver' do
+        expect(subject::SequentialResolver).to receive(:new).exactly(:once).with(config, watchers, callback)
+        expect { subject.load_resolver(config, watchers, callback) }.not_to raise_error
+      end
+    end
+
     context 'with bogus method' do
       let(:config) { {'method' => 'bogus'} }
 

@@ -23,11 +23,8 @@ class Synapse::ServiceWatcher
         @thread = Thread.new {
           log.info 'synapse: zookeeper polling thread started'
 
-          # last_run is shifted by a random jitter in order to spread the first
-          # discover call of multiple Synapses. This helps to spread load.
-          # As long as the beginning is spread, the future discovers will also
-          # be spread.
-          last_run = Time.now - rand(@poll_interval)
+          # Ensure we poll on first start.
+          last_run = Time.now - @poll_interval - 1
 
           until @should_exit.get
             now = Time.now

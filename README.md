@@ -349,6 +349,30 @@ It is a simple dictionary in YAML where the key refers to the watcher nam
 (as provided to the `MultiWatcher`) and the value is an integer, non-negative
 weight that determines the probability for that watcher to be chosen.
 
+###### Union Resolver ######
+
+The `UnionResolver` merges the backends from each child watcher into a single list.
+For example, with two children watchers that have backends of `[a, b]` and `[c, d]`,
+it will return `[a, b, c, d]`.
+
+The `config_for_generator` cannot be easily merged; intead, we pick the first non-empty
+config. As such, when using `union` you should ensure that only one watcher returns
+a config or that all watchers have the same config.
+
+* `method`: must be `union`
+
+###### Sequential Resolver ######
+
+The `SequentialResolver` goes through a specific ordering of watchers and returns the
+first set of backends that did not error or return an empty set.
+If `sequential_order` is `['primary', 'secondary']`, it will first read the backends from
+`primary`; `secondary` will only be read if the `primary` fails (by returning an empty set
+of backends). The smae method is used for the `config_for_generator`.
+
+It takes the following options:
+
+* `method`: must be `sequential`
+* `sequential_order`: a list of watcher names that will be read in the provided order
 
 <a name="defaultservers"/>
 

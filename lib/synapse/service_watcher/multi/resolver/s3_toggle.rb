@@ -84,7 +84,7 @@ class Synapse::ServiceWatcher::Resolver
     def set_watcher(w)
       unless @watchers.keys.include?(w)
         log.warn "synapse: s3 toggle resolver: tried to set unknown watcher #{w}"
-        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:unknown_watcher'])
+        statsd_increment('synapse.watcher.multi.resolver.s3_toggle.switch', ['result:fail', 'reason:unknown_watcher'])
         return
       end
 
