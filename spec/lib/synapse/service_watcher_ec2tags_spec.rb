@@ -39,7 +39,7 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
     allow(mock_synapse).to receive(:reconfigure!).and_return(true)
     mock_synapse
   end
-  subject { Synapse::ServiceWatcher::Ec2tagWatcher.new(basic_config, mock_synapse, -> {}) }
+  subject { Synapse::ServiceWatcher::Ec2tagWatcher.new(basic_config, mock_synapse, ->(*args) {}) }
 
   let(:basic_config) do
     { 'name' => 'ec2tagtest',

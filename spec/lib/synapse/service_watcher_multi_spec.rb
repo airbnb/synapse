@@ -18,7 +18,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
     Synapse::ServiceWatcher::MultiWatcher.new(config, mock_synapse, reconfigure_callback)
   }
 
-  let(:reconfigure_callback) { -> {} }
+  let(:reconfigure_callback) { ->(*args) {} }
 
   let(:discovery) do
     valid_discovery

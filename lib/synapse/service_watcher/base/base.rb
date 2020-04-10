@@ -254,7 +254,7 @@ class Synapse::ServiceWatcher
     # can be overridden in subclasses.
     def reconfigure!
       @revision += 1
-      @reconfigure_callback.call
+      @reconfigure_callback.call(backends, config_for_generator, @revision)
     end
   end
 end

@@ -135,7 +135,7 @@ module Synapse
     private
     def create_service_watchers(services={})
       service_watchers = []
-      reconfigure_callback = -> { reconfigure! }
+      reconfigure_callback = ->(*args) { reconfigure! }
 
       services.each do |service_name, service_config|
         if service_config.has_key?('load_test_concurrency')

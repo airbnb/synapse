@@ -89,7 +89,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       node_double
     end
 
-    subject { Synapse::ServiceWatcher::ZookeeperWatcher.new(config, mock_synapse, -> {}) }
+    subject { Synapse::ServiceWatcher::ZookeeperWatcher.new(config, mock_synapse, ->(*args) {}) }
     it 'decodes data correctly' do
       expect(subject.send(:deserialize_service_instance, service_data_string)).to eql(deserialized_service_data)
     end
@@ -507,7 +507,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     let(:mock_thread) { double("thread") }
     let(:discovery) { { 'method' => 'zookeeper_poll', 'hosts' => ['somehost'],'path' => 'some/path', 'polling_interval_sec' => 30 } }
 
-    subject { Synapse::ServiceWatcher::ZookeeperPollWatcher.new(config, mock_synapse, -> {}) }
+    subject { Synapse::ServiceWatcher::ZookeeperPollWatcher.new(config, mock_synapse, ->(*args) {}) }
 
     before :each do
       # reset the pool so that doubles are not re-used across instances
@@ -807,7 +807,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
   describe 'ZookeeperDnsWatcher' do
     let(:discovery) { { 'method' => 'zookeeper_dns', 'hosts' => ['somehost'],'path' => 'some/path' } }
 
-    subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher.new(config, mock_synapse, -> {}) }
+    subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher.new(config, mock_synapse, ->(*args) {}) }
     let(:mock_zk) { double(Synapse::ServiceWatcher::ZookeeperWatcher) }
     let(:mock_dns) { double(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns) }
 
@@ -823,6 +823,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
     describe 'make_zookeeper_watcher' do
       let(:mock_queue) { double(Queue) }
+      let(:backends) { [{'name' => 'host-1', 'port' => 1234}, {'name' => 'host-2', 'port' => 5678}] }
 
       it 'creates a ZK watcher' do
         expect(subject.send(:make_zookeeper_watcher, mock_queue)).to be_kind_of(Synapse::ServiceWatcher::ZookeeperWatcher)
@@ -831,9 +832,10 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       it 'creates a ZK watcher with proper reconfigure' do
         zk = subject.send(:make_zookeeper_watcher, mock_queue)
 
-        expect(mock_queue).to receive(:push).with(kind_of(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers))
+        expect(mock_queue).to receive(:push).with(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(backends)).exactly(:once)
         expect(subject).to receive(:reconfigure!).exactly(:once)
-        zk.send(:reconfigure!)
+
+        zk.send(:set_backends, backends)
       end
     end
   end
@@ -841,7 +843,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
   describe 'ZookeeperDnsPollWatcher' do
     let(:discovery) { { 'method' => 'zookeeper_dns_poll', 'hosts' => ['somehost'], 'path' => 'some/path' } }
 
-    subject { Synapse::ServiceWatcher::ZookeeperDnsPollWatcher.new(config, mock_synapse, -> {}) }
+    subject { Synapse::ServiceWatcher::ZookeeperDnsPollWatcher.new(config, mock_synapse, ->(*args) {}) }
     let(:mock_zk) { double(Synapse::ServiceWatcher::ZookeeperPollWatcher) }
     let(:mock_dns) { double(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns) }
 
@@ -857,6 +859,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
     describe 'make_zookeeper_watcher' do
       let(:mock_queue) { double(Queue) }
+      let(:backends) { [{'name' => 'host-1', 'port' => 1234}, {'name' => 'host-2', 'port' => 5678}] }
 
       it 'creates a ZK watcher' do
         expect(subject.send(:make_zookeeper_watcher, mock_queue)).to be_kind_of(Synapse::ServiceWatcher::ZookeeperPollWatcher)
@@ -865,9 +868,10 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       it 'creates a ZK watcher with proper reconfigure' do
         zk = subject.send(:make_zookeeper_watcher, mock_queue)
 
-        expect(mock_queue).to receive(:push).with(kind_of(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers))
+        expect(mock_queue).to receive(:push).with(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(backends)).exactly(:once)
         expect(subject).to receive(:reconfigure!).exactly(:once)
-        zk.send(:reconfigure!)
+
+        zk.send(:set_backends, backends)
       end
     end
   end

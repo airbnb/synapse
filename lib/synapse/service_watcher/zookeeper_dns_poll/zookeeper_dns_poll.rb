@@ -14,10 +14,7 @@ class Synapse::ServiceWatcher
       Synapse::ServiceWatcher::ZookeeperPollWatcher.new(
         mk_child_watcher_opts(zookeeper_discovery_opts),
         @synapse,
-        -> {
-          queue.push(Messages::NewServers.new(@backends))
-          reconfigure!
-        },
+        ->(backends, *args) { update_dns_watcher(queue, backends) },
       )
     end
 

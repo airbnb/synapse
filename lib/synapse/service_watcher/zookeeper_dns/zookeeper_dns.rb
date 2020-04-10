@@ -185,11 +185,13 @@ class Synapse::ServiceWatcher
       Synapse::ServiceWatcher::ZookeeperWatcher.new(
         mk_child_watcher_opts(zookeeper_discovery_opts),
         @synapse,
-        -> {
-          queue.push(Messages::NewServers.new(@backends))
-          reconfigure!
-        },
+        ->(backends, *args) { update_dns_watcher(queue, backends) },
       )
+    end
+
+    def update_dns_watcher(queue, backends)
+      queue.push(Messages::NewServers.new(backends))
+      reconfigure!
     end
 
     def validate_discovery_opts
