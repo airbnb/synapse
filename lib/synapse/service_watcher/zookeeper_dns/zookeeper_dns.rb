@@ -128,6 +128,7 @@ class Synapse::ServiceWatcher
         # Propagate revision updates down to ZookeeperDnsWatcher, so
         # that stanza cache can work properly.
         @revision += 1
+        puts "parent is #{@parent}"
         @parent.reconfigure! unless @parent.nil?
       end
 
@@ -139,33 +140,11 @@ class Synapse::ServiceWatcher
     end
 
     def start
-      dns_discovery_opts = @discovery.select do |k,_|
-        k == 'nameserver' || k == 'label_filter'
-      end
-
-      zookeeper_discovery_opts = @discovery.select do |k,_|
-        k == 'hosts' || k == 'path' || k == 'label_filter'
-      end
-
       @check_interval = @discovery['check_interval'] || 30.0
-
       @message_queue = Queue.new
 
-      @dns = Dns.new(
-        mk_child_watcher_opts(dns_discovery_opts),
-        self,
-        @synapse,
-        @reconfigure_callback,
-        @message_queue
-      )
-
-      @zk = Zookeeper.new(
-        mk_child_watcher_opts(zookeeper_discovery_opts),
-        self,
-        @synapse,
-        @reconfigure_callback,
-        @message_queue
-      )
+      @dns = make_dns_watcher(@message_queue)
+      @zk = make_zookeeper_watcher(@message_queue)
 
       @zk.start
       @dns.start
@@ -202,12 +181,45 @@ class Synapse::ServiceWatcher
     end
 
     # Override reconfigure! as this class should not explicitly reconfigure
-    # synapse
+    # synapse. The `Dns` class (@dns) actually calls the reconfigure for
+    # Synapse, because it inherits the default implementation.
     def reconfigure!
       @revision += 1
     end
 
     private
+
+    def make_dns_watcher(queue)
+      dns_discovery_opts = @discovery.select do |k,_|
+        k == 'nameserver' || k == 'label_filter'
+      end
+
+      Dns.new(
+        mk_child_watcher_opts(dns_discovery_opts),
+        self,
+        @synapse,
+        @reconfigure_callback,
+        queue
+      )
+    end
+
+    def make_zookeeper_watcher(queue)
+      zookeeper_discovery_opts = @discovery.select do |k,_|
+        k == 'hosts' || k == 'path' || k == 'label_filter' || k == 'polling_interval_sec'
+      end
+
+      Zookeeper.new(
+        mk_child_watcher_opts(zookeeper_discovery_opts),
+        self,
+        @synapse,
+        @reconfigure_callback,
+        # -> {
+        #   queue.push(Messages::NewServers.new(@backends))
+        #   reconfigure!
+        # },
+        queue
+      )
+    end
 
     def validate_discovery_opts
       unless @discovery['method'] == 'zookeeper_dns'
