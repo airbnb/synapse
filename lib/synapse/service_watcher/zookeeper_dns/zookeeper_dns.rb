@@ -112,33 +112,6 @@ class Synapse::ServiceWatcher
       end
     end
 
-    class Zookeeper < Synapse::ServiceWatcher::ZookeeperWatcher
-      def initialize(opts={}, parent=nil, synapse, reconfigure_callback, message_queue)
-        super(opts, synapse, reconfigure_callback)
-
-        @message_queue = message_queue
-        @parent = parent
-      end
-
-      # Overrides reconfigure! to cause the new list of servers to be messaged
-      # to the DNS watcher rather than invoking a synapse reconfigure directly
-      def reconfigure!
-        # push the new backends onto the queue
-        @message_queue.push(Messages::NewServers.new(@backends))
-        # Propagate revision updates down to ZookeeperDnsWatcher, so
-        # that stanza cache can work properly.
-        @revision += 1
-        puts "parent is #{@parent}"
-        @parent.reconfigure! unless @parent.nil?
-      end
-
-      private
-
-      # Validation is skipped as it has already occurred in the parent watcher
-      def validate_discovery_opts
-      end
-    end
-
     def start
       @check_interval = @discovery['check_interval'] || 30.0
       @message_queue = Queue.new
@@ -205,19 +178,17 @@ class Synapse::ServiceWatcher
 
     def make_zookeeper_watcher(queue)
       zookeeper_discovery_opts = @discovery.select do |k,_|
-        k == 'hosts' || k == 'path' || k == 'label_filter' || k == 'polling_interval_sec'
+        k == 'hosts' || k == 'path' || k == 'label_filter'
       end
+      zookeeper_discovery_opts['method'] = 'zookeeper'
 
-      Zookeeper.new(
+      Synapse::ServiceWatcher::ZookeeperWatcher.new(
         mk_child_watcher_opts(zookeeper_discovery_opts),
-        self,
         @synapse,
-        @reconfigure_callback,
-        # -> {
-        #   queue.push(Messages::NewServers.new(@backends))
-        #   reconfigure!
-        # },
-        queue
+        -> {
+          queue.push(Messages::NewServers.new(@backends))
+          reconfigure!
+        },
       )
     end
 

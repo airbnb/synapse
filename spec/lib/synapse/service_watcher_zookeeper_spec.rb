@@ -3,8 +3,9 @@ require 'active_support/all'
 require 'active_support/testing/time_helpers'
 
 require 'synapse/service_watcher/zookeeper/zookeeper'
-require 'synapse/service_watcher/zookeeper_dns/zookeeper_dns'
 require 'synapse/service_watcher/zookeeper_poll/zookeeper_poll'
+require 'synapse/service_watcher/zookeeper_dns/zookeeper_dns'
+require 'synapse/service_watcher/zookeeper_dns_poll/zookeeper_dns_poll'
 
 describe Synapse::ServiceWatcher::ZookeeperWatcher do
   let(:mock_synapse) do
@@ -497,58 +498,6 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     end
   end
 
-  describe 'ZookeeperDnsWatcher' do
-    let(:discovery) { { 'method' => 'zookeeper_dns', 'hosts' => ['somehost'],'path' => 'some/path' } }
-
-    subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher.new(config, mock_synapse, -> {}) }
-    let(:mock_zk) { double(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Zookeeper) }
-    let(:mock_dns) { double(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns) }
-
-    it 'creates child watchers' do
-      expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Zookeeper).to receive(:new).exactly(:once).and_return(mock_zk)
-      expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns).to receive(:new).exactly(:once).and_return(mock_dns)
-      expect(mock_zk).to receive(:start).exactly(:once)
-      expect(mock_dns).to receive(:start).exactly(:once)
-      expect(Thread).to receive(:new).exactly(:once)
-
-      subject.start
-    end
-
-    describe 'make_zookeeper_watcher' do
-      let(:mock_queue) { double(Queue) }
-
-      it 'creates a ZK watcher' do
-        expect(subject.send(:make_zookeeper_watcher, mock_queue)).to be_kind_of(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Zookeeper)
-      end
-
-      it 'creates a ZK watcher with proper reconfigure' do
-        zk = subject.send(:make_zookeeper_watcher, mock_queue)
-
-        expect(mock_queue).to receive(:push).with(kind_of(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers))
-        expect(subject).to receive(:reconfigure!).exactly(:once)
-        zk.send(:reconfigure!)
-      end
-    end
-
-    # describe Synapse::ServiceWatcher::ZookeeperDnsWatcher::Zookeeper do
-    #   let(:mock_cb) { -> { } }
-    #   subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher::Zookeeper.new(config, nil, mock_synapse, mock_cb, []) }
-
-    #   it 'decodes data correctly' do
-    #     expect(subject.send(:deserialize_service_instance, service_data_string)).to eql(deserialized_service_data)
-    #   end
-
-    #   describe 'reconfigure!' do
-    #     it 'calls provided callback' do
-    #       expect(mock_cb).to receive(:call).exactly(:once)
-    #       subject.send(:reconfigure!)
-    #     end
-    #   end
-    # end
-  end
-
-  # TODO: ZookeeperDnsPollWatcher
-
   describe Synapse::ServiceWatcher::ZookeeperPollWatcher do
     let(:mock_zk) {
       zk = double("zookeeper")
@@ -851,6 +800,74 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
             subject.send(:discover)
           end
         end
+      end
+    end
+  end
+
+  describe 'ZookeeperDnsWatcher' do
+    let(:discovery) { { 'method' => 'zookeeper_dns', 'hosts' => ['somehost'],'path' => 'some/path' } }
+
+    subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher.new(config, mock_synapse, -> {}) }
+    let(:mock_zk) { double(Synapse::ServiceWatcher::ZookeeperWatcher) }
+    let(:mock_dns) { double(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns) }
+
+    it 'creates child watchers' do
+      expect(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).exactly(:once).and_return(mock_zk)
+      expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns).to receive(:new).exactly(:once).and_return(mock_dns)
+      expect(mock_zk).to receive(:start).exactly(:once)
+      expect(mock_dns).to receive(:start).exactly(:once)
+      expect(Thread).to receive(:new).exactly(:once)
+
+      subject.start
+    end
+
+    describe 'make_zookeeper_watcher' do
+      let(:mock_queue) { double(Queue) }
+
+      it 'creates a ZK watcher' do
+        expect(subject.send(:make_zookeeper_watcher, mock_queue)).to be_kind_of(Synapse::ServiceWatcher::ZookeeperWatcher)
+      end
+
+      it 'creates a ZK watcher with proper reconfigure' do
+        zk = subject.send(:make_zookeeper_watcher, mock_queue)
+
+        expect(mock_queue).to receive(:push).with(kind_of(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers))
+        expect(subject).to receive(:reconfigure!).exactly(:once)
+        zk.send(:reconfigure!)
+      end
+    end
+  end
+
+  describe 'ZookeeperDnsPollWatcher' do
+    let(:discovery) { { 'method' => 'zookeeper_dns_poll', 'hosts' => ['somehost'], 'path' => 'some/path' } }
+
+    subject { Synapse::ServiceWatcher::ZookeeperDnsPollWatcher.new(config, mock_synapse, -> {}) }
+    let(:mock_zk) { double(Synapse::ServiceWatcher::ZookeeperPollWatcher) }
+    let(:mock_dns) { double(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns) }
+
+    it 'creates child watchers' do
+      expect(Synapse::ServiceWatcher::ZookeeperPollWatcher).to receive(:new).exactly(:once).and_return(mock_zk)
+      expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns).to receive(:new).exactly(:once).and_return(mock_dns)
+      expect(mock_zk).to receive(:start).exactly(:once)
+      expect(mock_dns).to receive(:start).exactly(:once)
+      expect(Thread).to receive(:new).exactly(:once)
+
+      subject.start
+    end
+
+    describe 'make_zookeeper_watcher' do
+      let(:mock_queue) { double(Queue) }
+
+      it 'creates a ZK watcher' do
+        expect(subject.send(:make_zookeeper_watcher, mock_queue)).to be_kind_of(Synapse::ServiceWatcher::ZookeeperPollWatcher)
+      end
+
+      it 'creates a ZK watcher with proper reconfigure' do
+        zk = subject.send(:make_zookeeper_watcher, mock_queue)
+
+        expect(mock_queue).to receive(:push).with(kind_of(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers))
+        expect(subject).to receive(:reconfigure!).exactly(:once)
+        zk.send(:reconfigure!)
       end
     end
   end
