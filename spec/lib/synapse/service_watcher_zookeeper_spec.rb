@@ -102,6 +102,40 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       expect(subject.send(:parse_service_config, config_for_generator_invalid_string)).to eql(parsed_config_for_generator_invalid)
     end
 
+    context 'with skipGc => true from cron job' do
+      let(:service_data) {
+        {
+          'host' => 'server',
+          'port' => '8888',
+          'name' => 'server',
+          'weight' => '1',
+          'haproxy_server_options' => 'backup',
+          'labels' => { 'az' => 'us-east-1a' },
+          'skipGc' => true,
+        }
+      }
+
+      let(:backend) {
+        {
+          'name' => 'server',
+          'host' => 'server',
+          'port' => '8888',
+          'labels' => {
+            'az' => 'us-east-1a'
+          },
+          'weight' => '1',
+          'haproxy_server_options' => 'backup',
+          'id' => 5
+        }
+      }
+
+      it 'decodes properly' do
+        deserialized = subject.send(:deserialize_service_instance, service_data_string)
+        expect(deserialized).to eq(deserialized_service_data)
+        expect(subject.send(:create_backend_info, 'i-xxxxxxx_0000000005', deserialized)).to eq(backend)
+      end
+    end
+
     it 'reacts to zk push events' do
       expect(subject).to receive(:watch)
       expect(subject).to receive(:discover).and_call_original
