@@ -1,4 +1,5 @@
 require 'synapse/service_watcher/base/base'
+require 'synapse/service_watcher/zookeeper_dns/zookeeper_dns'
 require 'synapse/service_watcher/zookeeper_poll/zookeeper_poll'
 
 require 'thread'
