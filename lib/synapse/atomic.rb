@@ -16,5 +16,13 @@ module Synapse
         @value = new_value
       }
     end
+
+    def get_and_set(new_value)
+      return @mu.synchronize {
+        original_value = @value
+        @value = new_value
+        original_value
+      }
+    end
   end
 end

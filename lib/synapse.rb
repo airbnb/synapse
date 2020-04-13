@@ -78,7 +78,7 @@ module Synapse
             raise "synapse: service watcher #{w.name} failed ping!" unless alive
           end
 
-          if @config_updated.get
+          if @config_updated.get_and_set(false)
             statsd_increment('synapse.config.update')
             @config_generators.each do |config_generator|
               log.info "synapse: configuring #{config_generator.name}"
@@ -90,8 +90,6 @@ module Synapse
                 raise e
               end
             end
-
-            @config_updated.set(false)
           end
 
           sleep 1
@@ -135,7 +133,7 @@ module Synapse
     private
     def create_service_watchers(services={})
       service_watchers = []
-      reconfigure_callback = -> { reconfigure! }
+      reconfigure_callback = ->(*args) { reconfigure! }
 
       services.each do |service_name, service_config|
         if service_config.has_key?('load_test_concurrency')

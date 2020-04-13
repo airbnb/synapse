@@ -3,8 +3,9 @@ require 'active_support/all'
 require 'active_support/testing/time_helpers'
 
 require 'synapse/service_watcher/zookeeper/zookeeper'
-require 'synapse/service_watcher/zookeeper_dns/zookeeper_dns'
 require 'synapse/service_watcher/zookeeper_poll/zookeeper_poll'
+require 'synapse/service_watcher/zookeeper_dns/zookeeper_dns'
+require 'synapse/service_watcher/zookeeper_dns_poll/zookeeper_dns_poll'
 
 describe Synapse::ServiceWatcher::ZookeeperWatcher do
   let(:mock_synapse) do
@@ -88,7 +89,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       node_double
     end
 
-    subject { Synapse::ServiceWatcher::ZookeeperWatcher.new(config, mock_synapse, -> {}) }
+    subject { Synapse::ServiceWatcher::ZookeeperWatcher.new(config, mock_synapse, ->(*args) {}) }
     it 'decodes data correctly' do
       expect(subject.send(:deserialize_service_instance, service_data_string)).to eql(deserialized_service_data)
     end
@@ -99,6 +100,40 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
     it 'decodes invalid config data correctly' do
       expect(subject.send(:parse_service_config, config_for_generator_invalid_string)).to eql(parsed_config_for_generator_invalid)
+    end
+
+    context 'with unknown fields' do
+      let(:service_data) {
+        {
+          'host' => 'server',
+          'port' => '8888',
+          'name' => 'server',
+          'weight' => '1',
+          'haproxy_server_options' => 'backup',
+          'labels' => { 'az' => 'us-east-1a' },
+          'skipGc' => true,
+        }
+      }
+
+      let(:backend) {
+        {
+          'name' => 'server',
+          'host' => 'server',
+          'port' => '8888',
+          'labels' => {
+            'az' => 'us-east-1a'
+          },
+          'weight' => '1',
+          'haproxy_server_options' => 'backup',
+          'id' => 5
+        }
+      }
+
+      it 'decodes properly' do
+        deserialized = subject.send(:deserialize_service_instance, service_data_string)
+        expect(deserialized).to eq(deserialized_service_data)
+        expect(subject.send(:create_backend_info, 'i-xxxxxxx_0000000005', deserialized)).to eq(backend)
+      end
     end
 
     it 'reacts to zk push events' do
@@ -497,15 +532,6 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     end
   end
 
-  describe 'ZookeeperDnsWatcher' do
-    let(:discovery) { { 'method' => 'zookeeper_dns', 'hosts' => ['somehost'],'path' => 'some/path' } }
-    let(:message_queue) { [] }
-    subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher::Zookeeper.new(config, mock_synapse, -> {}, message_queue) }
-    it 'decodes data correctly' do
-      expect(subject.send(:deserialize_service_instance, service_data_string)).to eql(deserialized_service_data)
-    end
-  end
-
   describe Synapse::ServiceWatcher::ZookeeperPollWatcher do
     let(:mock_zk) {
       zk = double("zookeeper")
@@ -515,7 +541,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     let(:mock_thread) { double("thread") }
     let(:discovery) { { 'method' => 'zookeeper_poll', 'hosts' => ['somehost'],'path' => 'some/path', 'polling_interval_sec' => 30 } }
 
-    subject { Synapse::ServiceWatcher::ZookeeperPollWatcher.new(config, mock_synapse, -> {}) }
+    subject { Synapse::ServiceWatcher::ZookeeperPollWatcher.new(config, mock_synapse, ->(*args) {}) }
 
     before :each do
       # reset the pool so that doubles are not re-used across instances
@@ -808,6 +834,78 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
             subject.send(:discover)
           end
         end
+      end
+    end
+  end
+
+  describe 'ZookeeperDnsWatcher' do
+    let(:discovery) { { 'method' => 'zookeeper_dns', 'hosts' => ['somehost'],'path' => 'some/path' } }
+
+    subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher.new(config, mock_synapse, ->(*args) {}) }
+    let(:mock_zk) { double(Synapse::ServiceWatcher::ZookeeperWatcher) }
+    let(:mock_dns) { double(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns) }
+
+    it 'creates child watchers' do
+      expect(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).exactly(:once).and_return(mock_zk)
+      expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns).to receive(:new).exactly(:once).and_return(mock_dns)
+      expect(mock_zk).to receive(:start).exactly(:once)
+      expect(mock_dns).to receive(:start).exactly(:once)
+      expect(Thread).to receive(:new).exactly(:once)
+
+      subject.start
+    end
+
+    describe 'make_zookeeper_watcher' do
+      let(:mock_queue) { double(Queue) }
+      let(:backends) { [{'name' => 'host-1', 'port' => 1234}, {'name' => 'host-2', 'port' => 5678}] }
+
+      it 'creates a ZK watcher' do
+        expect(subject.send(:make_zookeeper_watcher, mock_queue)).to be_kind_of(Synapse::ServiceWatcher::ZookeeperWatcher)
+      end
+
+      it 'creates a ZK watcher with proper reconfigure' do
+        zk = subject.send(:make_zookeeper_watcher, mock_queue)
+
+        expect(mock_queue).to receive(:push).with(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(backends)).exactly(:once)
+        expect(subject).to receive(:reconfigure!).exactly(:once)
+
+        zk.send(:set_backends, backends)
+      end
+    end
+  end
+
+  describe 'ZookeeperDnsPollWatcher' do
+    let(:discovery) { { 'method' => 'zookeeper_dns_poll', 'hosts' => ['somehost'], 'path' => 'some/path' } }
+
+    subject { Synapse::ServiceWatcher::ZookeeperDnsPollWatcher.new(config, mock_synapse, ->(*args) {}) }
+    let(:mock_zk) { double(Synapse::ServiceWatcher::ZookeeperPollWatcher) }
+    let(:mock_dns) { double(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns) }
+
+    it 'creates child watchers' do
+      expect(Synapse::ServiceWatcher::ZookeeperPollWatcher).to receive(:new).exactly(:once).and_return(mock_zk)
+      expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns).to receive(:new).exactly(:once).and_return(mock_dns)
+      expect(mock_zk).to receive(:start).exactly(:once)
+      expect(mock_dns).to receive(:start).exactly(:once)
+      expect(Thread).to receive(:new).exactly(:once)
+
+      subject.start
+    end
+
+    describe 'make_zookeeper_watcher' do
+      let(:mock_queue) { double(Queue) }
+      let(:backends) { [{'name' => 'host-1', 'port' => 1234}, {'name' => 'host-2', 'port' => 5678}] }
+
+      it 'creates a ZK watcher' do
+        expect(subject.send(:make_zookeeper_watcher, mock_queue)).to be_kind_of(Synapse::ServiceWatcher::ZookeeperPollWatcher)
+      end
+
+      it 'creates a ZK watcher with proper reconfigure' do
+        zk = subject.send(:make_zookeeper_watcher, mock_queue)
+
+        expect(mock_queue).to receive(:push).with(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(backends)).exactly(:once)
+        expect(subject).to receive(:reconfigure!).exactly(:once)
+
+        zk.send(:set_backends, backends)
       end
     end
   end
