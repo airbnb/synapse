@@ -102,7 +102,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       expect(subject.send(:parse_service_config, config_for_generator_invalid_string)).to eql(parsed_config_for_generator_invalid)
     end
 
-    context 'with skipGc => true from cron job' do
+    context 'with unknown fields' do
       let(:service_data) {
         {
           'host' => 'server',
