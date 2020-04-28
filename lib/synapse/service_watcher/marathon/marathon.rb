@@ -1,4 +1,4 @@
-require 'synapse/service_watcher/base'
+require 'synapse/service_watcher/base/base'
 require 'json'
 require 'net/http'
 require 'resolv'

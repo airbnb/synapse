@@ -165,8 +165,160 @@ describe Synapse::ServiceWatcher do
         expect{ subject }.not_to raise_error
       end
     end
+
+    context 'with method => multi' do
+      let(:discovery_config) {
+        {
+          'method' => 'multi',
+          'watchers' => {'primary' => {
+                           'method' => 'zookeeper',
+                           'hosts' => 'localhost:2181',
+                           'path' => '/smartstack',
+                         },
+                         'secondary' => {
+                           'method' => 'ec2tag',
+                           'tag_name' => 'footag',
+                           'tag_value' => 'barvalue',
+                           'aws_access_key_id' => 'bogus',
+                           'aws_secret_access_key' => 'morebogus',
+                           'aws_region' => 'evenmorebogus',
+                         }},
+          'resolver' => {
+            'method' => 'fallback',
+          }
+        }
+      }
+
+      it 'creates watcher correctly' do
+        expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(config, mock_synapse, default_callback)
+        expect{ subject }.not_to raise_error
+      end
+    end
+
+    context 'with discovery_multi present' do
+      let(:discovery) {
+        {
+          'method' => 'zookeeper',
+          'hosts' => 'localhost:2181',
+          'path' => '/smartstack',
+        }
+      }
+      let(:watchers) {
+        {
+          'secondary' => {
+            'method' => 'ec2tag',
+            'tag_name' => 'footag',
+            'tag_value' => 'barvalue',
+            'aws_access_key_id' => 'bogus',
+            'aws_secret_access_key' => 'morebogus',
+            'aws_region' => 'evenmorebogus',
+          }}
+      }
+
+      let(:discovery_multi) {
+        {
+          'watchers' => watchers,
+          'resolver' => {
+            'method' => 'fallback',
+          }
+        }
+      }
+
+      let(:config) {
+        {
+          'haproxy' => {
+            'port' => '8080',
+            'server_port_override' => '8081',
+          },
+          'discovery' => discovery,
+          'discovery_multi' => discovery_multi,
+        }
+      }
+
+      let(:expected_config) {
+        expected_config = Marshal.load(Marshal.dump(config))
+        expected_config['name'] = 'test'
+        expected_config['discovery'] = Marshal.load(Marshal.dump(discovery_multi))
+        expected_config['discovery']['watchers']['primary'] = discovery
+        expected_config['discovery']['method'] = 'multi'
+        expected_config.delete('discovery_multi')
+
+        expected_config
+      }
+
+      it 'creates watcher correctly' do
+        expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, mock_synapse, default_callback)
+        expect{ subject }.not_to raise_error
+      end
+
+      context 'with method already set' do
+        let(:multi_method) { 'multi' }
+
+        let(:discovery_multi) {
+          {
+            'method' => multi_method,
+            'watchers' => watchers,
+            'resolver' => {
+              'method' => 'fallback',
+            }
+          }
+        }
+
+        context 'to not multi' do
+          let(:multi_method) { 'bogus' }
+
+          it 'raises an error' do
+            expect{ subject }.to raise_error(ArgumentError)
+          end
+        end
+
+        context 'to multi' do
+          it 'creates watcher properly' do
+            expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, mock_synapse, default_callback)
+            expect{ subject }.not_to raise_error
+          end
+        end
+      end
+
+      context 'without any watchers set' do
+        let(:watchers) {{}}
+
+        it 'creates watcher properly' do
+          expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, mock_synapse, default_callback)
+          expect{ subject }.not_to raise_error
+        end
+      end
+
+      context 'with discovery nil' do
+        let(:discovery) { nil }
+
+        it 'creates watcher properly' do
+          expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, mock_synapse, default_callback)
+          expect{ subject }.not_to raise_error
+        end
+      end
+
+      context 'with primary already set' do
+        let(:watchers) {
+          {'primary' => 'should_throw_error_if_used'}
+        }
+
+        it 'ignores primary' do
+          expect(Synapse::ServiceWatcher::MultiWatcher).to receive(:new).exactly(:once).with(expected_config, mock_synapse, default_callback)
+          expect{ subject }.not_to raise_error
+        end
+      end
+
+      context 'with watchers invalid' do
+        let(:watchers) {
+          {'secondary' => {'method' => 'bogus'}}
+        }
+
+        it 'raises an error' do
+          expect{ subject }.to raise_error(ArgumentError)
+        end
+      end
+    end
   end
-
 end
-
 

@@ -1,5 +1,6 @@
 require 'spec_helper'
 require 'tempfile'
+require 'synapse/service_watcher/multi/multi'
 
 describe 'parseconfig' do
   it 'parses a templated config' do
@@ -52,5 +53,51 @@ describe 'parseconfig' do
     expect {
       load "#{File.dirname(__FILE__)}/../../bin/synapse"
     }.to raise_error(SyntaxError)
+  end
+
+  it 'parses discovery_multi configuration properly' do
+    allow_any_instance_of(Synapse::Synapse).to receive(:run)
+
+    expect(Synapse::Synapse).to receive(:new).exactly(:once).and_call_original
+    expect(Synapse::ServiceWatcher::MultiWatcher)
+      .to receive(:new)
+      .exactly(:once)
+      .with({"discovery" => {
+               "method" => "multi",
+               "resolver" => {
+                 "method" => "fallback",
+               },
+               "watchers" => {
+                 "primary" => {
+                   "method" => "zookeeper",
+                   "path" => "/services/service1",
+                   "discovery_jitter" => 25,
+                   "hosts" => ["localhost:2181", "localhost:2182", "localhost:2183"],
+                 },
+                 "secondary" => {
+                   "method" => "zookeeper",
+                   "path" => "/services/service1",
+                   "discovery_jitter" => 5,
+                   "hosts" => ["localhost:2184", "localhost:2185", "localhost:2186"],
+                 },
+               }
+             },
+             "haproxy" => {
+               "port" => 3213,
+               "server_options" => "check inter 2s rise 3 fall 2",
+               "bind_options" => "ssl no-sslv3 crt /path/to/cert/example.pem ciphers ECDHE-ECDSA-CHACHA20-POLY1305",
+               "listen" => [
+                 "mode http",
+                 "option httpchk /health",
+                 "http-check expect string OK",
+               ]
+             },
+            "name" => "service1"}, instance_of(Synapse::Synapse), duck_type(:call))
+
+    stub_const 'ENV', ENV.to_hash.merge(
+      {"SYNAPSE_CONFIG" => "#{File.dirname(__FILE__)}/../../config/discovery-multi.conf.json"})
+    stub_const 'ARGV', []
+
+    load "#{File.dirname(__FILE__)}/../../bin/synapse"
   end
 end

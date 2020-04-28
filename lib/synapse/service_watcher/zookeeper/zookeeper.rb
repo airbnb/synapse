@@ -1,4 +1,5 @@
-require "synapse/service_watcher/base"
+require "synapse/service_watcher/base/base"
+require 'synapse/atomic'
 
 require 'thread'
 require 'zk'
@@ -54,29 +55,33 @@ class Synapse::ServiceWatcher
       @zk_hosts = zk_host_list.join(',')
 
       @zk = nil
+      @watcher = nil
+      @thread = nil
+      @should_exit = Synapse::AtomicValue.new(false)
     end
 
     def start
-      @watcher = nil
-
       log.info "synapse: starting ZK watcher #{@name} @ cluster: #{@zk_cluster} path: #{@discovery['path']} retry policy: #{@retry_policy}"
-      zk_connect do
-        # the path must exist, otherwise watch callbacks will not work
-        with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
-          unless @zk.exists?(@discovery['path'])
-            statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
-              log.info "synapse: zk create at #{@discovery['path']} for #{attempts} times"
-              create(@discovery['path'])
-            end
-          end
-        end
 
-        watcher_callback.call
+      # Zookeeper processing is run in a background thread so that any retries
+      # do not block the main thread.
+      zk_connect do
+        @thread = Thread.new {
+          start_discovery
+
+          until @should_exit.get
+            sleep 0.5
+          end
+        }
       end
     end
 
     def stop
       log.warn "synapse: zookeeper watcher exiting"
+
+      @should_exit.set(true)
+      @thread.join unless @thread.nil?
+
       zk_teardown do
         @watcher.unsubscribe unless @watcher.nil?
         @watcher = nil
@@ -91,7 +96,28 @@ class Synapse::ServiceWatcher
       @zk && (@zk.associating? || @zk.connecting? || @zk.connected?)
     end
 
+    def watching?
+      # This is different from ping? in that it only returns true if ZK
+      # is connected, which is particularly useful for checking if updates are
+      # being processed (or are stalled).
+      @zk && @zk.connected?
+    end
+
     private
+
+    def start_discovery
+      # the path must exist, otherwise watch callbacks will not work
+      with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
+        unless @zk.exists?(@discovery['path'])
+          statsd_time('synapse.watcher.zk.create_path.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
+            log.info "synapse: zk create at #{@discovery['path']} for #{attempts} times"
+            create(@discovery['path'])
+          end
+        end
+      end
+
+      watcher_callback.call
+    end
 
     # find the current backends at the discovery path
     def discover(zookeeper_opts={:watch => true})
@@ -103,7 +129,13 @@ class Synapse::ServiceWatcher
         zk_children = with_retry(@retry_policy.merge({'retriable_errors' => ZK_RETRIABLE_ERRORS})) do |attempts|
             statsd_time('synapse.watcher.zk.children.elapsed_time', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"]) do
               log.info "synapse: zk list children at #{@discovery['path']} for #{attempts} times"
-              @zk.children(@discovery['path'], zookeeper_opts)
+              begin
+                @zk.children(@discovery['path'], zookeeper_opts)
+              rescue ZK::Exceptions::NoNode
+                log.error "synapse: zk list children failed with no node"
+                statsd_increment('synapse.watcher.zk.children.failed', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
+                []
+              end
             end
         end
         statsd_gauge('synapse.watcher.zk.children.bytes', ObjectSpace.memsize_of(zk_children), ["zk_cluster:#{@zk_cluster}", "zk_path:#{@discovery['path']}"])
@@ -444,7 +476,7 @@ class Synapse::ServiceWatcher
       #   each key should be named by one of the available generators
       #   each value should be a hash (could be empty)
       decoded.collect.each do |generator_name, generator_config|
-        if !@synapse.available_generators.keys.include?(generator_name)
+        if !@available_generators.keys.include?(generator_name)
           log.warn "synapse: invalid generator name in ZK node at #{@discovery['path']}:" \
             " #{generator_name}"
           next

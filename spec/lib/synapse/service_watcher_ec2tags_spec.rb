@@ -1,5 +1,5 @@
 require 'spec_helper'
-require 'synapse/service_watcher/ec2tag'
+require 'synapse/service_watcher/ec2tag/ec2tag'
 require 'logging'
 
 class Synapse::ServiceWatcher::Ec2tagWatcher
@@ -39,7 +39,7 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
     allow(mock_synapse).to receive(:reconfigure!).and_return(true)
     mock_synapse
   end
-  subject { Synapse::ServiceWatcher::Ec2tagWatcher.new(basic_config, mock_synapse, -> {}) }
+  subject { Synapse::ServiceWatcher::Ec2tagWatcher.new(basic_config, mock_synapse, ->(*args) {}) }
 
   let(:basic_config) do
     { 'name' => 'ec2tagtest',

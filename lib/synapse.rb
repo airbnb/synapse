@@ -1,11 +1,14 @@
 require 'logger'
 require 'json'
+require 'uri'
+require 'aws-sdk'
 
 require 'synapse/version'
 require 'synapse/log'
 require 'synapse/statsd'
 require 'synapse/config_generator'
 require 'synapse/service_watcher'
+require 'synapse/atomic'
 require 'synapse/version'
 
 module Synapse
@@ -17,6 +20,15 @@ module Synapse
     def initialize(opts={})
       StatsD.configure_statsd(opts["statsd"] || {})
 
+      # configure AWS clients to use custom endpoint
+      if ENV.has_key?('AWS_ENDPOINT_URL')
+        aws_endpoint = URI(ENV['AWS_ENDPOINT_URL'])
+        AWS.config(s3_endpoint: aws_endpoint.host,
+                   s3_port: aws_endpoint.port,
+                   s3_force_path_style: true,
+                   use_ssl: aws_endpoint.scheme == 'https')
+      end
+
       # create objects that need to be notified of service changes
       @config_generators = create_config_generators(opts)
       raise "no config generators supplied" if @config_generators.empty?
@@ -26,7 +38,7 @@ module Synapse
       @service_watchers = create_service_watchers(opts['services'])
 
       # configuration is initially enabled to configure on first loop
-      @config_updated = true
+      @config_updated = AtomicValue.new(true)
 
       # Any exceptions in the watcher threads should wake the main thread so
       # that we can fail fast.
@@ -66,8 +78,7 @@ module Synapse
             raise "synapse: service watcher #{w.name} failed ping!" unless alive
           end
 
-          if @config_updated
-            @config_updated = false
+          if @config_updated.get_and_set(false)
             statsd_increment('synapse.config.update')
             @config_generators.each do |config_generator|
               log.info "synapse: configuring #{config_generator.name}"
@@ -112,7 +123,7 @@ module Synapse
     end
 
     def reconfigure!
-      @config_updated = true
+      @config_updated.set(true)
     end
 
     def available_generators
@@ -122,7 +133,7 @@ module Synapse
     private
     def create_service_watchers(services={})
       service_watchers = []
-      reconfigure_callback = -> { reconfigure! }
+      reconfigure_callback = ->(*args) { reconfigure! }
 
       services.each do |service_name, service_config|
         if service_config.has_key?('load_test_concurrency')

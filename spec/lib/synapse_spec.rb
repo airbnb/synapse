@@ -1,6 +1,6 @@
 require 'spec_helper'
 require 'synapse'
-require 'synapse/service_watcher/base'
+require 'synapse/service_watcher/base/base'
 
 describe Synapse do
   let(:discovery) {
