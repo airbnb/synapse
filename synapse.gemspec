@@ -35,6 +35,6 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency "pry-nav"
   gem.add_development_dependency "webmock"
   gem.add_development_dependency "timecop"
-  gem.add_development_dependency "simplecov", "~> 0.16"
-  gem.add_development_dependency "simplecov-json", "~> 0.2"
+  gem.add_development_dependency "simplecov", "~> 0.17.1"
+  gem.add_development_dependency "simplecov-json", "0.2.0"
 end
