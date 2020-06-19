@@ -22,3 +22,4 @@ vendor/
 
 synapse.jar
 .ruby-version
+Gemfile.lock

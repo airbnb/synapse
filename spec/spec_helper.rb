@@ -24,7 +24,6 @@ if ENV["CODE_COVERAGE"] == "true"
 end
 
 require "#{File.dirname(__FILE__)}/../lib/synapse"
-require 'pry'
 require 'support/configuration'
 require 'webmock/rspec'
 
