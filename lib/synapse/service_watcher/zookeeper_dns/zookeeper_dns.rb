@@ -226,6 +226,7 @@ class Synapse::ServiceWatcher
         'name' => @name,
         'discovery' => discovery_opts,
         'default_servers' => @default_servers,
+        'use_previous_backends' => @use_previous_backends,
       }
     end
   end
