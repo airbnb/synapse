@@ -845,14 +845,26 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     let(:mock_zk) { double(Synapse::ServiceWatcher::ZookeeperWatcher) }
     let(:mock_dns) { double(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns) }
 
-    it 'creates child watchers' do
-      expect(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).exactly(:once).and_return(mock_zk)
-      expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns).to receive(:new).exactly(:once).and_return(mock_dns)
-      expect(mock_zk).to receive(:start).exactly(:once)
-      expect(mock_dns).to receive(:start).exactly(:once)
-      expect(Thread).to receive(:new).exactly(:once)
+    context 'with base watcher options' do
+      let(:use_previous_backends) { double('bool') }
+      let(:config) {
+        {
+          'name' => 'test',
+          'haproxy' => {},
+          'discovery' => discovery,
+          'use_previous_backends' => use_previous_backends,
+        }
+      }
 
-      subject.start
+      it 'passes all options to children watchers' do
+        expect(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).exactly(:once).with({'name' => 'test', 'discovery' => {'hosts' => discovery['hosts'], 'path' => discovery['path'], 'method' => 'zookeeper'}, 'default_servers' => [], 'use_previous_backends' => use_previous_backends}, anything, anything).and_return(mock_zk)
+        expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns).to receive(:new).exactly(:once).with({'name' => 'test', 'discovery' => {}, 'default_servers' => [], 'use_previous_backends' => use_previous_backends}, anything, anything, anything, anything).and_return(mock_dns)
+        expect(mock_zk).to receive(:start).exactly(:once)
+        expect(mock_dns).to receive(:start).exactly(:once)
+        expect(Thread).to receive(:new).exactly(:once)
+
+        subject.start
+      end
     end
 
     describe 'make_zookeeper_watcher' do
@@ -881,14 +893,26 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     let(:mock_zk) { double(Synapse::ServiceWatcher::ZookeeperPollWatcher) }
     let(:mock_dns) { double(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns) }
 
-    it 'creates child watchers' do
-      expect(Synapse::ServiceWatcher::ZookeeperPollWatcher).to receive(:new).exactly(:once).and_return(mock_zk)
-      expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns).to receive(:new).exactly(:once).and_return(mock_dns)
-      expect(mock_zk).to receive(:start).exactly(:once)
-      expect(mock_dns).to receive(:start).exactly(:once)
-      expect(Thread).to receive(:new).exactly(:once)
+        context 'with base watcher options' do
+      let(:use_previous_backends) { double('bool') }
+      let(:config) {
+        {
+          'name' => 'test',
+          'haproxy' => {},
+          'discovery' => discovery,
+          'use_previous_backends' => use_previous_backends,
+        }
+      }
 
-      subject.start
+      it 'passes all options to children watchers' do
+        expect(Synapse::ServiceWatcher::ZookeeperPollWatcher).to receive(:new).exactly(:once).with({'name' => 'test', 'discovery' => {'hosts' => discovery['hosts'], 'path' => discovery['path'], 'method' => 'zookeeper_poll'}, 'default_servers' => [], 'use_previous_backends' => use_previous_backends}, anything, anything).and_return(mock_zk)
+        expect(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns).to receive(:new).exactly(:once).with({'name' => 'test', 'discovery' => {}, 'default_servers' => [], 'use_previous_backends' => use_previous_backends}, anything, anything, anything, anything).and_return(mock_dns)
+        expect(mock_zk).to receive(:start).exactly(:once)
+        expect(mock_dns).to receive(:start).exactly(:once)
+        expect(Thread).to receive(:new).exactly(:once)
+
+        subject.start
+      end
     end
 
     describe 'make_zookeeper_watcher' do
