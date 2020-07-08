@@ -392,7 +392,9 @@ class Synapse::ServiceWatcher
             # https://github.com/zk-ruby/zookeeper/blob/80a88e3179fd1d526f7e62a364ab5760f5f5da12/ext/zkrb.c
             @@zk_pool[@zk_hosts] = with_retry(@retry_policy.merge({'retriable_errors' => RuntimeError})) do |attempts|
                 log.info "synapse: creating pooled connection to #{@zk_hosts} for #{attempts} times"
-                ZK.new(@zk_hosts, :timeout => 5, :thread => :per_callback)
+                # zk session timeout is 2 * receive_timeout_msec (as of zookeeper-1.4.x) 
+                # i.e. 18000 means 36 sec
+                ZK.new(@zk_hosts, :timeout => 5, :receive_timeout_msec => 18000, :thread => :per_callback)
             end
             @@zk_pool_count[@zk_hosts] = 1
             log.info "synapse: successfully created zk connection to #{@zk_hosts}"

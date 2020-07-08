@@ -611,7 +611,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         expect(ZK)
           .to receive(:new)
           .exactly(:once)
-          .with('somehost', :timeout => 5, :thread => :per_callback)
+          .with('somehost', :timeout => 5, :receive_timeout_msec => 18000, :thread => :per_callback)
           .and_return(mock_zk)
 
         subject.start
