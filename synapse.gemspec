@@ -17,7 +17,7 @@ Gem::Specification.new do |gem|
   gem.summary       = %q{Dynamic HAProxy configuration daemon}
   gem.homepage      = "https://github.com/airbnb/synapse"
 
-  gem.files         = `git ls-files`.split($/)
+  gem.files         = Dir["**/*"]
   gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
 
