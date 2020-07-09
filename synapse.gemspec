@@ -17,9 +17,9 @@ Gem::Specification.new do |gem|
   gem.summary       = %q{Dynamic HAProxy configuration daemon}
   gem.homepage      = "https://github.com/airbnb/synapse"
 
-  gem.files         = `git ls-files`.split($/)
-  gem.executables   = gem.files.grep(%r{^bin/}).map{ |f| File.basename(f) }
-  gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
+  gem.files         = Dir["**/*"]
+  gem.executables   = Dir["bin/**/*"].map{ |f| File.basename(f) }
+  gem.test_files    = Dir["spec/**/*"]
 
   gem.add_runtime_dependency "aws-sdk", "~> 1.39"
   gem.add_runtime_dependency "docker-api", "~> 1.7"
