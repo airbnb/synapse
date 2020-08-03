@@ -176,13 +176,6 @@ class Synapse::ServiceWatcher::Resolver
 
       def stop
         @mu.synchronize { @should_exit = true }
-
-        # This will kill the thread even though other resolvers are potentially
-        # still using the singleton. However, that is fine to do because in Synapse,
-        # stop is called all at once---all watchers will be stopped when Synapse
-        # stops.
-        @thread.join unless @thread.nil?
-        @thread = nil
       end
 
       private

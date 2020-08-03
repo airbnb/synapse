@@ -80,7 +80,6 @@ class Synapse::ServiceWatcher
       log.warn "synapse: zookeeper watcher exiting"
 
       @should_exit.set(true)
-      @thread.join unless @thread.nil?
 
       zk_teardown do
         @watcher.unsubscribe unless @watcher.nil?

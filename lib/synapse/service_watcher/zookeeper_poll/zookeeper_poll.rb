@@ -50,7 +50,6 @@ class Synapse::ServiceWatcher
         # Signal to the thread that it should exit, and then wait for it to
         # exit.
         @should_exit.set(true)
-        @thread.join unless @thread.nil?
       end
     end
 
