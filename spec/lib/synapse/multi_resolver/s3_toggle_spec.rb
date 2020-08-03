@@ -329,15 +329,6 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
         subject.instance_variable_set(:@thread, thread)
       end
 
-      it 'stops the thread' do
-        expect(thread).to receive(:join).exactly(:once)
-        subject.instance_variable_set(:@callback_count, 5)
-
-        (1..5).each do
-          subject.stop
-        end
-      end
-
       context 'when thread does not exist' do
         let(:thread) { nil }
 

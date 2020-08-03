@@ -650,18 +650,6 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         end
       end
 
-      context 'when thread is running' do
-        before :each do
-          subject.instance_variable_set(:@thread, mock_thread)
-          subject.instance_variable_set(:@zk, mock_zk.as_null_object)
-        end
-
-        it 'kills the thread' do
-          expect(mock_thread).to receive(:join).exactly(:once)
-          subject.stop
-        end
-      end
-
       context 'when thread is not running' do
         before :each do
           subject.instance_variable_set(:@zk, mock_zk.as_null_object)
