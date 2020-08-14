@@ -14,10 +14,17 @@ class Synapse::ServiceWatcher
     def start(scheduler)
       reset_schedule = Proc.new {
         discover
-        scheduler.post(@check_interval, reset_schedule) unless @should_exit.true?
+
+        unless @should_exit.true?
+          scheduler.post(@check_interval) {
+            reset_schedule
+          }
+        end
       }
 
-      scheduler.post(0, reset_schedule)
+      scheduler.post(0) {
+        reset_schedule
+      }
     end
 
     def stop

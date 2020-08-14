@@ -18,10 +18,17 @@ class Synapse::ServiceWatcher
       zk_connect do
         reset_schedule = Proc.new {
           discover
-          scheduler.post(@polling_interval, reset_schedule) unless @should_exit.true?
+
+          unless @should_exit.true?
+            scheduler.post(@polling_interval, reset_schedule) {
+              reset_schedule
+            }
+          end
         }
 
-        scheduler.post(0, reset_schedule)
+        scheduler.post(0) {
+          reset_schedule
+        }
       end
     end
 

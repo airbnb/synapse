@@ -15,8 +15,15 @@ describe Synapse::ServiceWatcher::DockerWatcher do
     })
     mock_synapse
   end
+
+  let(:mock_scheduler) do
+    Concurrent::SimpleExecutorService.new
+  end
+
   subject { Synapse::ServiceWatcher::DockerWatcher.new(testargs, mocksynapse, -> {}) }
+
   let(:testargs) { { 'name' => 'foo', 'discovery' => { 'method' => 'docker', 'servers' => [{'host' => 'server1.local', 'name' => 'mainserver'}], 'image_name' => 'mycool/image', 'container_port' => 6379 }, 'haproxy' => {} }}
+
   before(:each) do
     allow(subject.log).to receive(:warn)
     allow(subject.log).to receive(:info)
@@ -34,37 +41,20 @@ describe Synapse::ServiceWatcher::DockerWatcher do
 
   context "normal tests" do
     it('starts a watcher thread') do
-      watcher_mock = double()
-      expect(Thread).to receive(:new).and_return(watcher_mock)
-      subject.start
-      expect(subject.watcher).to equal(watcher_mock)
+      subject.start(mock_scheduler)
     end
+
     it('sets default check interval') do
-      expect(Thread).to receive(:new).and_return(double)
-      subject.start
+      subject.start(mock_scheduler)
       expect(subject.check_interval).to eq(15.0)
     end
   end
 
-  context "watch tests" do
-    before(:each) do
-      expect(subject).to receive(:sleep_until_next_check) do |arg|
-        subject.instance_variable_set('@should_exit', true)
-      end
-    end
+  context "discover tests" do
     it('has a happy first run path, configuring backends') do
       expect(subject).to receive(:containers).and_return(['container1'])
       expect(subject).to receive(:set_backends).with(['container1'])
-      subject.send(:watch)
-    end
-  end
-  context "watch eats exceptions" do
-    it "blows up when finding containers" do
-      expect(subject).to receive(:containers) do |arg|
-        subject.instance_variable_set('@should_exit', true)
-        raise('throw exception inside watch')
-      end
-      expect { subject.send(:watch) }.not_to raise_error
+      subject.send(:discover)
     end
   end
 
