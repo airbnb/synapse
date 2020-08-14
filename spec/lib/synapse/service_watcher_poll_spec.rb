@@ -14,7 +14,6 @@ describe Synapse::ServiceWatcher::PollWatcher do
   end
 
   let(:mock_scheduler) do
-    # Concurrent::TimerSet.new(:executor => :immediate)
     Concurrent::ImmediateExecutor.new
   end
 

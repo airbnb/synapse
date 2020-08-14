@@ -18,7 +18,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
   end
 
   let(:mock_scheduler) do
-    Concurrent::SimpleExecutorService.new
+    Concurrent::TimerSet.new(:executor => :immediate)
   end
 
   let(:config) do

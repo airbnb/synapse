@@ -12,7 +12,7 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
   end
 
   let(:mock_scheduler) do
-    Concurrent::SimpleExecutorService.new
+    Concurrent::TimerSet.new(:executor => :immediate)
   end
 
   let(:marathon_host) { '127.0.0.1' }

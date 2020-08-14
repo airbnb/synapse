@@ -17,7 +17,7 @@ describe Synapse::ServiceWatcher::DockerWatcher do
   end
 
   let(:mock_scheduler) do
-    Concurrent::SimpleExecutorService.new
+    Concurrent::TimerSet.new(:executor => :immediate)
   end
 
   subject { Synapse::ServiceWatcher::DockerWatcher.new(testargs, mocksynapse, -> {}) }

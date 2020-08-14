@@ -15,7 +15,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
   end
 
   let(:mock_scheduler) do
-    Concurrent::SimpleExecutorService.new
+    Concurrent::TimerSet.new(:executor => :immediate)
   end
 
   subject {
