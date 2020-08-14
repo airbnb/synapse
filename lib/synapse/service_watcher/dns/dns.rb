@@ -1,17 +1,17 @@
-require "synapse/service_watcher/base/base"
+require "synapse/service_watcher/base/poll"
 
 require 'thread'
+require 'concurrent'
 require 'resolv'
 
 class Synapse::ServiceWatcher
-  class DnsWatcher < BaseWatcher
-    def start
-      @check_interval = @discovery['check_interval'] || 30.0
-      @nameserver = @discovery['nameserver']
+  class DnsWatcher < PollWatcher
+    def initialize(opts={}, synapse, reconfigure_callback)
+      super(opts, synapse, reconfigure_callback)
 
-      @watcher = Thread.new do
-        watch
-      end
+      @last_resolution = Concurrent::Atom.new(nil)
+      @nameserver = @discovery['nameserver']
+      @check_interval = @discovery['check_interval'] || 30.0
     end
 
     def ping?
@@ -30,32 +30,12 @@ class Synapse::ServiceWatcher
         if discovery_servers.empty?
     end
 
-    def watch
-      last_resolution = resolve_servers
-      configure_backends(last_resolution)
-      until @should_exit
-        begin
-          start = Time.now
-          current_resolution = resolve_servers
-          unless last_resolution == current_resolution
-            last_resolution = current_resolution
-            configure_backends(last_resolution)
-          end
+    def discover
+      current_resolution = resolve_servers
 
-          sleep_until_next_check(start)
-        rescue => e
-          log.warn "Error in watcher thread: #{e.inspect}"
-          log.warn e.backtrace
-        end
-      end
-
-      log.info "synapse: dns watcher exited successfully"
-    end
-
-    def sleep_until_next_check(start_time)
-      sleep_time = @check_interval - (Time.now - start_time)
-      if sleep_time > 0.0
-        sleep(sleep_time)
+      unless @last_resolution.value == current_resolution
+        @last_resolution.reset(current_resolution)
+        configure_backends(current_resolution)
       end
     end
 

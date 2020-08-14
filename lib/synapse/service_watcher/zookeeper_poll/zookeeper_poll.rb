@@ -1,9 +1,7 @@
 require 'synapse/service_watcher/base/base'
 require 'synapse/service_watcher/zookeeper/zookeeper'
-require 'synapse/atomic'
 
-require 'zk'
-require 'thread'
+require 'concurrency'
 
 class Synapse::ServiceWatcher
   class ZookeeperPollWatcher < ZookeeperWatcher
@@ -11,8 +9,7 @@ class Synapse::ServiceWatcher
       super(opts, synapse, reconfigure_callback)
 
       @poll_interval = @discovery['polling_interval_sec'] || 60
-
-      @should_exit = Synapse::AtomicValue.new(false)
+      @should_exit = Concurrency::AtomicBoolean.new(false)
     end
 
     def start(scheduler)
@@ -21,7 +18,7 @@ class Synapse::ServiceWatcher
       zk_connect do
         reset_schedule = Proc.new {
           discover
-          scheduler.post(@polling_interval, reset_schedule) unless @should_exit.get
+          scheduler.post(@polling_interval, reset_schedule) unless @should_exit.true?
         }
 
         scheduler.post(0, reset_schedule)
@@ -33,7 +30,7 @@ class Synapse::ServiceWatcher
 
       zk_teardown do
         # Signal to the process that it should not reset.
-        @should_exit.set(true)
+        @should_exit.make_true
       end
     end
 

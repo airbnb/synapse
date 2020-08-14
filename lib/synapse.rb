@@ -41,7 +41,7 @@ module Synapse
       @config_updated = AtomicValue.new(true)
 
       # TODO(rushy_panchal): minimum and maximum thread counts
-      @task_scheduler = Concurrent.TimerSet.new(:executor => Concurrent::ThreadPoolExecutor.new)
+      @task_scheduler = Concurrent::TimerSet.new(:executor => Concurrent::ThreadPoolExecutor.new)
 
       # Any exceptions in the watcher threads should wake the main thread so
       # that we can fail fast.

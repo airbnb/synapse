@@ -94,7 +94,7 @@ class Synapse::ServiceWatcher
     end
 
     # this should be overridden to actually start your watcher
-    def start
+    def start(scheduler)
       log.info "synapse: starting stub watcher; this means doing nothing at all!"
     end
 

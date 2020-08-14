@@ -1,4 +1,4 @@
-require 'synapse/service_watcher/base/base'
+require 'synapse/service_watcher/base/poll'
 require 'synapse/service_watcher/dns/dns'
 require 'synapse/service_watcher/zookeeper/zookeeper'
 
@@ -20,7 +20,7 @@ require 'thread'
 # has passed (triggering a re-resolve), or that the watcher should shut down.
 # The DNS watcher is responsible for the actual reconfiguring of backends.
 class Synapse::ServiceWatcher
-  class ZookeeperDnsWatcher < BaseWatcher
+  class ZookeeperDnsWatcher < PollWatcher
 
     # Valid messages that can be passed through the internal message queue
     module Messages
@@ -112,7 +112,7 @@ class Synapse::ServiceWatcher
       end
     end
 
-    def start
+    def start(scheduler)
       @check_interval = @discovery['check_interval'] || 30.0
       @message_queue = Queue.new
 
@@ -122,20 +122,7 @@ class Synapse::ServiceWatcher
       @zk.start
       @dns.start
 
-      @watcher = Thread.new do
-        until @should_exit
-          # Trigger a DNS resolve every @check_interval seconds
-          sleep @check_interval
-
-          # Only trigger the resolve if the queue is empty, every other message
-          # on the queue would either cause a resolve or stop the watcher
-          if @message_queue.empty?
-            @message_queue.push(Messages::CHECK_INTERVAL_MESSAGE)
-          end
-
-        end
-        log.info "synapse: zookeeper_dns watcher exited successfully"
-      end
+      super(scheduler)
     end
 
     def ping?
@@ -161,6 +148,12 @@ class Synapse::ServiceWatcher
     end
 
     private
+
+    def discover
+      if @message_queue.empty?
+        @message_queue.push(Messages::CHECK_INTERVAL_MESSAGE)
+      end
+    end
 
     def make_dns_watcher(queue)
       dns_discovery_opts = @discovery.select do |k,_|
