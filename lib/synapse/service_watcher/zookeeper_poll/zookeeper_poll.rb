@@ -1,7 +1,7 @@
 require 'synapse/service_watcher/base/base'
 require 'synapse/service_watcher/zookeeper/zookeeper'
 
-require 'concurrency'
+require 'concurrent'
 
 class Synapse::ServiceWatcher
   class ZookeeperPollWatcher < ZookeeperWatcher
@@ -9,7 +9,7 @@ class Synapse::ServiceWatcher
       super(opts, synapse, reconfigure_callback)
 
       @poll_interval = @discovery['polling_interval_sec'] || 60
-      @should_exit = Concurrency::AtomicBoolean.new(false)
+      @should_exit = Concurrent::AtomicBoolean.new(false)
     end
 
     def start(scheduler)

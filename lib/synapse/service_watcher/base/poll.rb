@@ -1,6 +1,6 @@
 require 'synapse/service_watcher/base/base'
 
-require 'concurrency'
+require 'concurrent'
 
 class Synapse::ServiceWatcher
   class PollWatcher < BaseWatcher
@@ -8,7 +8,7 @@ class Synapse::ServiceWatcher
       super(opts, synapse, reconfigure_callback)
 
       @check_interval = @discovery['check_interval'] || 15.0
-      @should_exit = Concurrency::AtomicBoolean.new(false)
+      @should_exit = Concurrent::AtomicBoolean.new(false)
     end
 
     def start(scheduler)
