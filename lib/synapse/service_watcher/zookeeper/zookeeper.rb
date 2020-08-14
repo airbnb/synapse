@@ -63,15 +63,11 @@ class Synapse::ServiceWatcher
     def start
       log.info "synapse: starting ZK watcher #{@name} @ cluster: #{@zk_cluster} path: #{@discovery['path']} retry policy: #{@retry_policy}"
 
-      # Zookeeper processing is run in a background thread so that any retries
-      # do not block the main thread.
       zk_connect do
+        # Start a thread just for the initial discovery/watch setup, which can take
+        # a while. The watches will be handled in their own thread.
         @thread = Thread.new {
           start_discovery
-
-          until @should_exit.get
-            sleep 0.5
-          end
         }
       end
     end
