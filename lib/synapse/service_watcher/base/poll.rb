@@ -15,20 +15,30 @@ class Synapse::ServiceWatcher
       reset_schedule = Proc.new {
         discover
 
+        # Schedule the next task until we should exit
         unless @should_exit.true?
           scheduler.post(@check_interval) {
-            reset_schedule
+            reset_schedule.call
           }
         end
       }
 
+      # Execute the first discover immediately
       scheduler.post(0) {
-        reset_schedule
+        reset_schedule.call
       }
     end
 
     def stop
       @should_exit.make_true
+    end
+
+    private
+    def validate_discovery_opts
+      raise ArgumentError, "invalid discovery method '#{@discovery['method']}' for poll watcher" \
+        unless @discovery['method'] == 'poll'
+
+      log.warn "synapse: warning: a stub watcher with no default servers is pretty useless" if @default_servers.empty?
     end
 
     def discover
