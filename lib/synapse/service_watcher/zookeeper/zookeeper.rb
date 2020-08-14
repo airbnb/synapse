@@ -60,13 +60,12 @@ class Synapse::ServiceWatcher
       @should_exit = Synapse::AtomicValue.new(false)
     end
 
-    def start
+    def start(scheduler)
       log.info "synapse: starting ZK watcher #{@name} @ cluster: #{@zk_cluster} path: #{@discovery['path']} retry policy: #{@retry_policy}"
 
       zk_connect do
-        # Start a thread just for the initial discovery/watch setup, which can take
-        # a while. The watches will be handled in their own thread.
-        @thread = Thread.new {
+        # Asynchronously start the discovery.
+        scheduler.post(0) {
           start_discovery
         }
       end

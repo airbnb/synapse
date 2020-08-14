@@ -40,6 +40,9 @@ module Synapse
       # configuration is initially enabled to configure on first loop
       @config_updated = AtomicValue.new(true)
 
+      # TODO(rushy_panchal): minimum and maximum thread counts
+      @task_scheduler = Concurrent.TimerSet.new(:executor => Concurrent::ThreadPoolExecutor.new)
+
       # Any exceptions in the watcher threads should wake the main thread so
       # that we can fail fast.
       Thread.abort_on_exception = true
@@ -59,7 +62,7 @@ module Synapse
       statsd_time('synapse.watchers.start.time') do
         @service_watchers.map do |watcher|
           begin
-            watcher.start
+            watcher.start(@task_scheduler)
             statsd_increment("synapse.watcher.start", ['start_result:success', "watcher_name:#{watcher.name}"])
           rescue Exception => e
             statsd_increment("synapse.watcher.start", ['start_result:fail', "watcher_name:#{watcher.name}", "exception_name:#{e.class.name}", "exception_message:#{e.message}"])
@@ -119,6 +122,8 @@ module Synapse
           raise e
         end
       end
+
+      @task_scheduler.kill
       statsd_increment('synapse.stop', ['stop_avenue:clean', 'stop_location:main_loop'])
     end
 

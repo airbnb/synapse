@@ -13,33 +13,18 @@ class Synapse::ServiceWatcher
       @poll_interval = @discovery['polling_interval_sec'] || 60
 
       @should_exit = Synapse::AtomicValue.new(false)
-      @thread = nil
     end
 
-    def start
+    def start(scheduler)
       log.info 'synapse: ZookeeperPollWatcher starting'
 
       zk_connect do
-        @thread = Thread.new {
-          log.info 'synapse: zookeeper polling thread started'
-
-          # Ensure we poll on first start.
-          last_run = Time.now - @poll_interval - 1
-
-          until @should_exit.get
-            now = Time.now
-            elapsed = now - last_run
-
-            if elapsed >= @poll_interval
-              last_run = now
-              discover
-            end
-
-            sleep 0.5
-          end
-
-          log.info 'synapse: zookeeper polling thread exiting normally'
+        reset_schedule = Proc.new {
+          discover
+          scheduler.post(@polling_interval, reset_schedule) unless @should_exit.get
         }
+
+        scheduler.post(0, reset_schedule)
       end
     end
 
@@ -47,8 +32,7 @@ class Synapse::ServiceWatcher
       log.warn 'synapse: ZookeeperPollWatcher stopping'
 
       zk_teardown do
-        # Signal to the thread that it should exit, and then wait for it to
-        # exit.
+        # Signal to the process that it should not reset.
         @should_exit.set(true)
       end
     end
