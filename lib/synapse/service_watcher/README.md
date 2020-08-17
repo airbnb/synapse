@@ -14,8 +14,11 @@ require "synapse/service_watcher/base/base"
 
 class Synapse::ServiceWatcher
   class MyWatcher < BaseWatcher
-    def start
-      # write code which begins running service discovery
+    def start(scheduler)
+      # write code which begins running service discovery.
+	  # Instead of running a background thread, you can use scheduler
+	  # which is an instance of Concurrent::TimerSet to schedule tasks on a thread pool.
+	  # (http://ruby-concurrency.github.io/concurrent-ruby/1.1.5/Concurrent/TimerSet.html)
     end
 
     def stop
