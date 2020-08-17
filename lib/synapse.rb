@@ -40,7 +40,7 @@ module Synapse
       # configuration is initially enabled to configure on first loop
       @config_updated = AtomicValue.new(true)
 
-      executor = Concurrent::ThreadPoolExecutor.new(:min_threads => 1, :max_threads => @service_watchers.length)
+      executor = Concurrent::ThreadPoolExecutor.new(:min_threads => 1, :max_threads => [2, @service_watchers.length / 4].max)
       @task_scheduler = Concurrent::TimerSet.new(:executor => executor)
 
       # Any exceptions in the watcher threads should wake the main thread so
