@@ -5,9 +5,7 @@ class Synapse::ServiceWatcher
   class Ec2tagWatcher < PollWatcher
     attr_reader :check_interval
 
-    def initialize(opts={}, synapse, reconfigure_callback)
-      super(opts, synapse, reconfigure_callback)
-
+    def start(scheduler)
       region = @discovery['aws_region'] || ENV['AWS_REGION']
       log.info "Connecting to EC2 region: #{region}"
 
@@ -17,7 +15,9 @@ class Synapse::ServiceWatcher
         secret_access_key: @discovery['aws_secret_access_key'] || ENV['AWS_SECRET_ACCESS_KEY'] )
 
       log.info "synapse: ec2tag watcher looking for instances " +
-        "tagged with #{@discovery['tag_name']}=#{@discovery['tag_value']}"
+               "tagged with #{@discovery['tag_name']}=#{@discovery['tag_value']}"
+
+      super(scheduler)
     end
 
     private
