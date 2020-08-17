@@ -20,15 +20,11 @@ class Synapse::ServiceWatcher
           discover
 
           unless @should_exit.true?
-            scheduler.post(@polling_interval, reset_schedule) {
-              reset_schedule
-            }
+            scheduler.post(@poll_interval, &reset_schedule)
           end
         }
 
-        scheduler.post(0) {
-          reset_schedule
-        }
+        scheduler.post(0, &reset_schedule)
       end
     end
 
