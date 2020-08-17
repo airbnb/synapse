@@ -1,7 +1,5 @@
 require "synapse/service_watcher/base/poll"
 
-require 'thread'
-require 'concurrent'
 require 'resolv'
 
 class Synapse::ServiceWatcher
@@ -9,13 +7,12 @@ class Synapse::ServiceWatcher
     def initialize(opts={}, synapse, reconfigure_callback)
       super(opts, synapse, reconfigure_callback)
 
-      @last_resolution = Concurrent::Atom.new(nil)
       @nameserver = @discovery['nameserver']
       @check_interval = @discovery['check_interval'] || 30.0
     end
 
     def ping?
-      @watcher.alive? && !(resolver.getaddresses('airbnb.com').empty?)
+      !(resolver.getaddresses('airbnb.com').empty?)
     end
 
     def discovery_servers
@@ -31,12 +28,7 @@ class Synapse::ServiceWatcher
     end
 
     def discover
-      current_resolution = resolve_servers
-
-      unless @last_resolution.value == current_resolution
-        @last_resolution.reset(current_resolution)
-        configure_backends(current_resolution)
-      end
+      configure_backends(resolve_servers)
     end
 
     IP_REGEX = Regexp.union([Resolv::IPv4::Regex, Resolv::IPv6::Regex])

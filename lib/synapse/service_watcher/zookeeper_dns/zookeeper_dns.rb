@@ -2,7 +2,7 @@ require 'synapse/service_watcher/base/poll'
 require 'synapse/service_watcher/dns/dns'
 require 'synapse/service_watcher/zookeeper/zookeeper'
 
-require 'concurrent'
+require 'thread'
 
 # Watcher for watching Zookeeper for entries containing DNS names that are
 # continuously resolved to IP Addresses.  The use case for this watcher is to
@@ -49,16 +49,19 @@ class Synapse::ServiceWatcher
       def initialize(opts={}, parent=nil, synapse, reconfigure_callback, message_queue)
         @message_queue = message_queue
         @parent = parent
-        @last_resolution = Concurrent::Atom.new(nil)
 
         super(opts, synapse, reconfigure_callback)
       end
 
       def discover
-        # Blocks on message queue, the message will be a signal to stop
-        # watching, to check a new set of servers from ZK, or to re-resolve
+        # The message will be to check a new set of servers from ZK, or to re-resolve
         # the DNS (triggered every check_interval seconds)
-        message = @message_queue.pop
+        begin
+          message = @message_queue.pop(false)
+        rescue ThreadError
+          # no item from the queue
+          return
+        end
 
         log.debug "synapse: received message #{message.inspect}"
 
@@ -79,11 +82,7 @@ class Synapse::ServiceWatcher
           log.warn "synapse: no backends for service #{@name}"
         else
           # Resolve DNS names with the nameserver
-          current_resolution = resolve_servers
-          unless @last_resolution.value == current_resolution
-            last_resolution.reset(current_resolution)
-            configure_backends(current_resolution)
-
+          if configure_backends(resolve_servers)
             # Propagate revision updates down to ZookeeperDnsWatcher, so
             # that stanza cache can work properly.
             @revision += 1
@@ -113,7 +112,7 @@ class Synapse::ServiceWatcher
     end
 
     def ping?
-      @watcher.alive? && @dns.ping? && @zk.ping?
+      @dns.ping? && @zk.ping?
     end
 
     def stop
