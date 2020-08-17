@@ -40,8 +40,8 @@ module Synapse
       # configuration is initially enabled to configure on first loop
       @config_updated = AtomicValue.new(true)
 
-      # TODO(rushy_panchal): minimum and maximum thread counts
-      @task_scheduler = Concurrent::TimerSet.new(:executor => Concurrent::ThreadPoolExecutor.new)
+      executor = Concurrent::ThreadPoolExecutor.new(:min_threads => 1, :max_threads => @service_watchers.length)
+      @task_scheduler = Concurrent::TimerSet.new(:executor => executor)
 
       # Any exceptions in the watcher threads should wake the main thread so
       # that we can fail fast.
