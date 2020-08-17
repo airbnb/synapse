@@ -17,16 +17,12 @@ class Synapse::ServiceWatcher
 
         # Schedule the next task until we should exit
         unless @should_exit.true?
-          scheduler.post(@check_interval) {
-            reset_schedule.call
-          }
+          scheduler.post(@check_interval, &reset_schedule)
         end
       }
 
       # Execute the first discover immediately
-      scheduler.post(0) {
-        reset_schedule.call
-      }
+      scheduler.post(0, &reset_schedule)
     end
 
     def stop
