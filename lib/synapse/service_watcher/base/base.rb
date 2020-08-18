@@ -231,7 +231,7 @@ class Synapse::ServiceWatcher
       return true
     end
 
-    def update_config_for_generator(new_config_for_generator)
+    def update_config_for_generator(new_config_for_generator, do_reconfigure=false)
       if new_config_for_generator.empty?
         log.info "synapse: no config_for_generator data from #{name} for" \
               " service #{@name}; keep existing config_for_generator"
@@ -245,6 +245,9 @@ class Synapse::ServiceWatcher
           return false
         else
           @config_for_generator.set(new_config_for_generator)
+          if do_reconfigure
+            reconfigure!
+          end
           return true
         end
       end

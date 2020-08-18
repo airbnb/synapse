@@ -89,6 +89,28 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       node_double
     end
 
+    let(:mock_zk_event_child) do
+      child_event = double()
+      allow(child_event).to receive(:node_event?).and_return(true)
+      allow(child_event).to receive(:node_child?).and_return(true)
+      allow(child_event).to receive(:node_changed?).and_return(false)
+      allow(child_event).to receive(:node_created?).and_return(false)
+      allow(child_event).to receive(:node_deleted?).and_return(false)
+      allow(child_event).to receive(:path).and_return('some/path')
+      child_event
+    end
+
+    let(:mock_zk_event_changed) do
+      changed_event = double()
+      allow(changed_event).to receive(:node_event?).and_return(true)
+      allow(changed_event).to receive(:node_child?).and_return(false)
+      allow(changed_event).to receive(:node_changed?).and_return(true)
+      allow(changed_event).to receive(:node_created?).and_return(false)
+      allow(changed_event).to receive(:node_deleted?).and_return(false)
+      allow(changed_event).to receive(:path).and_return('some/path')
+      changed_event
+    end
+
     subject { Synapse::ServiceWatcher::ZookeeperWatcher.new(config, mock_synapse, ->(*args) {}) }
     it 'decodes data correctly' do
       expect(subject.send(:deserialize_service_instance, service_data_string)).to eql(deserialized_service_data)
@@ -136,7 +158,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       end
     end
 
-    it 'reacts to zk push events' do
+    it 'reacts to zk nil event' do
       expect(subject).to receive(:watch)
       expect(subject).to receive(:discover).and_call_original
       expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).and_return(config_for_generator_string)
@@ -147,6 +169,35 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       subject.instance_variable_set('@zk', mock_zk)
       expect(subject).to receive(:set_backends).with([service_data.merge({'id' => 1})], parsed_config_for_generator)
       subject.send(:watcher_callback).call
+    end
+
+    it 'reacts to zk child event' do
+      expect(subject).to receive(:watch).with(mock_zk_event_child)
+      expect(subject).to receive(:discover).with({:watch => true}, mock_zk_event_child).and_call_original
+      expect(mock_zk).not_to receive(:get).with('some/path', {:watch=>true})
+      expect(mock_zk).to receive(:children).with('some/path', {:watch=>true}).and_return(
+        ["test_child_1"]
+      )
+      expect(mock_zk).to receive(:get).with('some/path/test_child_1').and_return(mock_node)
+      subject.instance_variable_set('@zk', mock_zk)
+      expect(subject).to receive(:set_backends).with([service_data.merge({'id' => 1})], {})
+      expect(subject).not_to receive(:update_config_for_generator).with(parsed_config_for_generator, true)
+
+      subject.send(:watcher_callback).call(mock_zk_event_child)
+    end
+
+    it 'reacts to zk changed event' do
+      expect(subject).to receive(:watch).with(mock_zk_event_changed)
+      expect(subject).to receive(:discover).with({:watch => true}, mock_zk_event_changed).and_call_original
+      expect(mock_zk).to receive(:get).with('some/path', {:watch=>true}).and_return(config_for_generator_string)
+      expect(mock_zk).not_to receive(:children).with('some/path', {:watch=>true})
+      expect(mock_zk).not_to receive(:get).with('some/path/test_child_1')
+      subject.instance_variable_set('@zk', mock_zk)
+      expect(subject).not_to receive(:set_backends).with([service_data.merge({'id' => 1})], {})
+      expect(subject).to receive(:update_config_for_generator).with(parsed_config_for_generator, true).and_call_original
+      expect(subject).to receive(:reconfigure!)
+
+      subject.send(:watcher_callback).call(mock_zk_event_changed)
     end
 
     it 'handles zk consistency issues' do
