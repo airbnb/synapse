@@ -1,7 +1,5 @@
 require "synapse/service_watcher/base/base"
-require 'synapse/atomic'
 
-require 'thread'
 require 'zk'
 require 'zookeeper'
 require 'base64'
@@ -57,7 +55,6 @@ class Synapse::ServiceWatcher
       @zk = nil
       @watcher = nil
       @thread = nil
-      @should_exit = Synapse::AtomicValue.new(false)
     end
 
     def start(scheduler)
@@ -73,8 +70,6 @@ class Synapse::ServiceWatcher
 
     def stop
       log.warn "synapse: zookeeper watcher exiting"
-
-      @should_exit.set(true)
 
       zk_teardown do
         @watcher.unsubscribe unless @watcher.nil?
