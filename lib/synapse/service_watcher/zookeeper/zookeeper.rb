@@ -4,6 +4,7 @@ require 'zk'
 require 'zookeeper'
 require 'base64'
 require 'objspace'
+require 'concurrent'
 
 class Synapse::ServiceWatcher
   class ZookeeperWatcher < BaseWatcher
@@ -23,6 +24,7 @@ class Synapse::ServiceWatcher
 
     @@zk_pool = {}
     @@zk_pool_count = {}
+    @@zk_should_exit = Concurrent::AtomicBoolean.new(false)
     @@zk_pool_lock = Mutex.new
 
     def initialize(opts={}, synapse, reconfigure_callback)
@@ -54,7 +56,6 @@ class Synapse::ServiceWatcher
 
       @zk = nil
       @watcher = nil
-      @thread = nil
     end
 
     def start(scheduler)
@@ -78,6 +79,8 @@ class Synapse::ServiceWatcher
     end
 
     def ping?
+      stop if @@zk_should_exit.true?
+
       # @zk being nil implies no session *or* a lost session, do not remove
       # the check on @zk being truthy
       # if the client is in any of the three states: associating, connecting, connected
@@ -381,9 +384,21 @@ class Synapse::ServiceWatcher
             # https://github.com/zk-ruby/zookeeper/blob/80a88e3179fd1d526f7e62a364ab5760f5f5da12/ext/zkrb.c
             @@zk_pool[@zk_hosts] = with_retry(@retry_policy.merge({'retriable_errors' => RuntimeError})) do |attempts|
                 log.info "synapse: creating pooled connection to #{@zk_hosts} for #{attempts} times"
-                # zk session timeout is 2 * receive_timeout_msec (as of zookeeper-1.4.x) 
+                # zk session timeout is 2 * receive_timeout_msec (as of zookeeper-1.4.x)
                 # i.e. 18000 means 36 sec
-                ZK.new(@zk_hosts, :timeout => 5, :receive_timeout_msec => 18000, :thread => :per_callback)
+                zk = ZK.new(@zk_hosts, :timeout => 5, :receive_timeout_msec => 18000, :thread => :per_callback)
+
+                # handle session expiry -- mark that all watchers should shutdown now.
+                # since this eventually causes Synapse to shutdown, we do not scope the
+                # flag to a single client (or watcher).
+                zk.on_expired_session do
+                  statsd_increment('synapse.watcher.zk.session.expired', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
+                  log.warn "synapse: ZK client session expired #{@name}"
+
+                  @@zk_should_exit.make_true
+                end
+
+                zk
             end
             @@zk_pool_count[@zk_hosts] = 1
             log.info "synapse: successfully created zk connection to #{@zk_hosts}"
@@ -397,14 +412,6 @@ class Synapse::ServiceWatcher
 
         @zk = @@zk_pool[@zk_hosts]
         log.info "synapse: retrieved zk connection to #{@zk_hosts}"
-
-        # handle session expiry -- by cleaning up zk, this will make `ping?`
-        # fail and so synapse will exit
-        @zk.on_expired_session do
-          statsd_increment('synapse.watcher.zk.session.expired', ["zk_cluster:#{@zk_cluster}", "service_name:#{@name}"])
-          log.warn "synapse: ZK client session expired #{@name}"
-          stop
-        end
 
         bootstrap.call
       end
