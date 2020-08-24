@@ -85,7 +85,7 @@ class Synapse::ServiceWatcher
       # the check on @zk being truthy
       # if the client is in any of the three states: associating, connecting, connected
       # we consider it alive. this can avoid synapse restart on short network dis-connection
-      @zk && (@zk.associating? || @zk.connecting? || @zk.connected?)
+      !@zk.nil? && (@zk.associating? || @zk.connecting? || @zk.connected?)
     end
 
     def watching?
