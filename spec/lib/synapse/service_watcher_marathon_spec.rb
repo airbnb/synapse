@@ -10,6 +10,11 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
     })
     mock_synapse
   end
+
+  let(:mock_scheduler) do
+    Concurrent::TimerSet.new(:executor => :immediate)
+  end
+
   let(:marathon_host) { '127.0.0.1' }
   let(:marathon_port) { '8080' }
   let(:app_name) { 'foo' }
@@ -60,12 +65,12 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
       end
 
       it 'does not crash' do
-        expect { subject.start }.not_to raise_error
+        expect { subject.start(mock_scheduler) }.not_to raise_error
       end
     end
 
     it 'requests the proper API endpoint one time' do
-      subject.start
+      subject.start(mock_scheduler)
       expect(a_request(:get, marathon_request_uri)).to have_been_made.times(1)
     end
 
@@ -79,7 +84,7 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
       let(:marathon_request_uri) { "#{marathon_host}:#{marathon_port}/v3/tasks/#{app_name}" }
 
       it 'calls the customized path' do
-        subject.start
+        subject.start(mock_scheduler)
         expect(a_request(:get, marathon_request_uri)).to have_been_made.times(1)
       end
     end
@@ -110,7 +115,7 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
 
       it 'adds the task as a backend' do
         expect(subject).to receive(:set_backends).with([expected_backend_hash])
-        subject.start
+        subject.start(mock_scheduler)
       end
 
       context 'with a custom port_index' do
@@ -128,7 +133,7 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
 
         it 'adds the task as a backend' do
           expect(subject).to receive(:set_backends).with([expected_backend_hash])
-          subject.start
+          subject.start(mock_scheduler)
         end
 
         context 'when that port_index does not exist' do
@@ -138,7 +143,7 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
 
           it 'does not include the backend' do
             expect(subject).to receive(:set_backends).with([])
-            subject.start
+            subject.start(mock_scheduler)
           end
         end
       end
@@ -162,14 +167,14 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
 
         it 'filters tasks that have no startedAt value' do
           expect(subject).to receive(:set_backends).with([expected_backend_hash])
-          subject.start
+          subject.start(mock_scheduler)
         end
       end
 
       context 'when marathon returns invalid response' do
         let(:marathon_response) { [] }
         it 'does not blow up' do
-          expect { subject.start }.to_not raise_error
+          expect { subject.start(mock_scheduler) }.to_not raise_error
         end
       end
 
@@ -189,7 +194,7 @@ describe Synapse::ServiceWatcher::MarathonWatcher do
 
         it 'only sleeps for the difference' do
           expect(subject).to receive(:sleep).with(check_interval - job_duration)
-          subject.start
+          subject.start(mock_scheduler)
         end
       end
     end

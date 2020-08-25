@@ -14,6 +14,10 @@ describe Synapse::ServiceWatcher::MultiWatcher do
     mock_synapse
   end
 
+  let(:mock_scheduler) do
+    Concurrent::TimerSet.new(:executor => :immediate)
+  end
+
   subject {
     Synapse::ServiceWatcher::MultiWatcher.new(config, mock_synapse, reconfigure_callback)
   }
@@ -222,7 +226,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
         expect(w).to receive(:start)
       end
 
-      expect { subject.start }.not_to raise_error
+      expect { subject.start(mock_scheduler) }.not_to raise_error
     end
 
     it 'starts resolver' do
@@ -233,7 +237,7 @@ describe Synapse::ServiceWatcher::MultiWatcher do
       end
 
       expect(resolver).to receive(:start)
-      expect { subject.start }.not_to raise_error
+      expect { subject.start(mock_scheduler) }.not_to raise_error
     end
   end
 

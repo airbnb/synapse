@@ -5,7 +5,7 @@ require 'resolv'
 
 class Synapse::ServiceWatcher
   class MarathonWatcher < BaseWatcher
-    def start
+    def start(scheduler)
       @check_interval = @discovery['check_interval'] || 10.0
       @connection = nil
       @watcher = Thread.new { sleep splay; watch }

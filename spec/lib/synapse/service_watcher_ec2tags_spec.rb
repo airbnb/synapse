@@ -150,23 +150,20 @@ describe Synapse::ServiceWatcher::Ec2tagWatcher do
     let(:instance1) { FakeAWSInstance.new }
     let(:instance2) { FakeAWSInstance.new }
 
-    context 'watch' do
-
-      it 'discovers instances, configures backends, then sleeps' do
+    context 'discover' do
+      it 'discovers instances and configures backends' do
         fake_backends = [1,2,3]
         expect(subject).to receive(:discover_instances).and_return(fake_backends)
         expect(subject).to receive(:set_backends).with(fake_backends) { subject.stop }
-        expect(subject).to receive(:sleep_until_next_check)
-        subject.send(:watch)
+        subject.send(:discover)
       end
 
-      it 'sleeps until next check if discover_instances fails' do
+      it 'throws error if discover_instances fails' do
         expect(subject).to receive(:discover_instances) do
           subject.stop
           raise "discover failed"
         end
-        expect(subject).to receive(:sleep_until_next_check)
-        subject.send(:watch)
+        expect { subject.send(:discover) }.to raise_error
       end
 
     end

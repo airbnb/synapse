@@ -1,15 +1,8 @@
-require "synapse/service_watcher/base/base"
+require "synapse/service_watcher/base/poll"
 require 'docker'
 
 class Synapse::ServiceWatcher
-  class DockerWatcher < BaseWatcher
-    def start
-      @check_interval = @discovery['check_interval'] || 15.0
-      @watcher = Thread.new do
-        watch
-      end
-    end
-
+  class DockerWatcher < PollWatcher
     private
     def validate_discovery_opts
       raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
@@ -22,26 +15,8 @@ class Synapse::ServiceWatcher
         if @discovery['container_port'].nil?
     end
 
-    def watch
-      until @should_exit
-        begin
-          start = Time.now
-          set_backends(containers)
-          sleep_until_next_check(start)
-        rescue Exception => e
-          log.warn "synapse: error in watcher thread: #{e.inspect}"
-          log.warn e.backtrace
-        end
-      end
-
-      log.info "synapse: docker watcher exited successfully"
-    end
-
-    def sleep_until_next_check(start_time)
-      sleep_time = @check_interval - (Time.now - start_time)
-      if sleep_time > 0.0
-        sleep(sleep_time)
-      end
+    def discover
+      set_backends(containers)
     end
 
     def rewrite_container_ports(ports)

@@ -1,12 +1,11 @@
-require 'synapse/service_watcher/base/base'
+require 'synapse/service_watcher/base/poll'
 require 'aws-sdk'
 
 class Synapse::ServiceWatcher
-  class Ec2tagWatcher < BaseWatcher
-
+  class Ec2tagWatcher < PollWatcher
     attr_reader :check_interval
 
-    def start
+    def start(scheduler)
       region = @discovery['aws_region'] || ENV['AWS_REGION']
       log.info "Connecting to EC2 region: #{region}"
 
@@ -15,16 +14,13 @@ class Synapse::ServiceWatcher
         access_key_id:     @discovery['aws_access_key_id']     || ENV['AWS_ACCESS_KEY_ID'],
         secret_access_key: @discovery['aws_secret_access_key'] || ENV['AWS_SECRET_ACCESS_KEY'] )
 
-      @check_interval = @discovery['check_interval'] || 15.0
-
       log.info "synapse: ec2tag watcher looking for instances " +
-        "tagged with #{@discovery['tag_name']}=#{@discovery['tag_value']}"
+               "tagged with #{@discovery['tag_name']}=#{@discovery['tag_value']}"
 
-      @watcher = Thread.new { watch }
+      super(scheduler)
     end
 
     private
-
     def validate_discovery_opts
       # Required, via options only.
       raise ArgumentError, "invalid discovery method #{@discovery['method']}" \
@@ -52,28 +48,9 @@ class Synapse::ServiceWatcher
       end
     end
 
-    def watch
-      until @should_exit
-        begin
-          start = Time.now
-          if set_backends(discover_instances)
-            log.info "synapse: ec2tag watcher backends have changed."
-          end
-        rescue Exception => e
-          log.warn "synapse: error in ec2tag watcher thread: #{e.inspect}"
-          log.warn e.backtrace
-        ensure
-          sleep_until_next_check(start)
-        end
-      end
-
-      log.info "synapse: ec2tag watcher exited successfully"
-    end
-
-    def sleep_until_next_check(start_time)
-      sleep_time = check_interval - (Time.now - start_time)
-      if sleep_time > 0.0
-        sleep(sleep_time)
+    def discover
+      if set_backends(discover_instances)
+        log.info "synapse: ec2tag watcher backends have changed."
       end
     end
 

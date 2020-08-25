@@ -16,6 +16,11 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     })
     mock_synapse
   end
+
+  let(:mock_scheduler) do
+    Concurrent::TimerSet.new(:executor => :immediate)
+  end
+
   let(:config) do
     {
       'name' => 'test',
@@ -233,6 +238,16 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
           expect(ZK).to receive(:new).exactly(2).and_raise(RuntimeError)
           expect { subject.send(:zk_connect) }.to raise_error(RuntimeError)
         end
+
+        it 'only sets one callback for expired session' do
+          allow(ZK).to receive(:new).exactly(:once).and_return(mock_zk)
+          expect(mock_zk).to receive(:on_expired_session).exactly(:once)
+
+          x = Synapse::ServiceWatcher::ZookeeperWatcher.new(config, mock_synapse, ->(*args) {})
+          y = Synapse::ServiceWatcher::ZookeeperWatcher.new(config, mock_synapse, ->(*args) {})
+          x.start(mock_scheduler)
+          y.start(mock_scheduler)
+        end
       end
 
       describe 'start_discovery' do
@@ -266,7 +281,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
       it 'calls zk_connect' do
         expect(subject).to receive(:zk_connect).exactly(:once)
-        subject.start
+        subject.start(mock_scheduler)
       end
     end
 
@@ -449,6 +464,28 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       end
     end
 
+    describe "#ping" do
+      before :each do
+        Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
+      end
+
+      context 'after on_expired_session' do
+        it 'calls stop' do
+          allow(ZK).to receive(:new).and_return(mock_zk)
+          allow(mock_zk).to receive(:connecting?).and_return(true)
+          allow(mock_zk).to receive(:close!)
+
+          expect(mock_zk).to receive(:on_expired_session) { |*args, &block|
+            block.call
+          }
+          expect(subject).to receive(:stop).exactly(:once).and_call_original
+
+          expect { subject.start(mock_scheduler) }.not_to raise_error
+          expect(subject.ping?).to eq(false)
+        end
+      end
+    end
+
     describe "discover" do
       let(:service_data) {
         {
@@ -600,10 +637,10 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     end
 
     describe '#start' do
-      it 'starts a thread' do
-        expect(Thread).to receive(:new)
+      it 'queues onto the scheduler' do
+        expect(mock_scheduler).to receive(:post).exactly(:once)
         allow(ZK).to receive(:new).and_return(mock_zk)
-        subject.start
+        subject.start(mock_scheduler)
       end
 
       it 'connects to zookeeper' do
@@ -614,7 +651,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
           .with('somehost', :timeout => 5, :receive_timeout_msec => 18000, :thread => :per_callback)
           .and_return(mock_zk)
 
-        subject.start
+        subject.start(mock_scheduler)
       end
 
       it 'does not call create' do
@@ -622,24 +659,22 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         allow(ZK).to receive(:new).and_return(mock_zk)
 
         expect(mock_zk).not_to receive(:create)
-        subject.start
+        subject.start(mock_scheduler)
       end
     end
 
     describe '#stop' do
       context 'when connected to zookeeper' do
         before :each do
-          subject.instance_variable_set(:@thread, mock_thread.as_null_object)
           allow(mock_zk).to receive(:connecting?).and_return(false)
           allow(mock_zk).to receive(:connected?).and_return(true)
         end
 
         it 'disconnects' do
           allow(ZK).to receive(:new).and_return(mock_zk)
-          allow(Thread).to receive(:new)
-
           expect(mock_zk).to receive(:close!).exactly(:once)
-          subject.start
+
+          subject.start(mock_scheduler)
           subject.stop
         end
       end
@@ -649,25 +684,20 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
           subject.stop
         end
       end
-
-      context 'when thread is not running' do
-        before :each do
-          subject.instance_variable_set(:@zk, mock_zk.as_null_object)
-        end
-
-        it 'continues silently' do
-          expect { subject.stop }.not_to raise_error
-        end
-      end
     end
 
     describe '#ping' do
-      before :each do
-        subject.instance_variable_set(:@zk, mock_zk)
-        allow(mock_zk).to receive(:connecting?).and_return(false)
-        allow(mock_zk).to receive(:associating?).and_return(false)
-        allow(mock_zk).to receive(:connected?).and_return(false)
-      end
+      let(:mock_zk) {
+        zk = double(ZK)
+        Synapse::ServiceWatcher::ZookeeperPollWatcher.class_variable_set(:@@zk_pool, {})
+        Synapse::ServiceWatcher::ZookeeperPollWatcher.class_variable_get(:@@zk_should_exit).make_false
+
+        subject.instance_variable_set(:@zk, zk)
+        allow(zk).to receive(:connecting?).and_return(false)
+        allow(zk).to receive(:associating?).and_return(false)
+        allow(zk).to receive(:connected?).and_return(false)
+        zk
+      }
 
       it 'checks zookeeper' do
         expect(mock_zk).to receive(:connecting?)
@@ -851,7 +881,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         expect(mock_dns).to receive(:start).exactly(:once)
         expect(Thread).to receive(:new).exactly(:once)
 
-        subject.start
+        subject.start(mock_scheduler)
       end
     end
 
@@ -899,7 +929,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         expect(mock_dns).to receive(:start).exactly(:once)
         expect(Thread).to receive(:new).exactly(:once)
 
-        subject.start
+        subject.start(mock_scheduler)
       end
     end
 

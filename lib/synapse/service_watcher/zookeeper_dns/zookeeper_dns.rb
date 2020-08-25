@@ -1,4 +1,4 @@
-require 'synapse/service_watcher/base/base'
+require 'synapse/service_watcher/base/poll'
 require 'synapse/service_watcher/dns/dns'
 require 'synapse/service_watcher/zookeeper/zookeeper'
 
@@ -20,7 +20,7 @@ require 'thread'
 # has passed (triggering a re-resolve), or that the watcher should shut down.
 # The DNS watcher is responsible for the actual reconfiguring of backends.
 class Synapse::ServiceWatcher
-  class ZookeeperDnsWatcher < BaseWatcher
+  class ZookeeperDnsWatcher < PollWatcher
 
     # Valid messages that can be passed through the internal message queue
     module Messages
@@ -36,13 +36,8 @@ class Synapse::ServiceWatcher
       # refresh of the IP addresses.
       class CheckInterval; end
 
-      # Indicates that the DNS watcher should shut down.  This is sent when
-      # stop is called.
-      class StopWatcher; end
-
       # Saved instances of message types with contents that cannot vary.  This
       # reduces object allocation.
-      STOP_WATCHER_MESSAGE = StopWatcher.new
       CHECK_INTERVAL_MESSAGE = CheckInterval.new
     end
 
@@ -58,49 +53,40 @@ class Synapse::ServiceWatcher
         super(opts, synapse, reconfigure_callback)
       end
 
-      def stop
-        @message_queue.push(Messages::STOP_WATCHER_MESSAGE)
-      end
+      def discover
+        # The message will be to check a new set of servers from ZK, or to re-resolve
+        # the DNS (triggered every check_interval seconds)
+        begin
+          message = @message_queue.pop(false)
+        rescue ThreadError
+          # no item from the queue
+          return
+        end
 
-      def watch
-        last_resolution = nil
-        while true
-          # Blocks on message queue, the message will be a signal to stop
-          # watching, to check a new set of servers from ZK, or to re-resolve
-          # the DNS (triggered every check_interval seconds)
-          message = @message_queue.pop
+        log.debug "synapse: received message #{message.inspect}"
 
-          log.debug "synapse: received message #{message.inspect}"
+        case message
+        when Messages::NewServers
+          self.discovery_servers = message.servers
+        when Messages::CheckInterval
+        # Proceed to re-resolve the DNS
+        else
+          raise Messages::InvalidMessageError,
+                "Received unrecognized message: #{message.inspect}"
+        end
 
-          case message
-          when Messages::StopWatcher
-            break
-          when Messages::NewServers
-            self.discovery_servers = message.servers
-          when Messages::CheckInterval
-            # Proceed to re-resolve the DNS
-          else
-            raise Messages::InvalidMessageError,
-              "Received unrecognized message: #{message.inspect}"
-          end
-
-          # Empty servers means we haven't heard back from ZK yet or ZK is
-          # empty.  This should only occur if we don't get results from ZK
-          # within check_interval seconds or if ZK is empty.
-          if self.discovery_servers.nil? || self.discovery_servers.empty?
-            log.warn "synapse: no backends for service #{@name}"
-          else
-            # Resolve DNS names with the nameserver
-            current_resolution = resolve_servers
-            unless last_resolution == current_resolution
-              last_resolution = current_resolution
-              configure_backends(last_resolution)
-
-              # Propagate revision updates down to ZookeeperDnsWatcher, so
-              # that stanza cache can work properly.
-              @revision += 1
-              @parent.reconfigure! unless @parent.nil?
-            end
+        # Empty servers means we haven't heard back from ZK yet or ZK is
+        # empty.  This should only occur if we don't get results from ZK
+        # within check_interval seconds or if ZK is empty.
+        if self.discovery_servers.nil? || self.discovery_servers.empty?
+          log.warn "synapse: no backends for service #{@name}"
+        else
+          # Resolve DNS names with the nameserver
+          if configure_backends(resolve_servers)
+            # Propagate revision updates down to ZookeeperDnsWatcher, so
+            # that stanza cache can work properly.
+            @revision += 1
+            @parent.reconfigure! unless @parent.nil?
           end
         end
       end
@@ -112,34 +98,21 @@ class Synapse::ServiceWatcher
       end
     end
 
-    def start
+    def start(scheduler)
       @check_interval = @discovery['check_interval'] || 30.0
       @message_queue = Queue.new
 
       @dns = make_dns_watcher(@message_queue)
       @zk = make_zookeeper_watcher(@message_queue)
 
-      @zk.start
-      @dns.start
+      @zk.start(scheduler)
+      @dns.start(scheduler)
 
-      @watcher = Thread.new do
-        until @should_exit
-          # Trigger a DNS resolve every @check_interval seconds
-          sleep @check_interval
-
-          # Only trigger the resolve if the queue is empty, every other message
-          # on the queue would either cause a resolve or stop the watcher
-          if @message_queue.empty?
-            @message_queue.push(Messages::CHECK_INTERVAL_MESSAGE)
-          end
-
-        end
-        log.info "synapse: zookeeper_dns watcher exited successfully"
-      end
+      super(scheduler)
     end
 
     def ping?
-      @watcher.alive? && @dns.ping? && @zk.ping?
+      @dns.ping? && @zk.ping?
     end
 
     def stop
@@ -161,6 +134,12 @@ class Synapse::ServiceWatcher
     end
 
     private
+
+    def discover
+      if @message_queue.empty?
+        @message_queue.push(Messages::CHECK_INTERVAL_MESSAGE)
+      end
+    end
 
     def make_dns_watcher(queue)
       dns_discovery_opts = @discovery.select do |k,_|

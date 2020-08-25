@@ -58,12 +58,12 @@ class Synapse::ServiceWatcher
                                                                   -> { resolver_notification })
     end
 
-    def start
+    def start(scheduler)
       log.info "synapse: starting multi watcher"
       statsd_increment("synapse.watcher.multi.start")
 
       @watchers.values.each do |w|
-        w.start
+        w.start(scheduler)
       end
 
       @resolver.start
