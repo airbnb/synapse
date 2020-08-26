@@ -15,7 +15,7 @@ class Synapse::ServiceWatcher
       Synapse::ServiceWatcher::ZookeeperPollWatcher.new(
         mk_child_watcher_opts(zookeeper_discovery_opts),
         @synapse,
-        ->(backends, config_for_generator, *args) { update_dns_watcher(queue, config_for_generator, backends) },
+        ->(backends, config_for_generator, *args) { update_dns_watcher(queue, backends, config_for_generator) },
       )
     end
 

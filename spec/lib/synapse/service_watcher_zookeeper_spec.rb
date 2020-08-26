@@ -867,16 +867,20 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       it 'creates a ZK watcher with proper reconfigure' do
         zk = subject.send(:make_zookeeper_watcher, mock_queue)
 
-        expect(mock_queue).to receive(:push).with(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(backends)).exactly(:once)
+        expect(mock_queue).to receive(:push).with(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(backends, {"haproxy" => {}})).exactly(:once)
         expect(subject).to receive(:reconfigure!).exactly(:once)
 
-        zk.send(:set_backends, backends)
+        zk.send(:set_backends, backends, {"haproxy" => {}})
       end
     end
 
     context 'with config in Zookeeper' do
       let(:mock_config_for_generator) { {"haproxy" => "blah blah", "port" => 7007} }
       let(:mock_zk_client) { double(ZK) }
+
+      after :each do
+        Synapse::ServiceWatcher::Zookeeper.class_variable_set(:@@zk_pool, {})
+      end
 
       it 'returns config_for_generator from ZookeeperWatcher' do
         allow(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).and_return(mock_zk)
@@ -890,6 +894,10 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       it 'reconfigures parent after config_for_generator changes' do
         allow(ZK).to receive(:new).and_return(mock_zk_client)
         allow(mock_zk_client).to receive(:on_expired_session)
+        allow(mock_zk_client).to receive(:exists?).and_return(true)
+        allow(mock_zk_client).to receive(:register)
+        allow(mock_zk_client).to receive(:children).and_return([])
+        allow(mock_zk_client).to receive(:get).and_return([])
 
         subject.start
         zk = subject.instance_variable_get(:@zk)
@@ -943,10 +951,10 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       it 'creates a ZK watcher with proper reconfigure' do
         zk = subject.send(:make_zookeeper_watcher, mock_queue)
 
-        expect(mock_queue).to receive(:push).with(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(backends)).exactly(:once)
+        expect(mock_queue).to receive(:push).with(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(backends, {"haproxy" => {}})).exactly(:once)
         expect(subject).to receive(:reconfigure!).exactly(:once)
 
-        zk.send(:set_backends, backends)
+        zk.send(:set_backends, backends, {"haproxy" => {}})
       end
     end
   end
