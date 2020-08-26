@@ -828,8 +828,9 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
   describe 'ZookeeperDnsWatcher' do
     let(:discovery) { { 'method' => 'zookeeper_dns', 'hosts' => ['somehost'],'path' => 'some/path' } }
+    let(:mock_cb) { ->(*args) {} }
 
-    subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher.new(config, mock_synapse, ->(*args) {}) }
+    subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher.new(config, mock_synapse, mock_cb) }
     let(:mock_zk) { double(Synapse::ServiceWatcher::ZookeeperWatcher) }
     let(:mock_dns) { double(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns) }
 
@@ -875,6 +876,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
     context 'with config in Zookeeper' do
       let(:mock_config_for_generator) { {"haproxy" => "blah blah", "port" => 7007} }
+      let(:mock_zk_client) { double(ZK) }
 
       it 'returns config_for_generator from ZookeeperWatcher' do
         allow(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).and_return(mock_zk)
@@ -886,19 +888,17 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       end
 
       it 'reconfigures parent after config_for_generator changes' do
-        # use a BaseWatcher here to actually get all the internals, without having to connect
-        # to ZK :)
-        calls = 0
-        mock_zk = Synapse::ServiceWatcher::BaseWatcher.new({ 'name' => 'test', 'discovery' => {'method' => 'base'} }, mock_synapse, ->(*args) { calls += 1 })
-
-        allow(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).and_return(mock_zk)
-
-        mock_zk.send(:set_backends, [], mock_config_for_generator)
+        allow(ZK).to receive(:new).and_return(mock_zk_client)
+        allow(mock_zk_client).to receive(:on_expired_session)
 
         subject.start
-        expect(mock_synapse).to receive(:reconfigure!).exactly(:once)
+        zk = subject.instance_variable_get(:@zk)
+
+        expect(mock_cb).to receive(:call).exactly(:once)
+        zk.send(:set_backends, [], mock_config_for_generator)
+
+        sleep 0.01 # let the background thread in ZookeepereDnsWatcher execute
         expect(subject.config_for_generator).to eq(mock_config_for_generator)
-        expect(calls).to eq(1)
       end
     end
   end
