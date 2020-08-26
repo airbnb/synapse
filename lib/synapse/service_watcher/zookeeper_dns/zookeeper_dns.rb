@@ -149,6 +149,10 @@ class Synapse::ServiceWatcher
       @zk.stop
     end
 
+    def config_for_generator
+      @zk.config_for_generator
+    end
+
     def backends
       @dns.backends
     end
