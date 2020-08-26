@@ -878,13 +878,27 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
       it 'returns config_for_generator from ZookeeperWatcher' do
         allow(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).and_return(mock_zk)
-        allow(Synapse::ServiceWatcher::DnsWatcher).to receive(:new).and_return(mock_dns)
         allow(mock_zk).to receive(:config_for_generator).and_return(mock_config_for_generator)
         allow(mock_zk).to receive(:start)
-        allow(mock_dns).to receive(:start)
 
         subject.start
         expect(subject.config_for_generator).to eq(mock_config_for_generator)
+      end
+
+      it 'reconfigures parent after config_for_generator changes' do
+        # use a BaseWatcher here to actually get all the internals, without having to connect
+        # to ZK :)
+        calls = 0
+        mock_zk = Synapse::ServiceWatcher::BaseWatcher.new({ 'name' => 'test', 'discovery' => {'method' => 'base'} }, mock_synapse, ->(*args) { calls += 1 })
+
+        allow(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).and_return(mock_zk)
+
+        mock_zk.send(:set_backends, [], mock_config_for_generator)
+
+        subject.start
+        expect(mock_synapse).to receive(:reconfigure!).exactly(:once)
+        expect(subject.config_for_generator).to eq(mock_config_for_generator)
+        expect(calls).to eq(1)
       end
     end
   end
