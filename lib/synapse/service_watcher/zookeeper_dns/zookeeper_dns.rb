@@ -29,7 +29,7 @@ class Synapse::ServiceWatcher
       # Indicates new servers identified by DNS names to be resolved.  This is
       # sent from Zookeeper on events that modify the ZK node. The payload is
       # an array of hashes containing {'host', 'port', 'name'}
-      class NewServers < Struct.new(:servers); end
+      class NewServers < Struct.new(:servers, :config_for_generator); end
 
       # Indicates that DNS should be re-resolved.  This is sent by the
       # ZookeeperDnsWatcher thread every check_interval seconds to cause a
@@ -50,6 +50,7 @@ class Synapse::ServiceWatcher
 
       # Overrides the discovery_servers method on the parent class
       attr_accessor :discovery_servers
+      attr_accessor :discovery_config_for_generator
 
       def initialize(opts={}, parent=nil, synapse, reconfigure_callback, message_queue)
         @message_queue = message_queue
@@ -63,7 +64,6 @@ class Synapse::ServiceWatcher
       end
 
       def watch
-        last_resolution = nil
         while true
           # Blocks on message queue, the message will be a signal to stop
           # watching, to check a new set of servers from ZK, or to re-resolve
@@ -76,7 +76,8 @@ class Synapse::ServiceWatcher
           when Messages::StopWatcher
             break
           when Messages::NewServers
-            self.discovery_servers = message.servers
+            self.discovery_servers = message.servers || []
+            self.discovery_config_for_generator = message.config_for_generator
           when Messages::CheckInterval
             # Proceed to re-resolve the DNS
           else
@@ -87,20 +88,18 @@ class Synapse::ServiceWatcher
           # Empty servers means we haven't heard back from ZK yet or ZK is
           # empty.  This should only occur if we don't get results from ZK
           # within check_interval seconds or if ZK is empty.
-          if self.discovery_servers.nil? || self.discovery_servers.empty?
+          if self.discovery_servers.empty?
             log.warn "synapse: no backends for service #{@name}"
-          else
-            # Resolve DNS names with the nameserver
-            current_resolution = resolve_servers
-            unless last_resolution == current_resolution
-              last_resolution = current_resolution
-              configure_backends(last_resolution)
+          end
 
-              # Propagate revision updates down to ZookeeperDnsWatcher, so
-              # that stanza cache can work properly.
-              @revision += 1
-              @parent.reconfigure! unless @parent.nil?
-            end
+          # Resolve DNS names with the nameserver
+          current_resolution = resolve_servers
+
+          if configure_backends(current_resolution, self.discovery_config_for_generator)
+            # Propagate revision updates down to ZookeeperDnsWatcher, so
+            # that stanza cache can work properly.
+            @revision += 1
+            @parent.reconfigure! unless @parent.nil?
           end
         end
       end
@@ -189,12 +188,12 @@ class Synapse::ServiceWatcher
       Synapse::ServiceWatcher::ZookeeperWatcher.new(
         mk_child_watcher_opts(zookeeper_discovery_opts),
         @synapse,
-        ->(backends, *args) { update_dns_watcher(queue, backends) },
+        ->(backends, config_for_generator, *args) { update_dns_watcher(queue, backends, config_for_generator) },
       )
     end
 
-    def update_dns_watcher(queue, backends)
-      queue.push(Messages::NewServers.new(backends))
+    def update_dns_watcher(queue, backends, config_for_generator)
+      queue.push(Messages::NewServers.new(backends, config_for_generator))
       reconfigure!
     end
 

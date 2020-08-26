@@ -84,7 +84,7 @@ class Synapse::ServiceWatcher
       Resolv::DNS.open(*args)
     end
 
-    def configure_backends(servers)
+    def configure_backends(servers, config_for_generator={})
       new_backends = servers.flat_map do |(server, addresses)|
         addresses.map do |address|
           {
@@ -96,7 +96,7 @@ class Synapse::ServiceWatcher
         end
       end
 
-      set_backends(new_backends)
+      set_backends(new_backends, config_for_generator)
     end
   end
 end
