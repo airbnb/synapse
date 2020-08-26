@@ -879,7 +879,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       let(:mock_zk_client) { double(ZK) }
 
       after :each do
-        Synapse::ServiceWatcher::Zookeeper.class_variable_set(:@@zk_pool, {})
+        Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
       end
 
       it 'returns config_for_generator from ZookeeperWatcher' do
