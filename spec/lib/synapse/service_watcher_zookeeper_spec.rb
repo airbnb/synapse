@@ -872,6 +872,21 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         zk.send(:set_backends, backends)
       end
     end
+
+    context 'with config in Zookeeper' do
+      let(:mock_config_for_generator) { {"haproxy" => "blah blah", "port" => 7007} }
+
+      it 'returns config_for_generator from ZookeeperWatcher' do
+        allow(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).and_return(mock_zk)
+        allow(Synapse::ServiceWatcher::DnsWatcher).to receive(:new).and_return(mock_dns)
+        allow(mock_zk).to receive(:config_for_generator).and_return(mock_config_for_generator)
+        allow(mock_zk).to receive(:start)
+        allow(mock_dns).to receive(:start)
+
+        subject.start
+        expect(subject.config_for_generator).to eq(mock_config_for_generator)
+      end
+    end
   end
 
   describe 'ZookeeperDnsPollWatcher' do
