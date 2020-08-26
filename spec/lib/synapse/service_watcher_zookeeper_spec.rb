@@ -828,8 +828,9 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
   describe 'ZookeeperDnsWatcher' do
     let(:discovery) { { 'method' => 'zookeeper_dns', 'hosts' => ['somehost'],'path' => 'some/path' } }
+    let(:mock_cb) { ->(*args) {} }
 
-    subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher.new(config, mock_synapse, ->(*args) {}) }
+    subject { Synapse::ServiceWatcher::ZookeeperDnsWatcher.new(config, mock_synapse, mock_cb) }
     let(:mock_zk) { double(Synapse::ServiceWatcher::ZookeeperWatcher) }
     let(:mock_dns) { double(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Dns) }
 
@@ -866,10 +867,46 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       it 'creates a ZK watcher with proper reconfigure' do
         zk = subject.send(:make_zookeeper_watcher, mock_queue)
 
-        expect(mock_queue).to receive(:push).with(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(backends)).exactly(:once)
+        expect(mock_queue).to receive(:push).with(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(backends, {"haproxy" => {}})).exactly(:once)
         expect(subject).to receive(:reconfigure!).exactly(:once)
 
-        zk.send(:set_backends, backends)
+        zk.send(:set_backends, backends, {"haproxy" => {}})
+      end
+    end
+
+    context 'with config in Zookeeper' do
+      let(:mock_config_for_generator) { {"haproxy" => "blah blah", "port" => 7007} }
+      let(:mock_zk_client) { double(ZK) }
+
+      after :each do
+        Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
+      end
+
+      it 'returns config_for_generator from ZookeeperWatcher' do
+        allow(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).and_return(mock_zk)
+        allow(mock_zk).to receive(:config_for_generator).and_return(mock_config_for_generator)
+        allow(mock_zk).to receive(:start)
+
+        subject.start
+        expect(subject.config_for_generator).to eq(mock_config_for_generator)
+      end
+
+      it 'reconfigures parent after config_for_generator changes' do
+        allow(ZK).to receive(:new).and_return(mock_zk_client)
+        allow(mock_zk_client).to receive(:on_expired_session)
+        allow(mock_zk_client).to receive(:exists?).and_return(true)
+        allow(mock_zk_client).to receive(:register)
+        allow(mock_zk_client).to receive(:children).and_return([])
+        allow(mock_zk_client).to receive(:get).and_return([])
+
+        subject.start
+        zk = subject.instance_variable_get(:@zk)
+
+        expect(mock_cb).to receive(:call).exactly(:once)
+        zk.send(:set_backends, [], mock_config_for_generator)
+
+        sleep 0.01 # let the background thread in ZookeepereDnsWatcher execute
+        expect(subject.config_for_generator).to eq(mock_config_for_generator)
       end
     end
   end
@@ -914,10 +951,10 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
       it 'creates a ZK watcher with proper reconfigure' do
         zk = subject.send(:make_zookeeper_watcher, mock_queue)
 
-        expect(mock_queue).to receive(:push).with(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(backends)).exactly(:once)
+        expect(mock_queue).to receive(:push).with(Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(backends, {"haproxy" => {}})).exactly(:once)
         expect(subject).to receive(:reconfigure!).exactly(:once)
 
-        zk.send(:set_backends, backends)
+        zk.send(:set_backends, backends, {"haproxy" => {}})
       end
     end
   end
