@@ -213,6 +213,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
         discovery['hosts'] = ['127.0.0.1:2181']
         subject.instance_variable_set(:@retry_policy, {'max_attempts' => 2, 'base_interval' => 0, 'max_interval' => 0})
         Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
+        Synapse::ServiceWatcher::ZookeeperPollWatcher.class_variable_set(:@@zk_pool, {})
       end
 
       describe 'zk_connect' do
@@ -286,8 +287,9 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     end
 
     describe 'zk_connect' do
-      before :each do
+      after :each do
         Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
+        Synapse::ServiceWatcher::ZookeeperPollWatcher.class_variable_set(:@@zk_pool, {})
       end
 
       it 'calls provided block' do
@@ -534,7 +536,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
   describe Synapse::ServiceWatcher::ZookeeperPollWatcher do
     let(:mock_zk) {
-      zk = double("zookeeper")
+      zk = double(ZK::Client)
       allow(zk).to receive(:on_expired_session)
       zk
     }
@@ -543,8 +545,9 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
     subject { Synapse::ServiceWatcher::ZookeeperPollWatcher.new(config, mock_synapse, ->(*args) {}) }
 
-    before :each do
+    after :each do
       # reset the pool so that doubles are not re-used across instances
+      Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
       Synapse::ServiceWatcher::ZookeeperPollWatcher.class_variable_set(:@@zk_pool, {})
     end
 
@@ -600,28 +603,39 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     end
 
     describe '#start' do
-      it 'starts a thread' do
-        expect(Thread).to receive(:new)
-        allow(ZK).to receive(:new).and_return(mock_zk)
-        subject.start
+      after :each do
+        Synapse::ServiceWatcher::ZookeeperPollWatcher.class_variable_set(:@@zk_pool, {})
+        thread = subject.instance_variable_get(:@thread)
+        thread.kill unless thread.nil?
       end
 
       it 'connects to zookeeper' do
-        allow(Thread).to receive(:new)
         expect(ZK)
           .to receive(:new)
           .exactly(:once)
           .with('somehost', :timeout => 5, :receive_timeout_msec => 18000, :thread => :per_callback)
           .and_return(mock_zk)
+        allow(mock_zk).to receive(:children).exactly(:once).and_return([])
+        allow(mock_zk).to receive(:get).exactly(:once).and_return({})
+
+        subject.start
+      end
+
+      it 'performs an initial discover' do
+        expect(ZK).to receive(:new).and_return(mock_zk)
+        expect(mock_zk).to receive(:children).exactly(:once).and_return([])
+        expect(mock_zk).to receive(:get).exactly(:once).and_return({})
 
         subject.start
       end
 
       it 'does not call create' do
-        allow(Thread).to receive(:new)
         allow(ZK).to receive(:new).and_return(mock_zk)
 
         expect(mock_zk).not_to receive(:create)
+        allow(mock_zk).to receive(:children).exactly(:once).and_return([])
+        allow(mock_zk).to receive(:get).exactly(:once).and_return({})
+
         subject.start
       end
     end
@@ -629,14 +643,14 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
     describe '#stop' do
       context 'when connected to zookeeper' do
         before :each do
-          subject.instance_variable_set(:@thread, mock_thread.as_null_object)
           allow(mock_zk).to receive(:connecting?).and_return(false)
           allow(mock_zk).to receive(:connected?).and_return(true)
         end
 
         it 'disconnects' do
           allow(ZK).to receive(:new).and_return(mock_zk)
-          allow(Thread).to receive(:new)
+          allow(mock_zk).to receive(:children).exactly(:once).and_return([])
+          allow(mock_zk).to receive(:get).exactly(:once).and_return({})
 
           expect(mock_zk).to receive(:close!).exactly(:once)
           subject.start
@@ -880,6 +894,7 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
       after :each do
         Synapse::ServiceWatcher::ZookeeperWatcher.class_variable_set(:@@zk_pool, {})
+        Synapse::ServiceWatcher::ZookeeperPollWatcher.class_variable_set(:@@zk_pool, {})
       end
 
       it 'returns config_for_generator from ZookeeperWatcher' do
