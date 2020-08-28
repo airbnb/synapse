@@ -66,13 +66,7 @@ class Synapse::ServiceWatcher
       # Zookeeper processing is run in a background thread so that any retries
       # do not block the main thread.
       zk_connect do
-        @thread = Thread.new {
-          start_discovery
-
-          until @should_exit.get
-            sleep 0.5
-          end
-        }
+        start_discovery
       end
     end
 

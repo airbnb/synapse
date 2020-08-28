@@ -20,11 +20,14 @@ class Synapse::ServiceWatcher
       log.info 'synapse: ZookeeperPollWatcher starting'
 
       zk_connect do
+        # Perform an initial discover so that we have a config_for_generator before
+        # start exits.
+        discover
+
         @thread = Thread.new {
           log.info 'synapse: zookeeper polling thread started'
 
-          # Ensure we poll on first start.
-          last_run = Time.now - @poll_interval - 1
+          last_run = Time.now
 
           until @should_exit.get
             now = Time.now
