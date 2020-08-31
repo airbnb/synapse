@@ -111,13 +111,17 @@ class Synapse::ServiceWatcher
       end
     end
 
-    def start
+    def initialize(opts={}, synapse, reconfigure_callback)
+      super(opts, synapse, reconfigure_callback)
+
       @check_interval = @discovery['check_interval'] || 30.0
       @message_queue = Queue.new
 
       @dns = make_dns_watcher(@message_queue)
       @zk = make_zookeeper_watcher(@message_queue)
+    end
 
+    def start
       @zk.start
       @dns.start
 
