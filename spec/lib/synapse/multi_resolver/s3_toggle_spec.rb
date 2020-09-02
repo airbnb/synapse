@@ -480,7 +480,10 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
             results[k] = 0
           end
 
-          (0..1000).each do
+          count_of_test = 2000
+          count_of_diff_to_pass = count_of_test / 10
+
+          (1..count_of_test).each do
             choice = subject.send(:pick_watcher, distribution)
             results[choice] += 1
           end
@@ -488,7 +491,7 @@ describe Synapse::ServiceWatcher::Resolver::S3ToggleResolver do
           # check distribution of results instead of actual choices
           expect(results['primary']).to be > 0
           expect(results['secondary']).to be > 0
-          expect(results['secondary']).to be_within(100).of(results['primary'])
+          expect(results['secondary']).to be_within(count_of_diff_to_pass).of(results['primary'])
         end
       end
 
