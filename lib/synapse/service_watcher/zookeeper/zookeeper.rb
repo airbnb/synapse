@@ -121,11 +121,11 @@ class Synapse::ServiceWatcher
         # There are three possible cases, with each case exclusive to others.
         # 1. No zk event, read data with both data/child watches registered
         # 2. Registered child watch fired, need_get_children is set to true and children are read from zk with new child watch registered.
-        # 3. Registered data watch fired, need_read_config is set to true and znode is read from zk with new data watch registered.
+        # 3. Registered data watch fired, need_update_config is set to true and znode is read from zk with new data watch registered.
         need_get_children = zk_event.nil? || zk_event.node_child?
-        need_read_config = zk_event.nil? || zk_event.node_changed? || zk_event.node_created? || zk_event.node_deleted?
+        need_update_config = zk_event.nil? || zk_event.node_changed? || zk_event.node_created? || zk_event.node_deleted?
 
-        log.info "synapse: read children: #{need_get_children}, read config: #{need_read_config}"
+        log.info "synapse: read children: #{need_get_children}, update config: #{need_update_config}"
 
         new_backends = nil
         if need_get_children
@@ -150,7 +150,7 @@ class Synapse::ServiceWatcher
           end
         end
 
-        new_config_for_generator = need_read_config ? read_config_for_generator(zookeeper_opts) : {}
+        new_config_for_generator = need_update_config ? read_config_for_generator(zookeeper_opts) : {}
 
         if new_backends.nil?
           update_config_for_generator(new_config_for_generator, true)
