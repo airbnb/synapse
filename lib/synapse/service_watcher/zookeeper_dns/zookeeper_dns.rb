@@ -76,8 +76,11 @@ class Synapse::ServiceWatcher
           when Messages::StopWatcher
             break
           when Messages::NewServers
-            self.discovery_servers = message.servers || []
+            self.discovery_servers = message.servers
+            self.discovery_servers = [] if self.discovery_servers.nil?
+
             self.discovery_config_for_generator = message.config_for_generator
+            self.discovery_config_for_generator = {} if self.discovery_config_for_generator.nil?
           when Messages::CheckInterval
             # Proceed to re-resolve the DNS
           else
@@ -88,7 +91,7 @@ class Synapse::ServiceWatcher
           # Empty servers means we haven't heard back from ZK yet or ZK is
           # empty.  This should only occur if we don't get results from ZK
           # within check_interval seconds or if ZK is empty.
-          if self.discovery_servers.empty?
+          if self.discovery_servers.nil? || self.discovery_servers.empty?
             log.warn "synapse: no backends for service #{@name}"
           end
 
@@ -185,7 +188,7 @@ class Synapse::ServiceWatcher
 
     def make_zookeeper_watcher(queue)
       zookeeper_discovery_opts = @discovery.select do |k,_|
-        k == 'hosts' || k == 'path' || k == 'label_filter'
+        k == 'hosts' || k == 'path' || k == 'label_filter' || k == 'generator_config_path'
       end
       zookeeper_discovery_opts['method'] = 'zookeeper'
 
@@ -229,12 +232,14 @@ class Synapse::ServiceWatcher
     #   should generally result in the expected behavior, but caution should be
     #   taken when deciding that this is the desired behavior.
     def mk_child_watcher_opts(discovery_opts)
+      # Merge with @config_for_generator because that stores the default config for
+      # each generator.
       {
         'name' => @name,
         'discovery' => discovery_opts,
         'default_servers' => @default_servers,
         'use_previous_backends' => @use_previous_backends,
-      }
+      }.merge(@config_for_generator.get)
     end
   end
 end
