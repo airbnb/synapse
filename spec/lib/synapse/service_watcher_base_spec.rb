@@ -183,6 +183,13 @@ describe Synapse::ServiceWatcher::BaseWatcher do
       end
     end
 
+    context 'with nil config_for_generator' do
+      it 'does not error' do
+        expect(subject).to receive(:'reconfigure!').exactly(:once)
+        expect { subject.send(:set_backends, backends, nil) }.not_to raise_error
+      end
+    end
+
     context 'with label_filter set' do
       let(:matching_az) { 'us-east-1a' }
       let(:matching_labels) { [{'az' => matching_az}] * 2 }
