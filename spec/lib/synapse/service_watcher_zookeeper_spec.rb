@@ -919,40 +919,6 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
         subject.start
       end
-
-      context 'with nil config_for_generator' do
-        it 'does not raise an error' do
-          allow(ZK).to receive(:new).and_return(mock_zk_client)
-          allow(mock_zk_client).to receive(:on_expired_session)
-          allow(mock_zk_client).to receive(:exists?).and_return(true)
-          allow(mock_zk_client).to receive(:register)
-          allow(mock_zk_client).to receive(:children).and_return([])
-          allow(mock_zk_client).to receive(:get).and_return([])
-
-          subject.start
-          zk = subject.instance_variable_get(:@zk)
-
-          zk.send(:set_backends, [], nil)
-
-          sleep 0.01 # let the background thread in ZookeepereDnsWatcher execute
-          expect(subject.config_for_generator).to eq({"haproxy" => {}})
-        end
-
-        it 'does not raise an error when directly using Dns' do
-          allow(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).and_return(mock_zk)
-          allow(mock_zk).to receive(:start)
-
-          msg = Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(nil, nil)
-          queue = Queue.new
-          queue.push(msg)
-          allow(Queue).to receive(:new).and_return(queue)
-
-          expect {
-            subject.start
-            sleep 0.01 # let the background thread execute
-          }.not_to raise_error
-        end
-      end
     end
 
     describe 'make_zookeeper_watcher' do
@@ -1007,6 +973,40 @@ describe Synapse::ServiceWatcher::ZookeeperWatcher do
 
         sleep 0.01 # let the background thread in ZookeepereDnsWatcher execute
         expect(subject.config_for_generator).to eq(mock_config_for_generator)
+      end
+
+      context 'with nil config_for_generator' do
+        it 'does not raise an error' do
+          allow(ZK).to receive(:new).and_return(mock_zk_client)
+          allow(mock_zk_client).to receive(:on_expired_session)
+          allow(mock_zk_client).to receive(:exists?).and_return(true)
+          allow(mock_zk_client).to receive(:register)
+          allow(mock_zk_client).to receive(:children).and_return([])
+          allow(mock_zk_client).to receive(:get).and_return([])
+
+          subject.start
+          zk = subject.instance_variable_get(:@zk)
+
+          zk.send(:set_backends, [], nil)
+
+          sleep 0.01 # let the background thread in ZookeepereDnsWatcher execute
+          expect(subject.config_for_generator).to eq({"haproxy" => {}})
+        end
+
+        it 'does not raise an error when directly using Dns' do
+          allow(Synapse::ServiceWatcher::ZookeeperWatcher).to receive(:new).and_return(mock_zk)
+          allow(mock_zk).to receive(:start)
+
+          msg = Synapse::ServiceWatcher::ZookeeperDnsWatcher::Messages::NewServers.new(nil, nil)
+          queue = Queue.new
+          queue.push(msg)
+          allow(Queue).to receive(:new).and_return(queue)
+
+          expect {
+            subject.start
+            sleep 0.01 # let the background thread execute
+          }.not_to raise_error
+        end
       end
     end
   end
