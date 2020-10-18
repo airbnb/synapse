@@ -62,7 +62,9 @@ becomes `ZookeeperDnsWatcher`, and `zookeeper` becomes `Zookeeper`. Make sure
 your class name is correct.
 
 <a name="backend_interface"/>
+
 ### Backend interface
+
 Synapse understands the following fields in service backends (which are pulled
 from the service registries):
 
