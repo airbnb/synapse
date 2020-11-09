@@ -44,7 +44,7 @@ class Synapse::ServiceWatcher
 
           sleep_until_next_check(start)
         rescue => e
-          log.warn "Error in watcher thread: #{e.inspect}"
+          log.warn "synapse: dns error in watcher thread: #{e.inspect}"
           log.warn e.backtrace
         end
       end
@@ -75,7 +75,8 @@ class Synapse::ServiceWatcher
         return resolution
       end
     rescue => e
-      log.warn "Error while resolving host names: #{e.inspect}"
+      statsd_increment('synapse.watcher.dns.resolve_failed', ["service_name:#{@name}"])
+      log.warn "synapse: dns resolve error while resolving host names: #{e.inspect}"
       []
     end
 
