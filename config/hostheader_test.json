@@ -8,8 +8,16 @@
         "method": "dns",
         "nameserver": "127.0.0.1",
         "servers": [
-          "0.www.example.com",
-          "1.www.example.com"
+          {
+            "name": "example-service",
+            "port": 80,
+            "host": "0.www.example.com",
+          },
+          {
+            "name": "example-service-2",
+            "port": 80,
+            "host": "1.www.example.com",
+          }
         ]
       },
       "haproxy": {
