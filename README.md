@@ -248,7 +248,7 @@ If the `method` is `nerve`, then we expect to find nerve registrations with a `h
 Any additional metadata for the service node provided in the hash `labels` will be parsed. This information is used by `label_filter` configuration.
 
 If the `method` is `serverset` then we expect to find Finagle ServerSet
-(also used by [Aurora](https://github.com/apache/aurora/blob/master/docs/user-guide.md#service-discovery)) registrations with a `serviceEndpoint` and optionally one or more `additionalEndpoints`.
+(also used by [Aurora](https://github.com/apache/aurora/blob/master/docs/features/service-discovery.md)) registrations with a `serviceEndpoint` and optionally one or more `additionalEndpoints`.
 The Synapse `name` will be automatically deduced from `shard` if present.
 
 ##### Zookeeper Poll #####
